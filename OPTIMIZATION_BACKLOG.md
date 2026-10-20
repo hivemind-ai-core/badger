@@ -371,7 +371,13 @@ owner (`try_fast`, `claim`), and the releasing store publishes the phase.
 It meets the 1.1 model's contract: a send commits to a parked selection
 at every capacity, a selection's registration is removed only by the
 selection, a publication wakes a receiver per message (F2), and a wait a
-waker completed is not undone by a later cancellation (F1). The audit's
+waker completed is not undone by a later cancellation (F1). **F4** -- a
+batch receiver woken to *retry* and then cancelled takes its wake with it,
+stranding the message it was woken for -- was found by the model of the
+refactored protocol and is **fixed** (`ac3f85c`): a channel keeps the
+receivers it woke for a published message, a receiver releases its claim
+when it takes the message, finds none, or dies, and a released claim is
+passed on to another parked receiver. The audit's
 fast-path counters are kept behind `BADGER_RUNTIME_STATS=1`;
 `select_and_budget` passes 6/6 with them on and off, though the audit's
 deadlock did not reproduce on the unmodified code either (it was
@@ -470,6 +476,18 @@ Stop-world time was already 0.07–0.16 % of GC time, so nothing moves end to en
   existing `tests/run/gc_*` and `tests/run/select_and_budget` pass.
 
 ### 2.2 Per-worker heap segments (R1, design phase)
+
+**Status:** already satisfied (2026-10-20) -- the item is stale. It asks for
+the bump pool and the free list to be per-worker, and both already are:
+`POOLS.0[w]` holds each worker's bump pointer, its chunk list and its
+per-size-class free lists; `alloc_cell(w, ...)` allocates from the worker's
+pool, and `free_cell(w, ...)` returns the cell to the same worker's pool
+(the sweep walks the worker's own object list, so a cell is always freed to
+its owner). This was already true at the snapshot the backlog was written
+against (`f46d9bb`), so there is no 250-LOC refactor to make. What is still
+missing in this area is the block and line layer of §2.3, which is the part
+the research notes call the highest-impact single change for the allocation
+cost.
 
 - **Goal**: the runtime's per-worker object lists
   (`gc.rs::objects(w)`) already exist; this work moves the *bump
