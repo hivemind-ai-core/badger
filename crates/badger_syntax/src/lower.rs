@@ -395,7 +395,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                         Diagnostic::error("`derive(HttpError)` is for an enum")
                             .with_code("E0193")
                             .with_label(at, "on a struct")
-                            .with_note("each variant of an error enum gives its status: `enum AppError { @status(404) missing(id: Int), ... } derive(HttpError)`; for one status, `impl HttpStatus for T { fn http_status(self: &Self) -> Int { 404 } }`"),
+                            .with_note("each variant of an error enum gives its status: `@derive(HttpError) enum AppError { @status(404) missing(id: Int), ... }`; for one status, `impl HttpStatus for T { fn http_status(self: &Self) -> Int { 404 } }`"),
                     );
                 }
                 ItemKind::Struct(StructDecl { name, generics, fields, derives, repr_c })

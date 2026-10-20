@@ -8,15 +8,18 @@ import std.sqlite
 import std.time
 
 @flatten
-pub struct Email { address: Option<String> } derive(Codec)
+@derive(Codec)
+pub struct Email { address: Option<String> }
 
-pub struct User { name: String, email: Email } derive(Codec)
+@derive(Codec)
+pub struct User { name: String, email: Email }
 
+@derive(Error, From)
 pub enum AppError {
     db(source: sqlite.Error),
     decode(source: codec.DecodeError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let t0 = time.now()

@@ -1,8 +1,9 @@
 // expect-error: E0193
 // `@status` gives an error's HTTP status: 400 to 599, not a redirect.
+@derive(HttpError)
 pub enum AppError {
     @status(302) moved,
     other,
-} derive(HttpError)
+}
 
 pub fn main() -> Unit {}

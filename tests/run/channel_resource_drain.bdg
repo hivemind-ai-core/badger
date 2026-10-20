@@ -7,11 +7,12 @@ import std.system
 import std.system.{component}
 import std.worker
 
+@derive(Error, From)
 pub enum AppError {
     cfg(source: channel.ConfigError),
     sys(source: system.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 provider consumer(scope, config: { rx: channel.Receiver<Int> }) -> Result<Unit, AppError> {
     let rx = config.rx

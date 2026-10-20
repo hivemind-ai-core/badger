@@ -1,8 +1,9 @@
 // expect-error: E0193
 // A variant has one `@status`, an HTTP error status (400 to 599).
+@derive(HttpError)
 pub enum AppError {
     @status(404) @status(410) gone,
     other,
-} derive(HttpError)
+}
 
 pub fn main() -> Unit {}
