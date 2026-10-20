@@ -1,0 +1,17 @@
+// An override can set one entry of a map setting (`labels.team=x`), as a
+// `[config.labels]` table entry can; entries merge into the map.
+import std.config
+import std.io
+
+type Settings = { labels: Map<String, String>, port: Int }
+
+pub fn main() {
+    match config.resolve<Settings>("MAPO_", ["labels.team=core", "labels.tier=gold", "port=8080"]) {
+        .ok(r) => { let _ = io.println($"{r.value.labels.get("team")} {r.value.labels.get("tier")} {r.value.labels.len()} {r.value.port}") },
+        .err(e) => { let _ = io.println($"err {e}") },
+    }
+    match config.resolve<Settings>("MAPO_", ["colour.team=x", "port=1"]) {
+        .ok(_) => { let _ = io.println("accepted") },
+        .err(e) => { let _ = io.println($"err {e}") },
+    }
+}

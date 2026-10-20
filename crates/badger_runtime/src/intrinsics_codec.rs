@@ -665,7 +665,8 @@ fn resolve_layers(
             return Err(("override".into(), "an override is `key=value`".into()));
         };
         let k = k.trim();
-        if !ls.iter().any(|l| l.path == k) {
+        // a field, or an entry of a map field (`labels.team=x`)
+        if !known(k) {
             return Err((
                 k.to_string(),
                 format!("unknown setting in an override: the configuration type has no field `{k}`"),
@@ -738,6 +739,23 @@ fn resolve_layers(
                     source: "override",
                     origin: format!("{k}={shown}"),
                     value: leaf_json(l.desc, k, v.clone())?,
+                });
+            } else if let Some(vals) = map_values(l.desc)
+                && let Some(entry) = k.strip_prefix(&l.path).and_then(|r| r.strip_prefix('.'))
+            {
+                // an entry of a map: merged into the map the earlier
+                // sources gave, as a table's entries are
+                let secret = holds_secret(vals, 0) || crate::repro::secret_name(k);
+                let shown = if secret { "[redacted]" } else { v.as_str() };
+                let mut base = match cs.last().map(|c| &c.value) {
+                    Some(serde_json::Value::Object(m)) => m.clone(),
+                    _ => serde_json::Map::new(),
+                };
+                base.insert(entry.to_string(), leaf_json(vals, k, v.clone())?);
+                cs.push(Candidate {
+                    source: "override",
+                    origin: format!("{k}={shown}"),
+                    value: serde_json::Value::Object(base),
                 });
             }
         }

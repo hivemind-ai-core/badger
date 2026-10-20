@@ -1,0 +1,2 @@
+some(core) some(gold) 2 8080
+err colour.team: unknown setting in an override: the configuration type has no field `colour.team`
