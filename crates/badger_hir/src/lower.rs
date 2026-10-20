@@ -1438,7 +1438,13 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             match self.lookup_module_name(name.sym) {
                 Some(Res::Def(d)) => return Some(TypeRes::Def(d)),
                 _ => {
-                    self.err("E0122", name.span, format!("unknown type `{text}`"), "not found in this scope");
+                    let mut d = Diagnostic::error(format!("unknown type `{text}`"))
+                        .with_code("E0122")
+                        .with_label(name.span, "not found in this scope");
+                    if let Some(near) = self.nearest_name(&text) {
+                        d = d.with_note(format!("did you mean `{near}`?"));
+                    }
+                    self.cx.diags.push(d);
                     return None;
                 }
             }
@@ -1478,7 +1484,27 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             None => {
                 let s = self.sym(name.sym);
                 let mp = self.cx.path_str(&self.cx.hir.modules[m].path.clone());
-                self.err("E0113", name.span, format!("module `{mp}` has no item `{s}`"), "not found");
+                let mut d = Diagnostic::error(format!("module `{mp}` has no item `{s}`"))
+                    .with_code("E0113")
+                    .with_label(name.span, "not found");
+                // the nearest of the members visible here
+                let limit = if s.chars().count() <= 3 { 1 } else { 2 };
+                let upper = |x: &str| x.starts_with(|c: char| c.is_uppercase());
+                let near = self.cx.hir.modules[m]
+                    .items
+                    .iter()
+                    .filter(|(_, d)| self.cx.hir.defs[**d].is_pub || m == self.module)
+                    .map(|(k, _)| self.cx.interner.resolve(*k).to_string())
+                    .filter(|n| upper(n) == upper(&s) && !n.starts_with('_'))
+                    .map(|n| (edit_distance(&s, &n), n))
+                    .filter(|(dist, _)| *dist <= limit)
+                    .min();
+                if let Some((_, near)) = near {
+                    // as written: by the module's last segment (`io.println`)
+                    let short = mp.rsplit('.').next().unwrap_or(&mp);
+                    d = d.with_note(format!("did you mean `{short}.{near}`?"));
+                }
+                self.cx.diags.push(d);
                 None
             }
         }
@@ -1878,6 +1904,10 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             Some(Ns::Type(ty)) => {
                 let kind = self.type_member(ty, name, targs);
                 self.alloc(kind, span)
+            }
+            // `Typo.member`: the unknown type is reported (once)
+            None if matches!(self.ast.exprs[base].kind, ast::ExprKind::TypeName(_)) => {
+                self.alloc(ExprKind::Error, span)
             }
             None => {
                 if !targs.is_empty() {
