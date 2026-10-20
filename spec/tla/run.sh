@@ -93,13 +93,19 @@ check f3-one-step            ChannelBadger ChannelBadger.cfg pass '' \
     'PROPERTIES\n    OneStep'
 check f3-registration-served ChannelBadger ChannelBadger.cfg pass '' \
     'PROPERTIES\n    RegistrationServed'
-# finding F4: a batch receiver woken to retry and then cancelled takes its
-# wake with it (four tasks: three receivers); without the cancellation the
-# same configuration passes
-check f4-cancel-after-retry-wake ChannelBadger ChannelBadger.cfg NoLostWake "$four"
-check f4-cancel-after-retry-wake-live ChannelBadger ChannelBadgerLive.cfg temporal "$four"
+# finding F4: a batch receiver woken to retry and then cancelled took its
+# wake with it (four tasks: three receivers); fixed in ac3f85c, its claim
+# passes on. The contract carries the same rule
+check f4-cancel-after-retry-wake ChannelBadger ChannelBadger.cfg pass "$four"
+check f4-cancel-after-retry-wake-live ChannelBadger ChannelBadgerLive.cfg pass "$four"
 check f4-no-cancel           ChannelBadger ChannelBadger.cfg pass \
     "$four;s/^    MaxCancels = .*/    MaxCancels = 0/"
+# the same four tasks at one worker and one worker per task, with a spurious
+# wake (safety only: the liveness form without symmetry is too large)
+wide='s/^    WorkerCounts = .*/    WorkerCounts = {1, 3}/;s/^    MaxSpurious = .*/    MaxSpurious = 1/'
+check f4-workers             ChannelBadger ChannelBadger.cfg pass "$four;$wide"
+check f4-contract            ChannelBadger ChannelBadgerContract.cfg pass "$four"
+check f4-contract-live       ChannelBadger ChannelBadgerContractLive.cfg pass "$four"
 # mutations: the defect the slice-4 trace shows, and the probe-register window
 check m-fast-ignores-watchers ChannelBadger ChannelBadger.cfg NoLostWake \
     's/^    Mutation = .*/    Mutation = "fast_ignores_watchers"/'
@@ -120,10 +126,25 @@ check m-one-wake-per-batch   ChannelBadger ChannelBadger.cfg NoLostWake \
     's/^    Mutation = .*/    Mutation = "one_wake_per_batch"/;s/^    Kinds = .*/    Kinds = {"batch"}/'
 check m-one-wake-per-batch-live ChannelBadger ChannelBadgerLive.cfg temporal \
     's/^    Mutation = .*/    Mutation = "one_wake_per_batch"/;s/^    Kinds = .*/    Kinds = {"batch"}/'
+# one wake per publication with ac3f85c's claims: a receiver waits with a
+# message published (NoLostWake), but each taker passes the next wake on, so
+# every blocked receive is still woken
+check m-one-wake-claimed     ChannelBadger ChannelBadger.cfg NoLostWake \
+    's/^    Mutation = .*/    Mutation = "one_wake_claimed"/;s/^    Kinds = .*/    Kinds = {"batch"}/'
+check m-one-wake-claimed-live ChannelBadger ChannelBadgerLive.cfg pass \
+    's/^    Mutation = .*/    Mutation = "one_wake_claimed"/;s/^    Kinds = .*/    Kinds = {"batch"}/'
 check m-queue-forgets-watchers ChannelBadger ChannelBadger.cfg OneStep \
     's/^    Mutation = .*/    Mutation = "queue_forgets_watchers"/' 'PROPERTIES\n    OneStep'
 check m-queue-forgets-watchers-reg ChannelBadger ChannelBadger.cfg RegistrationServed \
     's/^    Mutation = .*/    Mutation = "queue_forgets_watchers"/' 'PROPERTIES\n    RegistrationServed'
+# the code before ac3f85c: a woken receiver that dies keeps its claim; F4
+# comes back (NoLostWake, liveness), and ClaimsHeld catches the dead claim
+# at three tasks already
+dead='s/^    Mutation = .*/    Mutation = "dead_keeps_claim"/'
+check m-dead-keeps-claim     ChannelBadger ChannelBadger.cfg NoLostWake "$four;$dead;/^    ClaimsHeld$/d"
+check m-dead-keeps-claim-live ChannelBadger ChannelBadgerLive.cfg temporal "$four;$dead"
+check m-dead-keeps-claim-held ChannelBadger ChannelBadger.cfg ClaimsHeld \
+    "$dead;s/^    Kinds = .*/    Kinds = {\"batch\"}/"
 
 # --- GC handshake (GcHandshake.tla) -----------------------------------------
 check gc                     GcHandshake GcHandshake.cfg pass
