@@ -29,10 +29,21 @@ pub fn main() -> Result<Unit, io.Error> {
         .ok(t) => t,
         .err(e) => panic(e.display()),
     }
-    for (m, path, body) in [(#get, "/items", ""), (#get, "/items/1", ""), (#get, "/items/7", ""), (#get, "/items/x", ""),
-                            (#post, "/items", "{\"name\":\"b\"}"), (#post, "/items", "{\"name\":\"\"}"), (#post, "/items", "nope"),
-                            (#put, "/items/3", "{\"name\":\"c\"}"), (#delete, "/items/4", ""), (#get, "/search?q=badger", ""),
-                            (#get, "/search?q=x&limit=2", ""), (#get, "/search", "")] {
+    let cases = [
+        (#get, "/items", ""),
+        (#get, "/items/1", ""),
+        (#get, "/items/7", ""),
+        (#get, "/items/x", ""),
+        (#post, "/items", "{\"name\":\"b\"}"),
+        (#post, "/items", "{\"name\":\"\"}"),
+        (#post, "/items", "nope"),
+        (#put, "/items/3", "{\"name\":\"c\"}"),
+        (#delete, "/items/4", ""),
+        (#get, "/search?q=badger", ""),
+        (#get, "/search?q=x&limit=2", ""),
+        (#get, "/search", ""),
+    ]
+    for (m, path, body) in cases {
         io.println($"{m} {path} -> {http.call_text(table, m, path, body)}")?
     }
     ok(())
