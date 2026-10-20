@@ -60,10 +60,11 @@ type Settings = {
     db: { path: String },
 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 /// Half of an even number.
 requires n % 2 == 0
@@ -133,6 +134,12 @@ workspace root, every member package. A single file need not have a
 
 Exit status: 0 when there are no errors (warnings allowed), 1 otherwise.
 
+Three commands report diagnostics, for three readers: `badger check`
+reports them for a person (as text) or as a JSON array; `badger query
+check` reports them with what was checked (the inputs and the roots),
+for an agent; `badger query diagnostics` reports them flattened to one
+location each, as the editor wants them.
+
 ```sh
 badger check                 # the current project
 badger check src/util.bdg    # one file (checked with its project, if any)
@@ -187,7 +194,7 @@ $ badger run --release --workers 4 . -- some args
 port=8080 db=demo.db half=4040
 ```
 
-### `badger test [PATH] [FILTER] [--json] [--list] [--exact] [--watch]`
+### `badger test [PATH] [--filter FILTER] [--json] [--list] [--exact] [--watch]`
 
 Run `test_*` functions. A test function takes no parameters and returns
 `Unit` or a `Result`; a failed assertion, a defect, or an `err` result
@@ -198,11 +205,13 @@ tested). For a project, the modules reached from each `[entries]` and
 `[tasks]` module are included too (each test runs once); at a workspace
 root, every member package is tested.
 
-The first argument is PATH when it names an existing file or directory;
-otherwise it is FILTER. FILTER keeps the tests whose name contains it.
+FILTER keeps the tests whose name contains it. PATH is the program or
+project to test (default `.`); a path that does not exist is an error
+(a test's name goes after `--filter`).
 
 | Flag | Meaning |
 |---|---|
+| `--filter NAME` | Run only the tests whose name contains NAME. |
 | `--json` | Print one JSON object at the end: `{"passed":N,"failed":N,"tests":[...]}`; each test has `name`, `ok`, `kind` (`passed`, `assertion`, `defect`, `cancelled`, or `error` for a returned `err`), `message`, `location` (`file:line:column` of a failed assertion or defect), `ms`, and `detail` (the line the text report prints). |
 | `--list` | Print the selected tests' names (with `--json`, `{"tests":[{"name"}]}`) without running them. |
 | `--exact` | FILTER names one test: its full name (`orders.service.test_create`) or its function's name. |
@@ -212,7 +221,7 @@ Exit status: 0 when every test that ran passed (also when the filter
 matched none), 1 when one failed or the program does not check.
 
 ```sh
-$ badger test half
+$ badger test --filter half
 test test_half ... ok
 
 test result: ok. 1 passed; 0 failed
@@ -709,9 +718,9 @@ badger update
 The environment, for a bug report: the version, the current directory,
 the project (its name, its manifest, its number of sources), the
 effective runtime settings (the worker count and the HTTP limits, as
-`badger inspect runtime` computes them), and the `BADGER_*` environment
-variables that are set. Only what can be determined is reported: a fact
-that is unknown is left out.
+`badger inspect runtime` computes them -- that command prints all of
+them), and the `BADGER_*` environment variables that are set. Only what
+can be determined is reported: a fact that is unknown is left out.
 
 | Flag | Meaning |
 |---|---|
@@ -728,7 +737,7 @@ project:
   config: /home/you/shop/badger.toml
   source files: 3
 
-runtime:
+runtime (as `badger inspect runtime` computes them):
   workers: 2
   http_max_body_bytes: 16777216
   http_max_header_bytes: 65536

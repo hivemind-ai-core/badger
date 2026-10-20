@@ -370,7 +370,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                 let ty = self.ty(ty);
                 ItemKind::TypeAlias { name, generics, ty }
             }
-            cst::ItemKind::Struct { repr_c, name, generics, fields, derives } => {
+            cst::ItemKind::Struct { repr_c, name, generics, fields } => {
                 let name = self.type_name(name);
                 let generics = self.generics(generics);
                 let fields: Vec<StructField> = fields
@@ -381,9 +381,8 @@ impl<'a, 'i> Lower<'a, 'i> {
                         StructField { is_pub, name, ty }
                     })
                     .collect();
-                let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
-                derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
-                // `derive(Default)` is an impl built from the fields' defaults
+                let mut derives: Vec<TypeId> = attribute_derives.iter().map(|t| self.ty(t.clone())).collect();
+                // `@derive(Default)` is an impl built from the fields' defaults
                 if let Some(i) = derives.iter().position(|t| self.names_default(*t)) {
                     let at = self.ast.types[derives[i]].span;
                     derives.remove(i);
@@ -401,7 +400,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                 }
                 ItemKind::Struct(StructDecl { name, generics, fields, derives, repr_c })
             }
-            cst::ItemKind::Enum { name, generics, variants, derives } => {
+            cst::ItemKind::Enum { name, generics, variants } => {
                 let name = self.type_name(name);
                 let generics = self.generics(generics);
                 let variants: Vec<Variant> = variants
@@ -421,9 +420,8 @@ impl<'a, 'i> Lower<'a, 'i> {
                         Variant { attributes, name: vname, fields, span: vspan }
                     })
                     .collect();
-                let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
-                derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
-                // `derive(HttpError)`: an HttpStatus implementation from the
+                let mut derives: Vec<TypeId> = attribute_derives.iter().map(|t| self.ty(t.clone())).collect();
+                // `@derive(HttpError)`: an HttpStatus implementation from the
                 // variants' `@status(code)`
                 let http = derives.iter().position(|t| self.names_derive(*t, "HttpError"));
                 if let Some(i) = http {

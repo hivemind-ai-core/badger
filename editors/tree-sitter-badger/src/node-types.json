@@ -1567,21 +1567,6 @@
     }
   },
   {
-    "type": "derive_clause",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "type_path",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "dyn_type",
     "named": true,
     "fields": {},
@@ -1634,10 +1619,6 @@
       "multiple": true,
       "required": false,
       "types": [
-        {
-          "type": "derive_clause",
-          "named": true
-        },
         {
           "type": "enum_variant",
           "named": true
@@ -6982,10 +6963,6 @@
       "required": false,
       "types": [
         {
-          "type": "derive_clause",
-          "named": true
-        },
-        {
           "type": "generic_parameters",
           "named": true
         },
@@ -8783,10 +8760,6 @@
   {
     "type": "continue_expression",
     "named": true
-  },
-  {
-    "type": "derive",
-    "named": false
   },
   {
     "type": "duration",

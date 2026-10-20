@@ -1,8 +1,9 @@
 // expect-error: E0193
 // `@status` takes one HTTP status code from 100 to 599.
+@derive(HttpError)
 pub enum E {
     @status(999)
     a,
-} derive(HttpError)
+}
 
 pub fn main() {}

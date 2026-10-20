@@ -1118,15 +1118,6 @@ where
     .collect::<Vec<_>>()
     .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
     .map(|ms| ms.into_iter().flatten().collect::<Vec<_>>());
-    let derives = sep.clone().or_not().ignore_then(kw("derive")).ignore_then(
-        path_type
-            .clone()
-            .separated_by(just(Tok::Comma))
-            .allow_trailing()
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .delimited_by(just(Tok::LParen), just(Tok::RParen)),
-    );
     // `{ SEPC* (ITEM (SEPC+ ITEM)*)? SEPC* }`
     fn sepc_list<'t, 's: 't, I, O, Er>(
         item: impl Parser<'t, I, O, extra::Err<Er>> + Clone,
@@ -1192,18 +1183,8 @@ where
         .then(name.clone())
         .then(generics.clone().or_not())
         .then(sepc_list(struct_field))
-        .then(derives.clone().or_not())
-        .map(|(((((p, repr_c), name), g), fields), derives)| {
-            (
-                p,
-                ItemKind::Struct {
-                    repr_c,
-                    name,
-                    generics: g.unwrap_or_default(),
-                    fields,
-                    derives: derives.unwrap_or_default(),
-                },
-            )
+        .map(|((((p, repr_c), name), g), fields)| {
+            (p, ItemKind::Struct { repr_c, name, generics: g.unwrap_or_default(), fields })
         });
     let variant_field = member.clone().then_ignore(just(Tok::Colon)).or_not().then(ty.clone());
     // `@name` / `@name(a, b)` / `@name(key = value)`
@@ -1262,17 +1243,8 @@ where
         .then(name.clone())
         .then(generics.clone().or_not())
         .then(sepc_list(variant))
-        .then(derives.clone().or_not())
-        .map(|((((p, name), g), variants), derives)| {
-            (
-                p,
-                ItemKind::Enum {
-                    name,
-                    generics: g.unwrap_or_default(),
-                    variants,
-                    derives: derives.unwrap_or_default(),
-                },
-            )
+        .map(|(((p, name), g), variants)| {
+            (p, ItemKind::Enum { name, generics: g.unwrap_or_default(), variants })
         });
     let protocol = is_pub
         .clone()

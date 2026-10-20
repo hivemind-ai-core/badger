@@ -2569,10 +2569,10 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
     }
 
     fn is_list_stage_def(&self, def: DefId, name: &str) -> bool {
-        // `@fusion(template = eager_<name>)`, or the legacy path
+        // one vocabulary: the same `map`/`filter`/`fold` template as the
+        // sequence pipeline; the receiver type picks the engine
         let p = self.m.def_path(def);
-        self.m.fusion.get(&p).is_some_and(|t| *t == format!("eager_{name}"))
-            || p == format!("std.list.{name}")
+        self.m.fusion.get(&p).is_some_and(|t| *t == name) || p == format!("std.list.{name}")
     }
 
     /// One `List.map`/`List.filter` stage: (is map, receiver, callback,
@@ -2624,6 +2624,12 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         span: Span,
     ) -> Option<Operand> {
         if std::env::var_os("BADGER_NO_LIST_FUSION").is_some() {
+            return None;
+        }
+        // the eager engine: only a `List` receiver (a `Seq` chain is the
+        // sequence pipeline's, below)
+        let rt = self.ty(recv);
+        if !self.m.lay.is_std(&rt, "List") {
             return None;
         }
         let (inner_is_map, inner_recv, earlier, inner_targs) = self.list_stage(recv)?;

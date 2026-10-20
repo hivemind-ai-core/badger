@@ -53,8 +53,9 @@ test result: FAILED. 3 passed; 1 failed
 - `badger test` with no path tests the current project, including the
   project's modules the entry imports (reported as `util.test_name`), but
   not dependencies.
-- `badger test PATH FILTER` runs only tests whose names contain `FILTER`.
-  `badger test ports.bdg port` runs the two port tests.
+- `badger test --filter FILTER` runs only the tests whose names contain
+  `FILTER`. `badger test ports.bdg --filter port` runs the two port
+  tests.
 - `badger test --json` prints the results as one JSON object.
 - The exit status is 0 when every test passed and 1 otherwise.
 

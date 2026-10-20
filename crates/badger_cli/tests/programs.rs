@@ -392,7 +392,7 @@ fn test_runner_options() {
     let out = lang().arg("test").arg(&dir).arg("--list").output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(text.lines().any(|l| l == "test_health") && !text.contains(" ok"), "{text}");
-    let out = lang().arg("test").arg(&dir).args(["test_health", "--exact"]).output().unwrap();
+    let out = lang().arg("test").arg(&dir).args(["--filter", "test_health", "--exact"]).output().unwrap();
     assert!(String::from_utf8_lossy(&out.stdout).contains("1 passed; 0 failed"));
     let file = std::env::temp_dir().join(format!("badger-test-kinds-{}.bdg", std::process::id()));
     std::fs::write(
@@ -1810,7 +1810,7 @@ fn cli_reports_missing_inputs() {
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("a JSON report");
     assert!(!out.status.success() && v["error"].as_str().unwrap().contains("no such file"), "{v}");
     let out = lang()
-        .args(["test", "tests/testing/local_helpers.bdg", "nomatch"])
+        .args(["test", "tests/testing/local_helpers.bdg", "--filter", "nomatch"])
         .current_dir(root())
         .output()
         .unwrap();

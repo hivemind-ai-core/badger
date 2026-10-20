@@ -97,7 +97,6 @@ module.exports = grammar({
         '{',
         commaSep($.struct_field),
         '}',
-        optional($.derive_clause),
       ),
     struct_field: ($) => seq(optional($.visibility), field('name', $._member), ':', $._type),
 
@@ -110,11 +109,9 @@ module.exports = grammar({
         '{',
         commaSep($.enum_variant),
         '}',
-        optional($.derive_clause),
       ),
     enum_variant: ($) => seq(field('name', $._member), optional(seq('(', commaSep($.variant_field), ')'))),
     variant_field: ($) => seq(optional(seq(field('name', $._member), ':')), $._type),
-    derive_clause: ($) => seq('derive', '(', commaSep1($.type_path), ')'),
 
     protocol_declaration: ($) =>
       seq(

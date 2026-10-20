@@ -238,7 +238,7 @@ Commands:
 badger check [path] [--json]
 badger run [entry] [--profile name] [--record bundle] [-- args...]
 badger replay bundle [--compare]
-badger test [path] [filter] [--json]
+badger test [path] [--filter name] [--json]
 badger task name [-- args...]
 badger compile [path] [-o out]
 badger release [path] [-o dir]

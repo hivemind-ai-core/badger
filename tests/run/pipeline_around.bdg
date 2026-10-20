@@ -4,7 +4,8 @@ import std.io
 import std.pipeline
 import std.pipeline.{handle}
 
-pub enum AppError { boom, io(source: io.Error) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { boom, io(source: io.Error) }
 
 type Ctx = { path: String }
 
