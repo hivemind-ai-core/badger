@@ -69,6 +69,17 @@ enum Terminal {
     Count,
     Sum,
     Collect,
+    /// `any`/`all`: the predicate decides, and the loop stops at the first
+    /// item that does.
+    Any(ExprId),
+    All(ExprId),
+    /// The first item the predicate accepts, the first `some` the callback
+    /// gives, the first item, and the position of the first accepted item.
+    /// Each stops at the item it returns.
+    Find(ExprId),
+    FindMap(ExprId),
+    First,
+    Position(ExprId),
     For(PatId, ExprId),
 }
 pub(super) struct Plan {
@@ -123,6 +134,12 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.count" => "count",
                 "std.seq.sum" => "sum",
                 "std.seq.collect" | "std.list.collect" => "collect",
+                "std.seq.any" => "any",
+                "std.seq.all" => "all",
+                "std.seq.find" => "find",
+                "std.seq.find_map" => "find_map",
+                "std.seq.first" => "first",
+                "std.seq.position" => "position",
                 _ => return None,
             }
             .to_string(),
@@ -325,6 +342,12 @@ impl FnLower<'_, '_, '_> {
             ("count", [iter]) => (*iter, Terminal::Count),
             ("sum", [iter]) => (*iter, Terminal::Sum),
             ("collect", [iter]) => (*iter, Terminal::Collect),
+            ("any", [iter, test]) => (*iter, Terminal::Any(*test)),
+            ("all", [iter, test]) => (*iter, Terminal::All(*test)),
+            ("find", [iter, matches]) => (*iter, Terminal::Find(*matches)),
+            ("find_map", [iter, f]) => (*iter, Terminal::FindMap(*f)),
+            ("first", [iter]) => (*iter, Terminal::First),
+            ("position", [iter, matches]) => (*iter, Terminal::Position(*matches)),
             _ => return None,
         };
         let (source, stages) = self.sequence_plan(iter, 0)?;
@@ -416,6 +439,21 @@ impl FnLower<'_, '_, '_> {
             })
     }
 
+    /// A `Bool` operand: the `Int`-literal conversion a lowered `Bool`
+    /// constant uses.
+    fn bool_op(&mut self, value: bool) -> Operand {
+        self.assign(
+            Repr::I8,
+            Rvalue::Convert {
+                a: int(i64::from(value)),
+                from: NumTy::I(64, false),
+                to: NumTy::I(8, false),
+                checked: false,
+                loc: 0,
+            },
+        )
+    }
+
     /// `max(0, (end - start) + inclusive)`: how many items the source yields.
     /// A start past the end is an empty range, which the subtraction alone
     /// would report as negative.
@@ -486,7 +524,34 @@ impl FnLower<'_, '_, '_> {
                 (Some(acc), Some(self.lower(f)?))
             }
             Terminal::Count | Terminal::Sum => (Some(self.copy_to_local(int(0), Repr::I64, None)), None),
+            // `any` keeps false and `all` keeps true: the answer when no item
+            // decides. The loop overwrites it and exits at the first decider.
+            Terminal::Any(_) | Terminal::All(_) => {
+                let init = self.bool_op(matches!(plan.terminal, Terminal::All(_)));
+                (Some(self.copy_to_local(init, Repr::I8, None)), None)
+            }
+            // The searches keep `none`: the answer when nothing is found.
+            Terminal::Find(_) | Terminal::FindMap(_) | Terminal::First | Terminal::Position(_) => {
+                let opt = self.ty(e);
+                let none = self.alloc_enum(&opt, 0, vec![]);
+                (Some(self.copy_to_local(none, Repr::Ptr, None)), None)
+            }
             Terminal::Collect | Terminal::For(..) => (None, None),
+        };
+        // The search predicate is construction-time, like a fold's callback.
+        let search = match plan.terminal {
+            Terminal::Any(cb)
+            | Terminal::All(cb)
+            | Terminal::Find(cb)
+            | Terminal::FindMap(cb)
+            | Terminal::Position(cb) => Some(self.lower(cb)?),
+            _ => None,
+        };
+        // `position` counts the items that reach the terminal, not the
+        // source's index (an earlier filter would drop some).
+        let pos = match plan.terminal {
+            Terminal::Position(_) => Some(self.copy_to_local(int(0), Repr::I64, None)),
+            _ => None,
         };
         // `collect` builds its list in the fused loop. When the source count
         // is known and no filter can drop items, pages are sized up front.
@@ -678,6 +743,76 @@ impl FnLower<'_, '_, '_> {
             }
         }
         match plan.terminal {
+            Terminal::Any(_) | Terminal::All(_) => {
+                let acc = acc.unwrap();
+                let decided = self.call(Callee::Closure(search?), vec![value], Repr::I8);
+                // `any` stops on a match, `all` on a miss.
+                let hit = if matches!(plan.terminal, Terminal::Any(_)) {
+                    decided
+                } else {
+                    self.assign(Repr::I8, Rvalue::Not(decided))
+                };
+                let done = self.block();
+                self.term(Term::Branch(hit, done, step));
+                self.switch(done);
+                let outcome = self.bool_op(matches!(plan.terminal, Terminal::Any(_)));
+                self.emit(Stmt::Assign(acc, Rvalue::Use(outcome)));
+                self.term(Term::Goto(exit));
+            }
+            Terminal::FindMap(_) => {
+                // the first `some`: the callback's own `Option` is the result
+                let acc = acc.unwrap();
+                let opt = self.call(Callee::Closure(search?), vec![value], Repr::Ptr);
+                let ol = self.copy_to_local(opt, Repr::Ptr, None);
+                let tag = self.assign(Repr::I32, Rvalue::Tag(Operand::Local(ol)));
+                let done = self.block();
+                self.term(Term::Switch(tag, vec![(1, done)], step));
+                self.switch(done);
+                self.emit(Stmt::Assign(acc, Rvalue::Use(Operand::Local(ol))));
+                self.term(Term::Goto(exit));
+            }
+            Terminal::Find(_) | Terminal::First | Terminal::Position(_) => {
+                let acc = acc.unwrap();
+                // the position is taken before it is advanced, so it is this
+                // item's; the counter advances even when the item is refused.
+                let payload = match plan.terminal {
+                    Terminal::Position(_) => {
+                        // snapshot before advancing: the local is mutated
+                        let idx = Operand::Local(self.copy_to_local(
+                            Operand::Local(pos.unwrap()),
+                            Repr::I64,
+                            None,
+                        ));
+                        let inc = self.assign(
+                            Repr::I64,
+                            Rvalue::Bin {
+                                op: BinOp::Add,
+                                a: Operand::Local(pos.unwrap()),
+                                b: int(1),
+                                ty: NumTy::I(64, false),
+                                loc: 0,
+                            },
+                        );
+                        self.emit(Stmt::Assign(pos.unwrap(), Rvalue::Use(inc)));
+                        idx
+                    }
+                    _ => value,
+                };
+                let done = self.block();
+                match plan.terminal {
+                    // `first` takes whatever reaches it
+                    Terminal::First => self.term(Term::Goto(done)),
+                    _ => {
+                        let accepted = self.call(Callee::Closure(search?), vec![value], Repr::I8);
+                        self.term(Term::Branch(accepted, done, step));
+                    }
+                }
+                self.switch(done);
+                let opt = self.ty(e);
+                let found = self.alloc_enum(&opt, 1, vec![payload]);
+                self.emit(Stmt::Assign(acc, Rvalue::Use(found)));
+                self.term(Term::Goto(exit));
+            }
             Terminal::For(pat, expr) => {
                 let ty = self.pat_ty(pat);
                 self.bind_irrefutable(pat, value, &ty);

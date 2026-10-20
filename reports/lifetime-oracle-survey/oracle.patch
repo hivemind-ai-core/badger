@@ -1,0 +1,211 @@
+diff --git a/crates/badger_mir/src/inline.rs b/crates/badger_mir/src/inline.rs
+index 7e4e04a..36894bb 100644
+--- a/crates/badger_mir/src/inline.rs
++++ b/crates/badger_mir/src/inline.rs
+@@ -291,7 +291,10 @@ pub fn inline(prog: &mut Program) -> usize {
+         return 0;
+     }
+     let mut total = 0;
+-    for _ in 0..ROUNDS {
++    for _r in 0..ROUNDS {
++        if std::env::var_os("BADGER_ORACLE").is_some() {
++            oracle(prog, _r);
++        }
+         let ok: Vec<bool> = prog.funcs.indices().map(|id| inlinable(prog, id)).collect();
+         // callee bodies as they are at the start of the round
+         let bodies: Vec<Option<Func>> =
+@@ -362,3 +365,68 @@ fn clone_func(f: &Func) -> Func {
+     g.is_global = f.is_global;
+     g
+ }
++
++// ---- TEMPORARY ORACLE INSTRUMENTATION (not for commit) ----
++fn oracle(prog: &Program, round: usize) {
++    use crate::opt::simplify::{oracle_dead, oracle_has, oracle_live_after, oracle_live_out};
++    let ok: Vec<bool> = prog.funcs.indices().map(|id| inlinable(prog, id)).collect();
++    let (mut sites, mut accepted, mut rej, mut rej_rdead, mut flip, mut acc_rdead, mut acc_adead, mut rej_adead) =
++        (0, 0, 0, 0, 0, 0, 0, 0);
++    let (mut all_direct, mut all_rdead, mut all_adead) = (0, 0, 0);
++    let kinds: Vec<FuncKind> = prog.funcs.iter().map(|f| f.kind).collect();
++    for (id, f) in prog.funcs.iter_enumerated() {
++        let out = oracle_live_out(f);
++        let known = known_closures(&kinds, f);
++        for b in 0..f.blocks.len() {
++            let after = oracle_live_after(f, &out[b], b);
++            for (i, s) in f.blocks[b].stmts.iter().enumerate() {
++                let Stmt::Assign(dst, Rvalue::Call { callee: Callee::Direct(t), args, ret }) = s else { continue };
++                if *ret != f.locals[*dst].repr || *t == id {
++                    continue;
++                }
++                all_direct += 1;
++                let rdead = !oracle_has(&after[i], *dst);
++                let adead = args.iter().all(|a| match a {
++                    Operand::Local(l) => !oracle_has(&after[i], *l),
++                    _ => true,
++                });
++                all_rdead += rdead as usize;
++                all_adead += adead as usize;
++                if !ok[t.index()] {
++                    continue;
++                }
++                let c = &prog.funcs[*t];
++                if !fits(f, args, *dst, c) {
++                    continue;
++                }
++                sites += 1;
++                let higher = args.iter().any(|a| matches!(a, Operand::Local(l) if known.contains_key(l)));
++                let limit = if higher { MAX_HIGHER_ORDER } else { MAX_CALLEE };
++                if size(c) <= limit {
++                    accepted += 1;
++                    acc_rdead += rdead as usize;
++                    acc_adead += adead as usize;
++                } else {
++                    rej += 1;
++                    rej_adead += adead as usize;
++                    if rdead {
++                        rej_rdead += 1;
++                        let mut g = clone_func(c);
++                        for blk in g.blocks.iter_mut() {
++                            if let Some(Term::Return(o)) = &mut blk.term {
++                                *o = Operand::Const(Const::Int(0, Repr::I64));
++                            }
++                        }
++                        oracle_dead(&mut g);
++                        if size(&g) <= limit {
++                            flip += 1;
++                        }
++                    }
++                }
++            }
++        }
++    }
++    eprintln!(
++        "[oracle] inline round {round}: direct={all_direct} (result dead {all_rdead}, args dead {all_adead}) candidates={sites} accepted={accepted} (result dead {acc_rdead}, args dead {acc_adead}) rejected={rej} (result dead {rej_rdead}, args dead {rej_adead}) would-flip-if-result-dead-discount={flip}"
++    );
++}
+diff --git a/crates/badger_mir/src/opt/mod.rs b/crates/badger_mir/src/opt/mod.rs
+index cc25115..28c5147 100644
+--- a/crates/badger_mir/src/opt/mod.rs
++++ b/crates/badger_mir/src/opt/mod.rs
+@@ -119,6 +119,12 @@ pub fn optimize(prog: &mut Program, level: Level) -> Vec<(&'static str, usize)>
+             representation_changed = true;
+         }
+         report.push((name, n));
++        if std::env::var_os("BADGER_ORACLE").is_some() {
++            eprintln!("[oracle] pass {name}: {n}");
++            if name.starts_with("simplify") || name == "reach" {
++                simplify::oracle_report(prog, name);
++            }
++        }
+         if dump {
+             eprintln!("=== after {name} ({n}) ===\n{}", crate::mir::dump(prog));
+         }
+diff --git a/crates/badger_mir/src/opt/simplify.rs b/crates/badger_mir/src/opt/simplify.rs
+index 611c5dc..eb01b34 100644
+--- a/crates/badger_mir/src/opt/simplify.rs
++++ b/crates/badger_mir/src/opt/simplify.rs
+@@ -776,3 +776,104 @@ fn dead_assignments(f: &mut Func) -> usize {
+     }
+     removed
+ }
++
++// ---- TEMPORARY ORACLE INSTRUMENTATION (not for commit) ----
++pub(crate) fn oracle_live_out(f: &Func) -> Vec<Vec<u64>> {
++    let n = f.blocks.len();
++    let w = words(f.locals.len());
++    let mut live_in: Vec<Vec<u64>> = vec![vec![0u64; w]; n];
++    let mut live_out: Vec<Vec<u64>> = vec![vec![0u64; w]; n];
++    let mut changed = true;
++    while changed {
++        changed = false;
++        for b in (0..n).rev() {
++            let mut out = vec![0u64; w];
++            if let Some(t) = &f.blocks[b].term {
++                for s in t.successors() {
++                    if s.index() < n {
++                        union_into(&mut out, &live_in[s.index()]);
++                    }
++                }
++            }
++            let mut cur = out.clone();
++            if let Some(l) = term_local(&f.blocks[b].term) {
++                set_bit(&mut cur, l);
++            }
++            for s in f.blocks[b].stmts.iter().rev() {
++                if let Stmt::Assign(l, _) = s {
++                    clear_bit(&mut cur, *l);
++                }
++                for_each_use(s, &mut |l| set_bit(&mut cur, l));
++            }
++            if out != live_out[b] || cur != live_in[b] {
++                live_out[b] = out;
++                live_in[b] = cur;
++                changed = true;
++            }
++        }
++    }
++    live_out
++}
++
++/// For each statement of block `b`, whether each local is live after it.
++pub(crate) fn oracle_live_after(f: &Func, out: &[u64], b: usize) -> Vec<Vec<u64>> {
++    let mut cur = out.to_vec();
++    if let Some(l) = term_local(&f.blocks[b].term) {
++        set_bit(&mut cur, l);
++    }
++    let len = f.blocks[b].stmts.len();
++    let mut after = vec![vec![]; len];
++    for (i, s) in f.blocks[b].stmts.iter().enumerate().rev() {
++        after[i] = cur.clone();
++        if let Stmt::Assign(l, _) = s {
++            clear_bit(&mut cur, *l);
++        }
++        for_each_use(s, &mut |l| set_bit(&mut cur, l));
++    }
++    after
++}
++
++pub(crate) fn oracle_has(bits: &[u64], l: Local) -> bool {
++    has_bit(bits, l)
++}
++
++pub fn oracle_report(prog: &Program, tag: &str) {
++    let mut kinds: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
++    let mut assigns = 0usize;
++    for f in prog.funcs.iter() {
++        let out = oracle_live_out(f);
++        for b in 0..f.blocks.len() {
++            let after = oracle_live_after(f, &out[b], b);
++            for (i, s) in f.blocks[b].stmts.iter().enumerate() {
++                let Stmt::Assign(l, rv) = s else { continue };
++                assigns += 1;
++                if has_bit(&after[i], *l) {
++                    continue;
++                }
++                let k = match rv {
++                    Rvalue::Call { callee: Callee::Runtime(_), .. } => "call-runtime".to_string(),
++                    Rvalue::Call { .. } => "call".to_string(),
++                    Rvalue::Alloc { .. } => "alloc".to_string(),
++                    Rvalue::Concat(_) => "concat".to_string(),
++                    Rvalue::Bin { .. } => "checked-bin".to_string(),
++                    Rvalue::Neg { .. } => "checked-neg".to_string(),
++                    Rvalue::Convert { .. } => "checked-convert".to_string(),
++                    other => format!("removable?{:?}", std::mem::discriminant(other)),
++                };
++                let e = kinds.entry(k).or_default();
++                e.0 += 1;
++                if f.locals[*l].name.is_some() {
++                    e.1 += 1;
++                }
++            }
++        }
++    }
++    eprintln!("[oracle] {tag} assigns={assigns}");
++    for (k, (n, named)) in kinds {
++        eprintln!("[oracle] {tag} dead-kept {k}: {n} (named binding: {named})");
++    }
++}
++
++pub(crate) fn oracle_dead(f: &mut Func) -> usize {
++    dead_assignments(f)
++}
