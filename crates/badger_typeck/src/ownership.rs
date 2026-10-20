@@ -931,8 +931,8 @@ fn pat_locals(hir: &badger_hir::Hir, p: PatId, out: &mut Vec<LocalId>) {
 }
 
 /// Direct sub-expressions of an expression.
-fn children(kind: &ExprKind) -> Vec<ExprId> {
-    kind.children()
+fn children(kind: &ExprKind) -> smallvec::SmallVec<[ExprId; 8]> {
+    crate::regions::sub_exprs(kind)
 }
 
 impl Own<'_, '_, '_> {

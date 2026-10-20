@@ -538,8 +538,112 @@ fn exit_on_internal_errors() {
     }));
 }
 
+/// `BADGER_MIR_VALIDATE=1` for `badger run`: run the program twice — the
+/// optimized build and the build with the MIR optimizer off — and fail when
+/// their stdout or exit status differs.
+///
+/// The optimizer restructures the program by design (inlining, dead-code
+/// removal, representation changes), so the two programs cannot be compared
+/// structurally; running both and comparing what they print is the sound
+/// translation-validation question. `BADGER_NO_INLINE=1` turns the whole
+/// release MIR pipeline off, so the reference is the program the
+/// unoptimized pipeline produced. The driver's structural check
+/// (`badger_mir::validate`) covers the pipeline's determinism in the same
+/// mode.
+///
+/// Returns `Some` when the check ran (the process then exits with the
+/// returned code); `None` when it does not apply. Each child runs the
+/// program once, so a program with external effects happens twice: the mode
+/// is for the test corpus, not for such a program.
+fn mir_validate_run() -> Option<ExitCode> {
+    if std::env::var_os("BADGER_MIR_VALIDATE").is_none() {
+        return None;
+    }
+    // The two children keep the mode on so the driver's structural check
+    // runs inside them; the marker stops the wrapper from re-entering.
+    if std::env::var_os("BADGER_MIR_VALIDATE_CHILD").is_some() {
+        return None;
+    }
+    let argv: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    if argv.get(1).is_none_or(|a| a != "run") {
+        return None;
+    }
+    let flags: Vec<String> = argv[2..].iter().map(|a| a.to_string_lossy().into_owned()).collect();
+    if !flags.iter().any(|f| f == "--release") {
+        return None;
+    }
+    // an interactive, recording, or benchmarking run has effects the check
+    // must not double, and saved binary MIR has no unoptimized form
+    if flags.iter().any(|f| matches!(f.as_str(), "--watch" | "--inspect" | "--record" | "--bench" | "--debug")) {
+        return None;
+    }
+    if flags.iter().any(|f| f.ends_with(".bdgmir")) {
+        return None;
+    }
+    // Above one worker the program's output can depend on the scheduler, so
+    // two runs of the *same* code can already differ; the comparison is a
+    // question about the compiled program and is answered at one worker.
+    if workers_of(&flags).is_some_and(|n| n != 1) {
+        return None;
+    }
+    let exe = std::env::current_exe().ok()?;
+    let run = |unoptimized: bool| {
+        let mut c = std::process::Command::new(&exe);
+        c.args(&argv[1..]);
+        c.env("BADGER_MIR_VALIDATE_CHILD", "1");
+        if unoptimized {
+            c.env("BADGER_NO_INLINE", "1");
+        }
+        c.output().ok()
+    };
+    let optimized = run(false)?;
+    let reference = run(true)?;
+    if optimized.stdout == reference.stdout && optimized.status.code() == reference.status.code() {
+        let _ = std::io::stdout().write_all(&optimized.stdout);
+        let _ = std::io::stderr().write_all(&optimized.stderr);
+        return Some(ExitCode::from(optimized.status.code().unwrap_or(1).clamp(0, 255) as u8));
+    }
+    eprintln!("error: MIR translation validation failed: the optimized and unoptimized programs differ");
+    eprintln!("[mir-validate] {}", first_differing_line(&optimized.stdout, &reference.stdout));
+    Some(ExitCode::FAILURE)
+}
+
+/// The `--workers N` (or `--workers=N`) value in a command's arguments.
+fn workers_of(flags: &[String]) -> Option<usize> {
+    let mut it = flags.iter();
+    while let Some(f) = it.next() {
+        if let Some(v) = f.strip_prefix("--workers=") {
+            return v.parse().ok();
+        }
+        if f == "--workers" {
+            return it.next().and_then(|v| v.parse().ok());
+        }
+    }
+    None
+}
+
+/// The first line two outputs disagree on, with its 1-based position.
+fn first_differing_line(a: &[u8], b: &[u8]) -> String {
+    let al: Vec<&[u8]> = a.split(|c| *c == b'\n').collect();
+    let bl: Vec<&[u8]> = b.split(|c| *c == b'\n').collect();
+    for (i, (x, y)) in al.iter().zip(&bl).enumerate() {
+        if x != y {
+            return format!(
+                "line {}: optimized `{}`, unoptimized `{}`",
+                i + 1,
+                String::from_utf8_lossy(x),
+                String::from_utf8_lossy(y)
+            );
+        }
+    }
+    format!("optimized {} lines, unoptimized {} lines", al.len(), bl.len())
+}
+
 fn main() -> ExitCode {
     exit_on_internal_errors();
+    if let Some(code) = mir_validate_run() {
+        return code;
+    }
     // `std.compiler` runs this executable for its queries
     if std::env::var_os("BADGER_EXE").is_none()
         && let Ok(exe) = std::env::current_exe()

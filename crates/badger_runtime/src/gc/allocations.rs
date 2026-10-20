@@ -22,16 +22,18 @@ pub(super) enum CellSource {
     System,
 }
 
-/// Classify immediately before allocation: this worker alone mutates its
-/// pool, and no safepoint or managed allocation intervenes before alloc_cell.
+/// Classify immediately after allocation: this worker alone mutates its
+/// pool, and no safepoint or managed allocation intervenes after alloc_cell.
+/// A pooled cell is reused when it lies in dead cells' lines, and bumped
+/// when it lies in a block never handed out before.
 pub(super) fn cell_source(worker: usize, payload: usize) -> Option<CellSource> {
     path()?;
-    let size = cell_size(payload);
-    Some(if size > small_max() {
+    Some(if cell_size(payload) > small_max() {
         CellSource::System
+    } else if super::pool(worker).reused {
+        CellSource::Reused
     } else {
-        let pool = unsafe { &*super::POOLS.0[worker].get() };
-        if pool.free[size / 16 - 1].is_null() { CellSource::Bump } else { CellSource::Reused }
+        CellSource::Bump
     })
 }
 
@@ -344,7 +346,7 @@ pub(super) fn finish() {
                          "pooled_bump": cell_sources[1].report(),
                          "system": cell_sources[2].report()},
         "pool_events": pool_events_report(),
-        "cell_sources_note": "Successful managed allocation requests by allocator path. Bump includes carving existing zeroed chunk capacity and refills; reuse counts each new object served from a free list, not distinct cells. Pool events count successful chunk acquisition and trim release, not native per-object buffers. Counters are diagnostic-only and add overhead even when no census is written; do not infer speedups, liveness or escape from these counts.",
+        "cell_sources_note": "Successful managed allocation requests by allocator path. Bump includes carving blocks never handed out before and refills; reuse counts each new object served from dead cells' lines (a partly live or emptied block), not distinct cells. Pool events count successful chunk acquisition and trim release, not native per-object buffers. Counters are diagnostic-only and add overhead even when no census is written; do not infer speedups, liveness or escape from these counts.",
         "note": "Runtime Rust call sites, not language source locations. Includes startup/output allocation. Managed totals exclude immortals, external buffers, task stacks and other native allocations; buffer_storage separately reports Items allocator API calls and owned capacity. Reclaimed means removed by sweep, including quarantined cells; remaining is unswept, not proven reachable. Minor collections do not examine old objects. Survivor observations can count an object repeatedly. Survival is not escape/uniqueness proof. Diagnostic counters, mutexes and side metadata perturb timing and memory.",
         "object_metadata_capacity_bytes": metadata_capacity,
         "remaining_metadata_objects": remaining_objects,

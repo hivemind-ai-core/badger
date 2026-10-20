@@ -2383,9 +2383,7 @@ pub fn collect_def_refs(hir: &Hir, e: ExprId, out: &mut Vec<DefId>) {
 /// Visit every expression in a tree (pre-order).
 pub fn walk_exprs(hir: &Hir, e: ExprId, f: &mut impl FnMut(ExprId)) {
     f(e);
-    for c in hir.exprs[e].kind.children() {
-        walk_exprs(hir, c, f);
-    }
+    hir.exprs[e].kind.for_each_child(|c| walk_exprs(hir, c, f));
 }
 
 // ------------------------------------------------------------------ instances
