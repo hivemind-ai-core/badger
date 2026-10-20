@@ -5,7 +5,12 @@
    boundary after applying the continuation rules in 01-syntax.md.
    { x } means repetition; [ x ] means optional; quoted strings are terminals. *)
 
-program          = { separator | declaration } ;
+program          = { separator | { attribute }, declaration, ( separator | EOF ) } ;
+(* `@name`, `@name(a, b)`, `@name(key = value)`: metadata a declaration (or
+   an enum variant) carries; see ATTRIBUTES.md *)
+attribute        = "@", value_name, [ "(", [ attr_arg, { ",", attr_arg }, [ "," ] ], ")" ],
+                   { NEWLINE } ;
+attr_arg         = [ value_name, "=" ], ( value_name | SYMBOL | INT | STRING ) ;
 declaration      = import_decl | type_decl | struct_decl | enum_decl
                  | protocol_decl | impl_decl | function_decl | provider_decl
                  | stage_decl | extern_decl
@@ -33,22 +38,23 @@ type_decl        = visibility, "type", type_name, [ generic_params ],
                    "=", type_expr, separator ;
 struct_decl      = visibility, [ "repr", "c" ], "struct", type_name,
                    [ generic_params ], "{", { struct_field }, "}", [ derives ] ;
-struct_field     = visibility, value_name, ":", type_expr, [ "," ],
+struct_field     = visibility, value_name, ":", type_expr, [ "," | ";" ],
                    { NEWLINE } ;
 enum_decl        = visibility, "enum", type_name, [ generic_params ],
                    "{", { enum_variant }, "}", [ derives ] ;
-enum_variant     = value_name, [ "(", typed_params, ")" ], [ "," ],
+enum_variant     = { attribute }, value_name, [ "(", typed_params, ")" ], [ "," ],
                    { NEWLINE } ;
 derives          = "derive", "(", type_path, { ",", type_path },
                    [ "," ], ")" ;
 protocol_decl    = visibility, "protocol", type_name, [ generic_params ],
                    [ ":", type_expr, { "+", type_expr } ],
-                   "{", { method_decl | type_decl | separator }, "}" ;
+                   "{", { method_decl | type_decl | NEWLINE }, "}" ;
 impl_decl        = "impl", [ generic_params ], type_expr, "for", type_expr,
-                   [ where_clause ], "{", { method_decl | type_decl | separator }, "}" ;
+                   [ where_clause ], "{", { method_decl | type_decl | NEWLINE }, "}" ;
+(* a protocol method without a body ends at its line's end (no `;`) *)
 method_decl      = { contract }, "fn", value_name, [ generic_params ], "(", typed_params,
                    ")", "->", type_expr, [ effect ], [ where_clause ],
-                   ( block | separator ) ;
+                   ( block | "=>", expr | NEWLINE ) ;
 function_decl    = { contract }, visibility, "fn", value_name, [ generic_params ],
                    "(", params, ")", [ "->", type_expr ], [ effect ],
                    [ where_clause ], ( block | "=>", expr ) ;
@@ -60,8 +66,8 @@ provider_decl    = { contract }, visibility, "provider", value_name, [ "as", SYM
                    "(", params, ")", [ "->", type_expr ], [ effect ], block ;
 stage_decl       = { contract }, visibility, "stage", value_name, [ "as", SYMBOL ],
                    [ generic_params ], "(", params, ")", [ "->", type_expr ],
-                   "{", { stage_callback | separator }, "}" ;
-stage_callback   = ( "enter" | "leave" | "error" ), "(", params, ")",
+                   "{", { stage_callback | NEWLINE }, "}" ;
+stage_callback   = ( "enter" | "leave" | "error" | "around" ), "(", params, ")",
                    [ "->", type_expr ], ( block | "=>", expr ) ;
 global_binding   = [ "pub" ], ("let" | "const"), pattern,
                    [ ":", type_expr ], "=", expr, separator ;
@@ -86,7 +92,9 @@ effect           = "!", (type_name | "{", type_list, "}") ;
 
 block            = "{", { separator | statement, separator }, [ statement ], "}" ;
 statement        = binding | assignment | use_stmt | return_stmt
-                 | break_stmt | "continue" | expr ;
+                 | break_stmt | "continue" | local_function | expr ;
+(* a local function: visible in the whole block, it does not capture *)
+local_function   = function_decl ;
 binding          = ("let" | "var" | "const"), pattern,
                    [ ":", type_expr ], "=", expr, [ "else", block ] ;
 assignment       = place, ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" ), expr ;
