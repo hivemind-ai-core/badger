@@ -616,6 +616,24 @@ owners' gates. See
 
 ### 3.2 MIR escape analysis (extend `sra.rs`)
 
+**Status:** **not adopted** (2026-10-20): there is nothing on the gate
+benchmark for stack allocation to take
+([`reports/2026-10-20-mir-escape-analysis.md`](reports/2026-10-20-mir-escape-analysis.md)).
+After `sra`, `enums` and `niche`, the only allocation in a timed loop of
+`bench/records` is the record stored with `Atom.set`, a real escape by
+design. The `gc-profile` count is 19 998 710 objects over the loop's 20 M
+iterations, and a perfect analysis leaves it unchanged, so the expected win
+is 0 %, not 5-15 %. On collections, messages, parallel_alloc, heap,
+parallel, runtime, telemetry and the realworld workload, every hot
+allocation escapes for real: returned, appended, inserted, spawned, sent or
+registered. Over the 242 `tests/run` programs, 9 207 of 10 279 sites
+escape. The remaining 1 072 are merges (360), arguments of direct or
+static-closure calls (461) and arguments of read-only runtime functions
+(~220, which needs the runtime to accept a non-heap object: out of scope).
+None of them is in a measured hot loop. The use-after-free surface (a new
+rvalue, root exclusion, publishing pointer fields at safe points,
+loop-reuse liveness, callee summaries) does not pay for a measured 0 %.
+
 - **Goal**: the existing `sra.rs` does partial scalar replacement;
   this extends it to a Whaley-Rinard-style compositional escape
   analysis, so records that don't escape the function are
@@ -834,6 +852,7 @@ listed.
 | Async / signal-based preemption | the BUDGET poll is sufficient; signal preemption is ~10 µs/signal | `research/12-runtime-scaling-extra.md` §16 |
 | Scheduler Activations | not in mainline Linux; badger cannot adopt them on stock Linux | `research/12-runtime-scaling-extra.md` §14.1 |
 | HotSpot-style safepoint polling page (§0.1) | the race it removes is gone (the `STOP` + `IN_COMPILED` handshake is race-free under sequentially consistent ordering), and the mechanism only pays off when the *generated code* polls: with the poll in the runtime the collector still waits for the counter to drain, so a page fault would replace the load on a hot path | `research/12-runtime-scaling-extra.md` §16.3 |
+| MIR escape analysis with stack allocation (§3.2) | after `sra`/`enums`/`niche` the hot allocations on every benchmark escape for real (the one in `bench/records` is stored with `Atom.set`); the leftovers run once or cross into the runtime | `reports/2026-10-20-mir-escape-analysis.md` |
 | Full Tofte-Talpin region inference | whole-program analysis; badger compiles per function | `research/13-type-system-memory-management.md` §9.5 |
 | Hazard Eras | hardware support (TSX-NI) is deprecated on desktop Intel | `research/12-runtime-scaling-extra.md` §13.6 |
 | Flat-combining | the cited gain is on MPSC scenarios where one producer is faster than all consumers combined; badger's slow path is rare (1 of 83 891 declines) | `research/12-runtime-scaling-extra.md` §13.8 |
