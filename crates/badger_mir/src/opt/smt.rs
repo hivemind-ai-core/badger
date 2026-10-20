@@ -756,4 +756,24 @@ mod tests {
         // verdict is valid, and true unconditionally when the check is off.
         assert!(accepted(Rule::MulPow2));
     }
+
+    /// The deliberately broken rule: `x * 2^k` rewritten by a shift one bit
+    /// too large. The solver must refute it and report the assignment, so a
+    /// wrong rule cannot pass the check the way a wrong rewrite used to.
+    #[test]
+    fn a_deliberately_broken_rule_is_rejected() {
+        let broken = Row {
+            rule: Rule::MulPow2,
+            widths: WIDTHS,
+            vars: &[("x", VWidth::W), ("k", VWidth::Shift)],
+            premises: vec![],
+            src: op(Op::Mul, var(0), op(Op::Shl, Term::Const(1), var(1))),
+            dst: op(Op::Shl, var(0), op(Op::Add, var(1), Term::Const(1))),
+            exhaustive: false,
+        };
+        let report = check_row(&broken, 8);
+        assert_eq!(report.verdict, Verdict::Invalid, "the wrong rule was not refuted");
+        let detail = report.detail.unwrap_or_default();
+        assert!(detail.contains('='), "no counterexample: {detail}");
+    }
 }
