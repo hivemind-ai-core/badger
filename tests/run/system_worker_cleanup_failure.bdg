@@ -1,0 +1,41 @@
+// A worker whose cleanup fails as the system halts it is a defect of the
+// system (reported after every halt ran), not a clean `ok`.
+import std.io
+import std.system
+import std.task
+import std.worker
+
+@derive(Error)
+pub enum Failure { boom }
+
+@derive(Error, From)
+pub enum AppError {
+    sys(source: system.Error),
+}
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+provider base(scope, _config: {}) -> Result<Int, Failure> {
+    scope.on_halt(fn() -> Result<Unit, Failure> { say("base halt"); ok(()) })
+    ok(1)
+}
+
+provider app(scope, _config: { base: Int }) -> Result<Unit, Failure> {
+    scope.worker(fn() -> Result<Unit, Failure> {
+        let _ = task.scope(fn(s) -> Result<Unit, Failure> {
+            s.defer(fn() { panic("worker cleanup broke") })
+            loop { task.sleep(1ms) }
+            ok(())
+        })
+        ok(())
+    }, worker.on_failure(worker.defaults))
+    scope.on_halt(fn() -> Result<Unit, Failure> { say("app halt"); ok(()) })
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system { base: base(), app: app({ base: ref(#base) }) }
+    let r = system.run(plan, fn(_r) -> Result<Unit, AppError> { task.sleep(10ms); say("body done"); ok(()) })
+    say($"{r}")
+    ok(())
+}

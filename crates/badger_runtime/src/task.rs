@@ -2170,6 +2170,15 @@ pub fn cancel(id: TaskId) {
     cancel_with(id, CancelReason::Requested)
 }
 
+/// Is task `id` stopping by cancellation: asked to, or unwinding without a
+/// failure of its own?
+pub fn stopping(id: TaskId) -> bool {
+    task(id).is_some_and(|t| {
+        flags_of(t) & FLAG_CANCEL != 0
+            || (t.state.get() == State::Cleaning && !matches!(t.pending_exit, Some(Exit::Failed(_))))
+    })
+}
+
 pub fn cancel_with(id: TaskId, reason: CancelReason) {
     let Some(t) = task(id) else { return };
     if t.state.get() == State::Done || t.state.get() == State::Cleaning {
@@ -2197,7 +2206,20 @@ pub fn cancel_with(id: TaskId, reason: CancelReason) {
 /// Make another task fail at its next safe point (child defect propagation).
 pub fn fail_pending(id: TaskId, info: PanicInfo) {
     let Some(t) = task(id) else { return };
-    if t.state.get() == State::Done || t.state.get() == State::Cleaning || t.pending_exit.is_some() {
+    if t.state.get() == State::Done {
+        return;
+    }
+    // a task stopping by cancellation whose child failed meanwhile (a
+    // cleanup that broke as it stopped): the defect is its outcome, not lost
+    let cancelling = matches!(t.pending_exit, Some(Exit::Cancelled))
+        || (t.state.get() == State::Cleaning && t.pending_exit.is_none());
+    if cancelling {
+        let mut info = info;
+        info.notes.push("while the task was being cancelled".into());
+        t.pending_exit = Some(Exit::Failed(info));
+        return;
+    }
+    if t.state.get() == State::Cleaning || t.pending_exit.is_some() {
         return;
     }
     set_flags(t, FLAG_FAIL);

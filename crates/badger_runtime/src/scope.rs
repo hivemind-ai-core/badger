@@ -129,7 +129,11 @@ pub fn child_finished(scope: u64, child: TaskId, exit: &Exit) {
                 s.children.iter().copied().filter(|c| *c != child).collect::<Vec<_>>(),
             )
         });
-        if contained || s.failure.is_some() {
+        // a captured child's failure is its joiner's to see, unless the
+        // owner is being cancelled and will not join it (its cleanup
+        // failed as it stopped, say): then it fails the scope, not lost
+        let joined = contained && !task::stopping(s.owner);
+        if joined || s.failure.is_some() {
             return;
         }
         let info = PanicInfo {
