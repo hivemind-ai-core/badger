@@ -1785,6 +1785,17 @@ fn test_runner_controlled_clock() {
     }
 }
 
+/// Local functions inside a test (even `test_*` ones taking parameters)
+/// are helpers: only the test itself runs, with no E0142 warning.
+#[test]
+fn test_runner_skips_local_functions() {
+    let out = lang().args(["test", "tests/testing/local_helpers.bdg"]).current_dir(root()).output().unwrap();
+    let (text, err) = (String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(out.status.success(), "{text}{err}");
+    assert!(text.contains("1 passed; 0 failed") && !text.contains("test_value"), "{text}");
+    assert!(!err.contains("E0142"), "{err}");
+}
+
 /// Simulation fixtures: seeded scheduling, record/replay of interleavings,
 /// exploration reporting the failing seed, and property checks.
 #[test]

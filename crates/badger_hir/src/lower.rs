@@ -561,7 +561,9 @@ impl Cx<'_> {
             self.hir.defs[def].kind = kind;
             if let DefKind::Fn(f) = &self.hir.defs[def].kind {
                 let name = self.sym(self.hir.defs[def].name).to_string();
-                if !m.is_std && !m.dependency && name.starts_with("test_") {
+                // a local function (lifted as `test_x.helper`) is not a test
+                let local = m.ast.local_fns.contains(&self.hir.defs[def].name);
+                if !m.is_std && !m.dependency && !local && name.starts_with("test_") {
                     if f.params.is_empty() {
                         self.hir.modules[mid].tests.push(def);
                     } else {
