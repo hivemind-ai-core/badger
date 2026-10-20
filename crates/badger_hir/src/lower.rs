@@ -143,24 +143,28 @@ const FUSION_KINDS: &[&str] = &[
     "entries", //
     // stages
     "call",
-    "take",
-    "skip",
-    "step_by",
+    "cursor",
     "scan",
     "enumerate",
     "dedup", //
     // terminals
     "fold",
-    "count",
-    "sum",
+    "accumulate",
     "collect",
-    "product",
     "any",
     "all",
     "find",
     "find_map",
     "first",
     "position",
+];
+
+/// The parameters a kind takes: the kind, the key, and the values the key
+/// accepts. Every listed parameter is required — the kind cannot be
+/// honoured without one.
+const FUSION_PARAMS: &[(&str, &str, &[&str])] = &[
+    ("cursor", "mode", &["take", "skip", "step_by"]),
+    ("accumulate", "combine", &["add", "count", "mul"]),
 ];
 
 /// The shape each fusion kind is written for: its role, and how many
@@ -175,17 +179,13 @@ const FUSION_SHAPES: &[(&str, &str, usize)] = &[
     ("entries", "source", 1),
     // stages
     ("call", "stage", 2),
-    ("take", "stage", 2),
-    ("skip", "stage", 2),
-    ("step_by", "stage", 2),
+    ("cursor", "stage", 2),
     ("scan", "stage", 3),
     ("enumerate", "stage", 1),
     ("dedup", "stage", 1),
     // terminals
     ("fold", "terminal", 3),
-    ("count", "terminal", 1),
-    ("sum", "terminal", 1),
-    ("product", "terminal", 1),
+    ("accumulate", "terminal", 1),
     ("collect", "terminal", 1),
     ("any", "terminal", 2),
     ("all", "terminal", 2),
@@ -1154,68 +1154,108 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 }
                 flattened = flattened.or(Some(attr.span));
             }
-            // `@fusion(role = ..., template = ...)`: a closed vocabulary, and
-            // a shape each kind is written for
+            // `@fusion(role = ..., template = ..., <parameter> = ...)`: a
+            // closed vocabulary, a shape each kind is written for, and the
+            // values each kind takes
             if name == "fusion" {
                 let (mut role, mut kind) = (None, None);
+                let mut given: Vec<(String, String)> = Vec::new();
                 for arg in &attr.args {
                     let ast::AttrArg::KeyValue(k, v) = arg else { continue };
-                    let (label, allowed) = match self.cx.interner.resolve(*k) {
-                        "role" => ("role", FUSION_ROLES),
-                        "template" => ("kind", FUSION_KINDS),
-                        _ => continue,
-                    };
+                    let key = self.cx.interner.resolve(*k).to_string();
                     let value = match &**v {
-                        ast::AttrArg::Name(s) => self.cx.interner.resolve(*s).to_string(),
-                        ast::AttrArg::Str(s) => s.clone(),
-                        _ => continue,
-                    };
-                    if !allowed.contains(&value.as_str()) {
-                        let msg = format!("unknown fusion {label} `{value}`");
-                        let mut d = Diagnostic::error(msg).with_code("E0194");
-                        if !is_std {
-                            d = Diagnostic::warning(format!("unknown fusion {label} `{value}`"))
-                                .with_code("E0194");
+                        ast::AttrArg::Name(s) | ast::AttrArg::Symbol(s) => {
+                            self.cx.interner.resolve(*s).to_string()
                         }
-                        self.cx.diags.push(d.with_label(attr.span, "not a fusion kind the compiler knows"));
-                        continue;
-                    }
-                    if label == "role" {
-                        role = Some(value);
-                    } else {
-                        kind = Some(value);
+                        ast::AttrArg::Str(s) => s.clone(),
+                        ast::AttrArg::Int(n) => n.to_string(),
+                        // a nested key/value is not a value the compiler reads
+                        ast::AttrArg::KeyValue(..) => continue,
+                    };
+                    match key.as_str() {
+                        "role" => role = Some(value),
+                        "template" => kind = Some(value),
+                        // a kind's parameters, checked against the kind below
+                        _ => given.push((key, value)),
                     }
                 }
-                // The kind fixes both the role and the arity: an annotation
-                // and a function that disagree would never fuse, and a third
-                // party cannot see why.
-                if let (Some(role), Some(kind)) = (&role, &kind)
-                    && let Some((_, want_role, arity)) =
-                        FUSION_SHAPES.iter().find(|(k, _, _)| k == kind)
+                for (label, value, allowed) in
+                    [("role", role.as_deref(), FUSION_ROLES), ("kind", kind.as_deref(), FUSION_KINDS)]
                 {
-                    let params = match &item.kind {
-                        ast::ItemKind::Fn(f) => Some(f.params.len()),
-                        _ => None,
-                    };
-                    let mut problems = vec![];
-                    if *want_role != role.as_str() {
-                        problems.push(format!("`{kind}` is a {want_role} kind, not `{role}`"));
+                    let Some(value) = value else { continue };
+                    if allowed.contains(&value) {
+                        continue;
                     }
-                    if let Some(n) = params
-                        && n != *arity
-                    {
-                        problems.push(format!(
-                            "`{kind}` is written for {arity} parameter(s), but this function has {n}"
-                        ));
+                    let msg = format!("unknown fusion {label} `{value}`");
+                    let mut d = Diagnostic::error(msg.clone()).with_code("E0194");
+                    if !is_std {
+                        d = Diagnostic::warning(msg).with_code("E0194");
                     }
-                    for problem in problems {
-                        let mut d = Diagnostic::error(problem.clone()).with_code("E0200");
-                        if !is_std {
-                            d = Diagnostic::warning(problem).with_code("E0200");
+                    self.cx.diags.push(d.with_label(attr.span, "not a fusion kind the compiler knows"));
+                }
+                // a marking with no kind cannot fuse
+                if kind.is_none() && (role.is_some() || !given.is_empty()) {
+                    let msg = "`@fusion` needs a `template`".to_string();
+                    let mut d = Diagnostic::error(msg.clone()).with_code("E0194");
+                    if !is_std {
+                        d = Diagnostic::warning(msg).with_code("E0194");
+                    }
+                    self.cx.diags.push(d.with_label(attr.span, "no fusion kind"));
+                }
+                if let Some(kind) = kind.as_deref() {
+                    let spec: Vec<&(&str, &str, &[&str])> =
+                        FUSION_PARAMS.iter().filter(|(k, ..)| *k == kind).collect();
+                    for (key, value) in &given {
+                        let problem = match spec.iter().find(|(_, want, _)| want == key) {
+                            Some((_, _, allowed)) if !allowed.contains(&value.as_str()) => {
+                                Some(format!("unknown fusion {key} `{value}`"))
+                            }
+                            Some(_) => None,
+                            None => Some(format!("`{key}` is not a parameter of `{kind}`")),
+                        };
+                        if let Some(problem) = problem {
+                            let mut d = Diagnostic::error(problem.clone()).with_code("E0194");
+                            if !is_std {
+                                d = Diagnostic::warning(problem).with_code("E0194");
+                            }
+                            self.cx.diags.push(d.with_label(attr.span, "not a parameter of this kind"));
                         }
-                        self.cx
-                            .diags
-                            .push(d.with_label(attr.span, "not the shape this fusion kind is written for"));
+                    }
+                    // The kind fixes the role, the arity, and the parameters
+                    // it cannot be honoured without: an annotation and a
+                    // function that disagree would never fuse, and a third
+                    // party cannot see why.
+                    if let Some((_, want_role, arity)) =
+                        FUSION_SHAPES.iter().find(|(k, _, _)| *k == kind)
+                    {
+                        let mut problems = vec![];
+                        if let Some(role) = role.as_deref()
+                            && *want_role != role
+                        {
+                            problems.push(format!("`{kind}` is a {want_role} kind, not `{role}`"));
+                        }
+                        for (_, key, _) in &spec {
+                            if !given.iter().any(|(k, _)| k == key) {
+                                problems.push(format!("`{kind}` needs a `{key} = ...`"));
+                            }
+                        }
+                        if let ast::ItemKind::Fn(f) = &item.kind
+                            && f.params.len() != *arity
+                        {
+                            problems.push(format!(
+                                "`{kind}` is written for {arity} parameter(s), but this function has {}",
+                                f.params.len()
+                            ));
+                        }
+                        for problem in problems {
+                            let mut d = Diagnostic::error(problem.clone()).with_code("E0200");
+                            if !is_std {
+                                d = Diagnostic::warning(problem).with_code("E0200");
+                            }
+                            self.cx
+                                .diags
+                                .push(d.with_label(attr.span, "not the shape this fusion kind is written for"));
+                        }
                     }
                 }
             }

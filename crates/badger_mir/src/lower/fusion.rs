@@ -123,39 +123,35 @@ impl FnLower<'_, '_, '_> {
     /// The fusion template of a called standard-library definition: from its
     /// `@fusion(...)` annotation, or the legacy path table (kept while the
     /// annotations are rolled out) so nothing regresses.
-    fn fusion_template(&self, name: &str) -> Option<String> {
+    fn fusion_template(&self, name: &str) -> Option<FusionTemplate> {
         if let Some(t) = self.m.fusion.get(name) {
             return Some(t.clone());
         }
-        Some(
-            match name {
-                "std.seq.range" => "range",
-                "std.seq.from_range" => "from_range",
-                "std.list.of" | "std.list.seq" => "list",
-                "std.list.map" | "std.list.filter" => "call",
-                "std.seq.map" | "std.seq.filter" => "call",
-                "std.seq.take" => "take",
-                "std.seq.skip" => "skip",
-                "std.seq.step_by" => "step_by",
-                "std.seq.filter_map" => "call",
-                "std.seq.scan" => "scan",
-                "std.seq.enumerate" => "enumerate",
-                "std.seq.dedup" => "dedup",
-                "std.seq.fold" => "fold",
-                "std.seq.count" => "count",
-                "std.seq.sum" => "sum",
-                "std.seq.product" => "product",
-                "std.seq.collect" | "std.list.collect" => "collect",
-                "std.seq.any" => "any",
-                "std.seq.all" => "all",
-                "std.seq.find" => "find",
-                "std.seq.find_map" => "find_map",
-                "std.seq.first" => "first",
-                "std.seq.position" => "position",
-                _ => return None,
-            }
-            .to_string(),
-        )
+        Some(match name {
+            "std.seq.range" => FusionTemplate::new("range", &[]),
+            "std.seq.from_range" => FusionTemplate::new("from_range", &[]),
+            "std.list.of" | "std.list.seq" => FusionTemplate::new("list", &[]),
+            "std.list.map" | "std.list.filter" => FusionTemplate::new("call", &[]),
+            "std.seq.map" | "std.seq.filter" | "std.seq.filter_map" => FusionTemplate::new("call", &[]),
+            "std.seq.take" => FusionTemplate::new("cursor", &[("mode", "take")]),
+            "std.seq.skip" => FusionTemplate::new("cursor", &[("mode", "skip")]),
+            "std.seq.step_by" => FusionTemplate::new("cursor", &[("mode", "step_by")]),
+            "std.seq.scan" => FusionTemplate::new("scan", &[]),
+            "std.seq.enumerate" => FusionTemplate::new("enumerate", &[]),
+            "std.seq.dedup" => FusionTemplate::new("dedup", &[]),
+            "std.seq.fold" => FusionTemplate::new("fold", &[]),
+            "std.seq.count" => FusionTemplate::new("accumulate", &[("combine", "count")]),
+            "std.seq.sum" => FusionTemplate::new("accumulate", &[("combine", "add")]),
+            "std.seq.product" => FusionTemplate::new("accumulate", &[("combine", "mul")]),
+            "std.seq.collect" | "std.list.collect" => FusionTemplate::new("collect", &[]),
+            "std.seq.any" => FusionTemplate::new("any", &[]),
+            "std.seq.all" => FusionTemplate::new("all", &[]),
+            "std.seq.find" => FusionTemplate::new("find", &[]),
+            "std.seq.find_map" => FusionTemplate::new("find_map", &[]),
+            "std.seq.first" => FusionTemplate::new("first", &[]),
+            "std.seq.position" => FusionTemplate::new("position", &[]),
+            _ => return None,
+        })
     }
 
     fn sequence_plan(&self, e: ExprId, depth: usize) -> Option<(Source, Vec<Stage>)> {
@@ -177,19 +173,22 @@ impl FnLower<'_, '_, '_> {
         }
         let (name, args) = self.sequence_call(e)?;
         let template = self.fusion_template(&name)?;
-        match (template.as_str(), args.as_slice()) {
+        match (template.kind.as_str(), args.as_slice()) {
             ("range", [lo, hi]) => Some((Source::Bounds(*lo, *hi), vec![])),
             ("from_range", [r]) => Some((Source::Range(*r, false), vec![])),
             ("list", [list]) => {
                 let elem = self.m.lay.args(&self.ty(*list)).first()?.clone();
                 Some((Source::List(*list, elem, false), vec![]))
             }
-            ("take" | "skip" | "step_by", [inner, arg]) => {
+            ("cursor", [inner, arg]) => {
                 let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
-                let mode = match template.as_str() {
+                // `mode` is checked where the annotation is read; a marking
+                // without one does not fuse.
+                let mode = match template.param("mode")? {
                     "take" => CursorMode::Take,
                     "skip" => CursorMode::Skip,
-                    _ => CursorMode::StepBy,
+                    "step_by" => CursorMode::StepBy,
+                    _ => return None,
                 };
                 stages.push(Stage::Cursor(mode, *arg));
                 Some((source, stages))
@@ -247,8 +246,8 @@ impl FnLower<'_, '_, '_> {
         }
         let (name, args) = self.sequence_call(e)?;
         let template = self.fusion_template(&name)?;
-        match (template.as_str(), args.as_slice()) {
-            ("call" | "take" | "skip" | "step_by", [inner, _]) => self.sequence_local_use(*inner, depth + 1),
+        match (template.kind.as_str(), args.as_slice()) {
+            ("call" | "cursor", [inner, _]) => self.sequence_local_use(*inner, depth + 1),
             ("scan", [inner, _, _]) => self.sequence_local_use(*inner, depth + 1),
             ("enumerate", [inner]) => self.sequence_local_use(*inner, depth + 1),
             ("dedup", [inner]) => self.sequence_local_use(*inner, depth + 1),
@@ -286,10 +285,8 @@ impl FnLower<'_, '_, '_> {
                 }
                 _ => self.sequence_call(e).and_then(|(name, args)| {
                     let template = self.fusion_template(&name)?;
-                    match (template.as_str(), args.as_slice()) {
-                        ("fold", [iter, _, _]) | ("count" | "sum", [iter]) | ("collect", [iter]) => {
-                            Some(*iter)
-                        }
+                    match (template.kind.as_str(), args.as_slice()) {
+                        ("fold", [iter, _, _]) | ("accumulate" | "collect", [iter]) => Some(*iter),
                         _ => None,
                     }
                 }),
@@ -350,11 +347,17 @@ impl FnLower<'_, '_, '_> {
     pub(super) fn fused_terminal(&self, e: ExprId) -> Option<Plan> {
         let (name, args) = self.sequence_call(e)?;
         let template = self.fusion_template(&name)?;
-        let (iter, terminal) = match (template.as_str(), args.as_slice()) {
+        let (iter, terminal) = match (template.kind.as_str(), args.as_slice()) {
             ("fold", [iter, initial, f]) => (*iter, Terminal::Fold(*initial, *f)),
-            ("count", [iter]) => (*iter, Terminal::Accumulate(Combine::Count)),
-            ("sum", [iter]) => (*iter, Terminal::Accumulate(Combine::Add)),
-            ("product", [iter]) => (*iter, Terminal::Accumulate(Combine::Mul)),
+            ("accumulate", [iter]) => (
+                *iter,
+                Terminal::Accumulate(match template.param("combine")? {
+                    "add" => Combine::Add,
+                    "count" => Combine::Count,
+                    "mul" => Combine::Mul,
+                    _ => return None,
+                }),
+            ),
             ("collect", [iter]) => (*iter, Terminal::Collect),
             ("any", [iter, test]) => (*iter, Terminal::Any(*test)),
             ("all", [iter, test]) => (*iter, Terminal::All(*test)),

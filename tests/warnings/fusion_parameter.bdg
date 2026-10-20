@@ -1,0 +1,10 @@
+// A kind takes the parameters the compiler knows, and only those.
+// expect-warning: E0194
+@fusion(role = stage, template = cursor, mode = zigzag)
+pub fn bad_mode(xs: List<Int>, _n: Int) -> List<Int> { xs }
+
+// expect-warning: E0194
+@fusion(role = stage, template = cursor, mode = take, whoops = 1)
+pub fn extra_param(xs: List<Int>, _n: Int) -> List<Int> { xs }
+
+pub fn main() {}

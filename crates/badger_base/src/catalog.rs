@@ -188,7 +188,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0200",
         "fusion shape mismatch",
-        "A `@fusion(...)` annotation whose kind does not match the function it is written on: the kind fixes both the role (`source`, `stage`, or `terminal`) and the number of parameters, counting the sequence as the first. It would never fuse.",
+        "A `@fusion(...)` annotation whose kind does not match the function it is written on: the kind fixes the role (`source`, `stage`, or `terminal`) and the number of parameters, counting the sequence as the first, and a kind that takes a parameter (`cursor` a `mode`, `accumulate` a `combine`) must be given one. It would never fuse.",
     ),
     (
         "E0199",
@@ -366,7 +366,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "message template",
         "`@message(\"text\")` on an enum variant is that variant's display under `derive(Error)` or `derive(Display)` (the error message): `@message(\"no book {id}\")` interpolates the variant's field `id`, `{{` and `}}` are literal braces. A placeholder that names no field of the variant, or a malformed template, is an error; `@message` on an enum that derives neither is a warning. Variants without one display as `variant: payload`.",
     ),
-    ("E0194", "unknown fusion kind", "A `@fusion(...)` role or template is not one the compiler knows."),
+    ("E0194", "unknown fusion kind", "A `@fusion(...)` role, kind, or parameter value is not one the compiler knows, or an annotation gives no kind at all."),
     (
         "E0193",
         "misplaced status",

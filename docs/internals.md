@@ -85,6 +85,15 @@ program, in `crates/badger_driver/src/`:
   a combine step; `any`/`all` stop at the first item that decides.
   `count` over a source that knows its length, through stages that neither
   drop nor re-shape items, is that length: no loop is emitted.
+- `@fusion(role = ..., template = ...)` marks a sequence function for
+  fusion. The kind is one of a closed set (the sources; the stages `call`,
+  `cursor` with a `mode`, `scan`, `enumerate`, `dedup`; the terminals
+  `fold`, `accumulate` with a `combine`, `collect`, and the searches), the
+  role, arity, and required parameters must match the function it is
+  written on (`E0200`), and the values must be ones the compiler knows
+  (`E0194`). Any module may annotate — the recognizers still require a
+  matching shape and receiver type, so an unsuited marking simply does not
+  fuse.
 - Eager list and map chains are lowered as one traversal before code
   generation: `filter(..).map(..)` / `map(..).filter(..)` when the earlier
   callback is pure and infallible (`BADGER_NO_LIST_FUSION=1` disables), and

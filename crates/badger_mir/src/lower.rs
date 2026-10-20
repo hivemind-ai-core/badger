@@ -47,16 +47,37 @@ pub struct Mono<'g, 'a> {
     /// a request for the same definition at a deeper type).
     current: Option<(DefId, Vec<Ty>)>,
     /// Fusion templates declared by `@fusion(role = ..., template = ...)`
-    /// on standard-library items, keyed by definition path (a method shares
+    /// on any annotated item, keyed by definition path (a method shares
     /// its free function's path).
-    fusion: FxHashMap<String, String>,
+    fusion: FxHashMap<String, FusionTemplate>,
 }
 
-/// The `@fusion(...)` template of each annotated item, keyed by definition
-/// path. Any module may annotate a function (opt-in fusion); the recognizers
-/// still require a matching shape and receiver type, so an unsuited marking
+/// A `@fusion(...)` annotation: the kind of flow, and the values that
+/// parameterize it (`mode` for `cursor`, `combine` for `accumulate`). Any
+/// module may annotate a function (opt-in fusion); the recognizers still
+/// require a matching shape and receiver type, so an unsuited marking
 /// simply does not fuse.
-fn fusion_templates(g: &Global) -> FxHashMap<String, String> {
+#[derive(Clone, Debug)]
+pub(crate) struct FusionTemplate {
+    pub kind: String,
+    pub params: Vec<(String, String)>,
+}
+
+impl FusionTemplate {
+    pub(crate) fn new(kind: &str, params: &[(&str, &str)]) -> Self {
+        FusionTemplate {
+            kind: kind.to_string(),
+            params: params.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+        }
+    }
+
+    /// The value the annotation gave a parameter (`mode = take`).
+    pub(crate) fn param(&self, key: &str) -> Option<&str> {
+        self.params.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
+    }
+}
+
+fn fusion_templates(g: &Global) -> FxHashMap<String, FusionTemplate> {
     let mut out = FxHashMap::default();
     for (def, attrs) in &g.hir.attributes {
         let m = &g.hir.modules[g.hir.defs[*def].module];
@@ -64,22 +85,27 @@ fn fusion_templates(g: &Global) -> FxHashMap<String, String> {
             if g.interner.resolve(a.name) != "fusion" {
                 continue;
             }
-            let mut template = None;
+            let mut kind = None;
+            let mut params = Vec::new();
             for arg in &a.args {
-                if let badger_syntax::ast::AttrArg::KeyValue(k, v) = arg
-                    && g.interner.resolve(*k) == "template"
-                {
-                    template = match &**v {
-                        badger_syntax::ast::AttrArg::Name(s) => Some(g.interner.resolve(*s).to_string()),
-                        badger_syntax::ast::AttrArg::Str(s) => Some(s.clone()),
-                        _ => None,
-                    };
+                let badger_syntax::ast::AttrArg::KeyValue(k, v) = arg else { continue };
+                let key = g.interner.resolve(*k).to_string();
+                let value = match &**v {
+                    badger_syntax::ast::AttrArg::Name(s) => g.interner.resolve(*s).to_string(),
+                    badger_syntax::ast::AttrArg::Str(s) => s.clone(),
+                    _ => continue,
+                };
+                match key.as_str() {
+                    "template" => kind = Some(value),
+                    // the role is the kind's own, checked where it is read
+                    "role" => {}
+                    _ => params.push((key, value)),
                 }
             }
-            if let Some(t) = template {
+            if let Some(kind) = kind {
                 let mp: Vec<&str> = m.path.iter().map(|s| g.interner.resolve(*s)).collect();
                 let path = format!("{}.{}", mp.join("."), g.interner.resolve(g.hir.defs[*def].name));
-                out.insert(path, t);
+                out.insert(path, FusionTemplate { kind, params });
             }
         }
     }
@@ -2494,7 +2520,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         let hir = self.hir();
         let is_entries = |def: DefId| {
             let p = self.m.def_path(def);
-            self.m.fusion.get(&p).is_some_and(|t| t == "entries")
+            self.m.fusion.get(&p).is_some_and(|t| t.kind == "entries")
                 || p == "std.map.entries"
                 || p == "std.map.to_list"
         };
@@ -2530,7 +2556,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         }
         let source = self.map_entries_source(recv)?;
         let path = self.m.def_path(outer);
-        let is_fold = self.m.fusion.get(&path).is_some_and(|t| t == "fold") || path == "std.list.fold";
+        let is_fold = self.m.fusion.get(&path).is_some_and(|t| t.kind == "fold") || path == "std.list.fold";
         let kind = if self.is_list_call(outer) && args.len() == 1 {
             // map (0) or filter (1), by the callback's shape
             if self.callback_returns_bool(args[0]) { 1 } else { 0 }
@@ -2573,7 +2599,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
     /// return type, not the name.
     fn is_list_call(&self, def: DefId) -> bool {
         let p = self.m.def_path(def);
-        self.m.fusion.get(&p).is_some_and(|t| t == "call") || p == "std.list.map" || p == "std.list.filter"
+        self.m.fusion.get(&p).is_some_and(|t| t.kind == "call") || p == "std.list.map" || p == "std.list.filter"
     }
 
     /// One `List.map`/`List.filter` stage: (is map, receiver, callback,

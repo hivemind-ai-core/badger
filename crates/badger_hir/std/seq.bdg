@@ -112,7 +112,7 @@ pub fn filter<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> Seq<T, Ef
     }
 }
 
-@fusion(role = stage, template = take)
+@fusion(role = stage, template = cursor, mode = take)
 pub fn take<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff> {
     {
         start: fn() {
@@ -175,7 +175,7 @@ pub fn enumerate<T, Eff>(items: Seq<T, Eff>) -> Seq<(Int, T), Eff> {
 }
 
 /// All but the first `n` items.
-@fusion(role = stage, template = skip)
+@fusion(role = stage, template = cursor, mode = skip)
 pub fn skip<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff> {
     {
         start: fn() {
@@ -380,7 +380,7 @@ pub fn partition<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> (List<
     (yes.finish(), no.finish())
 }
 
-@fusion(role = terminal, template = sum)
+@fusion(role = terminal, template = accumulate, combine = add)
 pub fn sum<Eff>(items: Seq<Int, Eff>) -> Int {
     var total = 0
     for x in items {
@@ -510,7 +510,7 @@ pub fn fold<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) ->
     acc
 }
 
-@fusion(role = terminal, template = count)
+@fusion(role = terminal, template = accumulate, combine = count)
 pub fn count<T, Eff>(items: Seq<T, Eff>) -> Int {
     var n = 0
     for _ in items {
@@ -803,7 +803,7 @@ pub fn zip_with<A, B, C, Eff>(a: Seq<A, Eff>, b: Seq<B, Eff>, f: fn(A, B) -> C !
 }
 
 /// Every `n`-th item, from the first (`n` below 1 counts as 1).
-@fusion(role = stage, template = step_by)
+@fusion(role = stage, template = cursor, mode = step_by)
 pub fn step_by<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff> {
     let step = if n < 1 { 1 } else { n }
     {
@@ -891,7 +891,7 @@ pub fn min<T, Eff>(items: Seq<T, Eff>) -> Option<T> where T: PartialOrd { min_by
 pub fn max<T, Eff>(items: Seq<T, Eff>) -> Option<T> where T: PartialOrd { max_by(items, fn(x) => x) }
 
 /// The product of the items (`1` when empty).
-@fusion(role = terminal, template = product)
+@fusion(role = terminal, template = accumulate, combine = mul)
 pub fn product<Eff>(items: Seq<Int, Eff>) -> Int {
     var acc = 1
     for x in items {
