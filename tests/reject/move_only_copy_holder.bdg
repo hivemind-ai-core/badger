@@ -1,0 +1,10 @@
+// expect-error: E0414
+// A struct holding a move-only value is move-only in turn.
+@move_only
+pub struct Token { pub id: Int }
+pub struct Wallet { pub tok: Token, pub owner: String }
+fn take(w: Wallet) -> Int { w.tok.id }
+pub fn main() {
+    let w: Wallet = { tok: { id: 1 }, owner: "ada" }
+    let _ = take(w) + take(w)
+}

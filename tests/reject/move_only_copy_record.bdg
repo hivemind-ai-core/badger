@@ -1,0 +1,10 @@
+// expect-error: E0414
+// Storing a move-only value in a record field moves it there.
+@move_only
+pub struct Token { pub id: Int }
+fn take(t: Token) -> Int { t.id }
+pub fn main() {
+    let t: Token = { id: 1 }
+    let r = { tok: t }
+    let _ = take(r.tok) + take(t)
+}

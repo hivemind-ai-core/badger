@@ -1,0 +1,11 @@
+// expect-error: E0414
+// Moving a value declared outside a loop moves it again on the next pass.
+@move_only
+pub struct Token { pub id: Int }
+fn take(t: Token) -> Int { t.id }
+pub fn main() {
+    let t: Token = { id: 1 }
+    for i in 0..2 {
+        let _ = take(t) + i
+    }
+}

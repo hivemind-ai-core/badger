@@ -19,6 +19,11 @@
 //! be consumed on every path that leaves their scope normally (see
 //! [`Linear`]): ownership is the `Affine` mode's per-type classification,
 //! tracked per binding, with a must-consume check after the move check.
+//!
+//! A struct or enum marked `@move_only` is affine by declaration: its values
+//! (and aggregates holding them) are moved, never copied, and each copy the
+//! affine check would reject is reported as one (`E0414`). Unlike a linear
+//! value, a move-only value may be dropped unused.
 
 use badger_base::{Diagnostic, Span};
 use badger_hir::{DefId, DefKind, ExprId, ExprKind, InterpPart, LocalId, PatId, PatKind, Stmt, UnOp};
@@ -35,6 +40,16 @@ enum Mode {
 }
 
 type State = FxHashMap<LocalId, Span>;
+
+/// What makes a type affine.
+#[derive(Clone, Copy)]
+enum Affine {
+    /// A standard affine type (a builder, buffer, lease, file), a `once`
+    /// closure, or (in the generic pass) a type parameter.
+    Std,
+    /// A user type marked `@move_only`: its values are moved, never copied.
+    MoveOnly(DefId),
+}
 
 /// A borrow bound to a local: `holder` borrows `owner`.
 #[derive(Clone)]
@@ -1275,26 +1290,39 @@ impl Own<'_, '_, '_> {
     }
 
     fn is_affine_ty(&mut self, t: &Ty) -> bool {
-        self.affine_in(t, &mut vec![])
+        self.affine_in(t, &mut vec![]).is_some()
     }
 
-    /// An affine part anywhere inside: a type that keeps growing as it
-    /// recurs counts as affine rather than as freely duplicable.
-    fn affine_in(&mut self, t: &Ty, seen: &mut Vec<Ty>) -> bool {
+    /// The `@move_only` type that makes `t` affine, if one does (the copy
+    /// diagnostics name it).
+    fn move_only_part(&mut self, t: &Ty) -> Option<DefId> {
+        match self.affine_in(t, &mut vec![]) {
+            Some(Affine::MoveOnly(d)) => Some(d),
+            _ => None,
+        }
+    }
+
+    /// The first affine part anywhere inside: a type that keeps growing as
+    /// it recurs counts as affine rather than as freely duplicable.
+    fn affine_in(&mut self, t: &Ty, seen: &mut Vec<Ty>) -> Option<Affine> {
         let t = self.inf.icx.resolve(t);
+        let some = |b: bool| b.then_some(Affine::Std);
         match &*t {
             TyKind::Con(d, args) => {
+                if self.inf.g.env.move_only.contains(d) {
+                    return Some(Affine::MoveOnly(*d));
+                }
                 let name = self.inf.lang_name(*d);
                 if name.as_deref().is_some_and(|n| crate::env::Builtins::AFFINE_STD.contains(&n)) {
-                    return true;
+                    return Some(Affine::Std);
                 }
                 // a sequence of affine items is a one-shot iterator
                 if name.as_deref() == Some("Seq") {
-                    return args.iter().any(|a| self.affine_in(a, seen));
+                    return args.iter().find_map(|a| self.affine_in(a, seen));
                 }
                 match expand(seen, &t) {
-                    Expand::Cycle => return false,
-                    Expand::Deep => return args.iter().any(|a| self.affine_in(a, seen)),
+                    Expand::Cycle => return None,
+                    Expand::Deep => return args.iter().find_map(|a| self.affine_in(a, seen)),
                     Expand::Go => {}
                 }
                 let fields: Vec<Ty> = if let Some(e) = self.inf.g.env.enums.get(d) {
@@ -1314,19 +1342,19 @@ impl Own<'_, '_, '_> {
                     // shared runtime objects: they are not affine themselves
                     vec![]
                 };
-                let r = fields.iter().any(|f| self.affine_in(f, seen));
+                let r = fields.iter().find_map(|f| self.affine_in(f, seen));
                 seen.pop();
                 r
             }
-            TyKind::Fn(f) => f.once,
+            TyKind::Fn(f) => some(f.once),
             TyKind::Skolem(s) if self.generic => {
-                !self.inf.icx.skolems.get(*s as usize).is_some_and(|k| k.region)
+                some(!self.inf.icx.skolems.get(*s as usize).is_some_and(|k| k.region))
             }
-            TyKind::Var(_) | TyKind::Gen(_) if self.generic => true,
-            TyKind::Tuple(ts) => ts.iter().any(|x| self.affine_in(x, seen)),
-            TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.affine_in(x, seen)),
-            TyKind::Ref(..) => false,
-            _ => false,
+            TyKind::Var(_) | TyKind::Gen(_) if self.generic => Some(Affine::Std),
+            TyKind::Tuple(ts) => ts.iter().find_map(|x| self.affine_in(x, seen)),
+            TyKind::Record(r) => row_fields(r).0.iter().find_map(|(_, x)| self.affine_in(x, seen)),
+            TyKind::Ref(..) => None,
+            _ => None,
         }
     }
 
@@ -1818,8 +1846,19 @@ impl Own<'_, '_, '_> {
         self.affine = saved_affine;
         self.inf.diags = saved;
         if dup {
-            let shown =
-                self.inf.show(&self.inf.exprs.get(&args[affine_args[0]]).cloned().unwrap_or_else(error_ty));
+            let arg_ty = self.inf.exprs.get(&args[affine_args[0]]).cloned().unwrap_or_else(error_ty);
+            let shown = self.inf.show(&arg_ty);
+            if let Some(d) = self.move_only_part(&arg_ty) {
+                let ty = self.inf.sym(self.inf.g.hir.defs[d].name).to_string();
+                self.report(
+                    Diagnostic::error(format!("this closure may copy its argument of type `{shown}`"))
+                        .with_code("E0414")
+                        .with_label(span, format!("`{ty}` is move-only: it is moved, never copied"))
+                        .with_note("the closure uses this parameter more than once; borrow it instead"),
+                    span,
+                );
+                return;
+            }
             self.report(
                 Diagnostic::error(format!(
                     "this closure may use its argument of type `{shown}` more than once"
@@ -1873,6 +1912,20 @@ impl Own<'_, '_, '_> {
                 let hir = self.inf.g.hir;
                 let name = self.inf.sym(hir.defs[def].name).to_string();
                 let shown = self.inf.show(&a);
+                if !self.generic
+                    && let Some(d) = self.move_only_part(&a)
+                {
+                    let ty = self.inf.sym(hir.defs[d].name).to_string();
+                    self.report(
+                        Diagnostic::error(format!("`{name}` may copy its argument of type `{shown}`"))
+                            .with_code("E0414")
+                            .with_label(span, format!("`{ty}` is move-only: it is moved, never copied"))
+                            .with_related(name.clone(), hir.defs[def].span)
+                            .with_note("this generic function uses a value of this type parameter more than once; pass a borrow, or a copyable type"),
+                        span,
+                    );
+                    continue;
+                }
                 self.report(
                     Diagnostic::error(format!("`{name}` may use its argument of type `{shown}` more than once"))
                         .with_code("E0404")
@@ -1919,6 +1972,27 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// Why local `l` (or its referent) cannot be copied, when a `@move_only`
+    /// type makes it affine: "`T` is move-only", or "`H` holds the move-only
+    /// `T`". `None` in the generic pass, whose duplicate-use detection reads
+    /// `E0404`.
+    fn move_only_local(&mut self, l: LocalId) -> Option<String> {
+        if self.generic {
+            return None;
+        }
+        let t = self.local_ty(l)?;
+        let t = match &*t {
+            TyKind::Ref(_, inner) => inner.clone(),
+            _ => t.clone(),
+        };
+        let d = self.move_only_part(&t)?;
+        let name = self.inf.sym(self.inf.g.hir.defs[d].name).to_string();
+        Some(match &*t {
+            TyKind::Con(h, _) if *h == d => format!("`{name}` is move-only"),
+            _ => format!("`{}` holds the move-only `{name}`", self.inf.show(&t)),
+        })
+    }
+
     fn use_local(&mut self, l: LocalId, span: Span, mode: Mode, st: &mut State) {
         self.unread.remove(&l);
         self.check_loans(l, span, mode);
@@ -1932,6 +2006,18 @@ impl Own<'_, '_, '_> {
                 self.offending.push(t);
             }
             let name = self.name(l);
+            if let Some(why) = self.move_only_local(l) {
+                self.report(
+                    Diagnostic::error(format!("cannot copy `{name}`: {why}"))
+                        .with_code("E0414")
+                        .with_label(span, "this takes a copy of a value that is only borrowed")
+                        .with_note(
+                            "a `@move_only` value is moved, never copied: a borrow can read it but not take it; take the parameter by value to move it",
+                        ),
+                    span,
+                );
+                return;
+            }
             self.report(
                 Diagnostic::error(format!("cannot move out of borrowed `{name}`"))
                     .with_code("E0404")
@@ -1953,6 +2039,19 @@ impl Own<'_, '_, '_> {
                 self.offending.push(t);
             }
             let name = self.name(l);
+            if let Some(why) = self.move_only_local(l) {
+                self.report(
+                    Diagnostic::error(format!("cannot copy `{name}`: {why}"))
+                        .with_code("E0414")
+                        .with_label(span, "used again here, after it was moved")
+                        .with_label(moved, "moved here")
+                        .with_note(
+                            "a `@move_only` value is moved, never copied, and has one owning use; borrow it with `&` (or call a `self: &Self` method) to keep using it",
+                        ),
+                    span,
+                );
+                return;
+            }
             self.report(
                 Diagnostic::error(format!("use of moved value `{name}`"))
                     .with_code("E0404")

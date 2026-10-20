@@ -1,0 +1,10 @@
+// expect-error: E0414
+// A closure that takes its capture moves it in.
+@move_only
+pub struct Token { pub id: Int }
+fn take(t: Token) -> Int { t.id }
+pub fn main() {
+    let t: Token = { id: 1 }
+    let f = fn() => take(t)
+    let _ = f() + take(t)
+}

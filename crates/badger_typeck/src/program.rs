@@ -1401,6 +1401,10 @@ pub(crate) fn stored_state(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> Option<
             {
                 return Some(n.to_string());
             }
+            // every use of a module value would copy it
+            if g.env.move_only.contains(d) {
+                return Some(n.to_string());
+            }
             if seen.contains(d) {
                 return None;
             }

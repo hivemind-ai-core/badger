@@ -1,0 +1,8 @@
+// expect-error: E0138
+// A module value is shared by every use, so a move-only one would be copied.
+@move_only
+pub struct Token { pub id: Int }
+pub let master: Token = { id: 1 }
+pub fn main() {
+    let _ = master.id
+}

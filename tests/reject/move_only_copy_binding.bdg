@@ -1,0 +1,12 @@
+// expect-error: E0414
+// Binding a move-only value moves it: the second binding would copy it.
+// (`tests/run/move_only_values.bdg` is the same shape without the copy.)
+@move_only
+pub struct Token { pub id: Int }
+fn take(t: Token) -> Int { t.id }
+pub fn main() {
+    let t: Token = { id: 1 }
+    let a = t
+    let b = t
+    let _ = take(a) + take(b)
+}

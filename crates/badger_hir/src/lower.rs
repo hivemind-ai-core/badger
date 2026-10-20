@@ -80,7 +80,7 @@ struct ModScope {
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
-const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "status", "message"];
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "status", "message", "move_only"];
 
 /// Where an attribute is written.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -115,7 +115,7 @@ impl Place {
 fn attribute_fits(name: &str, place: Place) -> bool {
     match name {
         "allow" => true,
-        "derive" => matches!(place, Place::Item("struct" | "enum")),
+        "derive" | "move_only" => matches!(place, Place::Item("struct" | "enum")),
         "flatten" => place == Place::Item("struct"),
         "fusion" => matches!(place, Place::Item("fn") | Place::Method),
         "status" | "message" => place == Place::Variant,
@@ -1042,7 +1042,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
     }
 
     /// Record the item's attributes, check them, and check the ones
-    /// particular to an item (`@flatten`, `@fusion`).
+    /// particular to an item (`@flatten`, `@fusion`, `@move_only`).
     fn record_attributes(&mut self, def: DefId, item: &ast::Item) {
         if item.attributes.is_empty() {
             return;
@@ -1087,6 +1087,17 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     );
                 }
                 flattened = flattened.or(Some(attr.span));
+            }
+            // `@move_only`: the type's values are moved, never copied
+            if name == "move_only" && !attr.args.is_empty() {
+                self.cx.diags.push(
+                    Diagnostic::error("`@move_only` takes no arguments")
+                        .with_code("E0199")
+                        .with_label(attr.span, "remove the arguments")
+                        .with_note(
+                            "`@move_only pub struct Token { id: Int }` makes the values of `Token` move-only",
+                        ),
+                );
             }
             // `@fusion(role = ..., template = ...)`: a closed vocabulary
             if name == "fusion" {

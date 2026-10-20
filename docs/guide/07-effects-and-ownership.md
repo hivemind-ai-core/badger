@@ -399,6 +399,7 @@ buf.push(1)   // E0404: use of moved value `buf`
 | E0408 | `&mut` of something not assignable: a plain `let` value (builders and buffers are fine), a temporary, or a shared borrow |
 | E0412 | Passing an owned affine value where a function takes `&T` |
 | E0413 | A resource (file, batch lease) dropped without being closed, released, or moved on |
+| E0414 | A value of a `@move_only` type used again after it moved (a copy) |
 
 ### Resources are used exactly once
 
@@ -442,6 +443,56 @@ too. An error exit (`?`, `return err(..)`) is not checked: there the runtime
 closes the file, as it does for a file held by a value that is dropped.
 Channel endpoints are shared handles, not resources of this kind: see
 [the specification](../../spec/04-memory-and-collections.md#linear-resources).
+
+### Move-only types
+
+Your own struct or enum can ask for the same discipline: mark it
+`@move_only` and its values are moved, never copied. It suits a value that
+stands for something that happens once, such as a ticket that is redeemed or
+a draft that is sent.
+
+```badger
+import std.io
+
+@move_only
+pub struct Draft { pub to: String, pub body: String }
+
+pub struct Sent { pub to: String }
+
+impl Draft {
+    pub fn preview(self: &Self) -> String { $"to {self.to}: {self.body}" }
+}
+
+// sending takes the draft: it cannot be sent twice
+fn send(d: Draft) -> Sent { { to: d.to } }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let d: Draft = { to: "ada", body: "hello" }
+    io.println(d.preview())?
+    let s = send(d)
+    io.println($"sent to {s.to}")?
+    ok(())
+}
+```
+
+```text
+to ada: hello
+sent to ada
+```
+
+Binding, passing by value, returning, storing in a record or list, and
+capturing in a closure that takes it all move the value; using the old
+binding again would copy it, and is E0414. Field reads, `self: &Self`
+methods, and `&d` arguments only borrow.
+
+```badger fragment
+let s = send(d)
+let t = send(d)   // E0414: cannot copy `d`: `Draft` is move-only
+```
+
+Move-only is not linear: a draft may be dropped without being sent. A file
+must be closed (E0413) *and* cannot be copied; a `@move_only` type only
+promises the second. A type without the marker copies as it always has.
 
 ### Moving into a task
 

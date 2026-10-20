@@ -173,7 +173,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0138",
         "mutable module value",
-        "Module-level values are pure immutable data shared by every task. Mutable state (cells, atoms, builders, buffers) and acquired resources (channels, pools, transactions, tasks) are created in functions or system initialization and passed where needed.",
+        "Module-level values are pure immutable data shared by every task. Mutable state (cells, atoms, builders, buffers) and acquired resources (channels, pools, transactions, tasks) are created in functions or system initialization and passed where needed. So are values of `@move_only` types: every use of a module value would copy it.",
     ),
     (
         "E0137",
@@ -188,7 +188,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0199",
         "misplaced attribute",
-        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@status` and `@message` on an enum variant. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
+        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@status` and `@message` on an enum variant, `@move_only` (without arguments) on a struct or enum. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
     ),
     (
         "E0190",
@@ -556,6 +556,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "E0413",
         "linear value not consumed",
         "Resources (`fs.File`, `channel.Batch`) are linear: each value is consumed exactly once, by its consuming operation (`close`, `release`) or by moving it on (into a call by value, a return, an aggregate, or a closure that consumes it), on every path that leaves its scope normally: the end of the scope, `return`, `break`, `continue`, or an assignment over it. Reading or writing through a borrow does not consume it, and `_` or an expression statement cannot discard one. Error exits (`?`, `return err(..)`) are not checked: the runtime closes or releases the resource there.",
+    ),
+    (
+        "E0414",
+        "move-only value copied",
+        "A struct or enum marked `@move_only` is moved, never copied: binding it, passing it by value, returning it, storing it in a record, list, or variant, and capturing it in a closure that takes it each move it, and using the old binding again would copy it. So would a generic function or closure that uses its argument twice, and taking it out of a borrow. Read it through a borrow instead (`&x`, a `self: &Self` method, a field read), or build a new value. A move-only type is not `Share`. Unlike a linear resource (E0413), a move-only value may be dropped unused.",
     ),
     (
         "E0409",

@@ -721,6 +721,37 @@ mode is documented in the catalog, `docs/common-errors.md`, guide 07 and
 
 ### 3.5 Move-only marker for user-defined types
 
+**Status:** **the marker landed; the `sra` half is not adopted with it**
+(2026-10-20). A struct or enum written `@move_only` is affine by
+declaration: the typeck records the marker per type
+(`TypeEnv::move_only`) and `ownership.rs` classifies such a type, and any
+aggregate holding one, as affine. A value is then moved by a binding, a
+call by value, a return, a record, variant, list, map or set, a binding
+match, or a closure that takes it, and every use after a move is a copy:
+the new **E0414** "move-only value copied", also for a generic function or
+closure that uses the value twice and for taking one out of a borrow. A
+move-only type is never `Share` (E0341) and cannot be a module value
+(E0138), the two places a value is duplicated without a binding. The marker
+is not linearity: `Linear` (E0413) says a resource must be *used* on every
+exit; `@move_only` says a value is *moved*, never copied, and it may be
+dropped unused. Every linear type is affine, so moved too. Unmarked types
+copy as before (`tests/run/move_only_unmarked.bdg`); the corpus is
+otherwise unchanged. One related false positive went: a `&Self` method of
+the trusted `list` module handing `self` to an intrinsic no longer counts as
+duplicating its element type, so `List<Token>.len()` (and
+`List<Buffer<Int>>.len()`) check; `map` and `set` keep the old, conservative
+answer. The MIR, the codegen and the runtime are unchanged: the check runs on
+the typeck's view of every copy the language makes, and nothing later copies
+a value the source does not. **What the `sra` half would add**, were §3.2
+ever adopted: a move-only value has one owner at a time, so its escape is a
+single chain of moves rather than an alias set, and a callee that takes one
+by value and neither returns nor stores it is a NoEscape summary without an
+alias analysis. Its use would be in-place reuse (a function consuming a
+`Token` and building another can reuse the storage) rather than stack
+allocation, and on the measured benchmarks it adds nothing: no gate
+workload uses the marker, and the allocations §3.2 measured escape for real
+(returned, stored, sent), which a move does not change.
+
 - **Goal**: add a `~Copyable` / `move` marker to user-defined
   types; the existing `sra.rs` (extended in 3.2) then operates
   on them.
