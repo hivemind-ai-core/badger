@@ -208,7 +208,7 @@ pub fn reverse<T>(list: List<T>) -> List<T> { list_reverse(list) }
 pub fn slice<T>(list: List<T>, start: Int, end: Int) -> List<T> { list_slice(list, start, end) }
 pub fn sort<T>(list: List<T>) -> List<T> where T: PartialOrd { list_sort(list) }
 
-@fusion(role = stage, template = map)
+@fusion(role = stage, template = call)
 pub fn map<T, U>(list: List<T>, f: fn(T) -> U) -> List<U> {
     let b = list_builder_capacity<U>(list_len(list))
     for x in list {
@@ -217,7 +217,7 @@ pub fn map<T, U>(list: List<T>, f: fn(T) -> U) -> List<U> {
     list_finish(b)
 }
 
-@fusion(role = stage, template = filter)
+@fusion(role = stage, template = call)
 pub fn filter<T>(list: List<T>, keep: fn(T) -> Bool) -> List<T> {
     let b = list_builder()
     for x in list {
