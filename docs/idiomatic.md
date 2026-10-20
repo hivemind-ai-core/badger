@@ -25,22 +25,13 @@ import std.http
 import std.io
 import std.text
 
-@derive(Error, From)
+@derive(Error, HttpError, From)
 pub enum AppError {
+    @status(400) @message("{message}")
     invalid_input(message: String),
+    @status(404) @message("no note {id}")
     not_found(id: Int),
-    http(source: http.Error),
     io(source: io.Error),
-}
-
-impl HttpStatus for AppError {
-    fn http_status(self: &Self) -> Int {
-        match self {
-            .invalid_input(_) => 400,
-            .not_found(_) => 404,
-            _ => 500,
-        }
-    }
 }
 
 fn load(id: Int) -> Result<String, AppError> {
@@ -60,28 +51,24 @@ pub fn main() -> Result<Unit, AppError> {
 
 ```text
 ok(note 7)
-404 {"error":"not_found","message":"not found: 0"}
+404 {"error":"not_found","message":"no note 0"}
 ```
 
 - Every function returns `Result<_, AppError>`. The name is `AppError` in a
   service; in a small module `Error` is enough.
 - `derive(Error, From)` is what makes `?` work. Without the `From` part,
   every `?` needs a `match` or a `map_err`.
-- `HttpStatus` says which status an error is answered with. The default is
-  500, so an error type that says nothing about HTTP keeps the old
-  behaviour. An empty implementation — `impl HttpStatus for AppError { }` —
-  is the 500 form.
+- `derive(HttpError)` answers each variant with its `@status(code)`, and
+  500 for a variant without one, so an error type that says nothing about
+  HTTP keeps the old behaviour. `@message("no note {id}")` is the
+  variant's text (its `Display`), interpolating its fields; without one a
+  variant reads `not found: 0`. (Implementing `HttpStatus` or `Display` by
+  hand decides them some other way.)
 - A 4xx is the application's own code and message, and the client gets
   both: `{"error": "not_found", "message": "..."}`. The code is the variant
   name (`http_code` overrides it), the same convention as the route
   system's own `route/invalid_body`. A 5xx is an internal detail, and the
   client gets only the status text.
-
-| Error | Status | The message in the reply |
-|---|---|---|
-| `.invalid_input(_)` | 400 | yes |
-| `.not_found(_)` | 404 | yes |
-| anything else | 500 | no |
 
 The alternative is `http.status(code, error)`, which wraps one error with a
 status. Use it when the status belongs to that one call site rather than to
@@ -322,114 +309,100 @@ pub fn main() -> Result<Unit, io.Error> {
 ## Routes
 
 Describe the routes in one list, give each one a name, and let the
-handler return a `Result`. A route matches its path; the query string is
-part of the request, not of the path, and the handler's `params` map holds
-the path parameters and the query parameters together, the path winning.
+handler take its typed parameters and return the reply or an error.
 
 ```badger
 import std.http
 import std.io
 import std.route
-import std.text
 
 type Note = { id: Int, title: String }
 type NewNote = { title: String }
-type Id = { id: Int }
-type NoBody = {}
 
-@derive(Error, From)
+@derive(Error, HttpError, From)
 pub enum AppError {
-    invalid_input(message: String),
+    @status(404) @message("no note {id}")
     not_found(id: Int),
     http(source: http.Error),
     route(source: route.RouteError),
     io(source: io.Error),
 }
 
-impl HttpStatus for AppError {
-    fn http_status(self: &Self) -> Int {
-        match self {
-            .invalid_input(_) => 400,
-            .not_found(_) => 404,
-            _ => 500,
-        }
-    }
-}
-
 fn routes() -> List<route.Route> {
     [
+        route.get_json("/notes/:id", #notes/show, fn(p: { id: Int }) -> Result<Note, AppError> {
+            if p.id > 100 {
+                return err(AppError.not_found(p.id))
+            }
+            ok({ id: p.id, title: $"note {p.id}" })
+        }),
+        route.post_json("/notes", #notes/create, fn(_: {}, body: NewNote) -> Result<Note, AppError> {
+            ok({ id: 2, title: body.title })
+        }),
+        // a field the path does not bind comes from the query string
+        route.get_json("/search", #search, fn(p: { q: String, limit: Option<Int> }) -> Result<{ q: String, limit: Int }, AppError> {
+            ok({ q: p.q, limit: p.limit.unwrap_or(10) })
+        }),
         route.get("/health", #health, fn(_request, _params) -> Result<http.Response, AppError> {
             ok(http.text(200, "ok")?)
-        }),
-        route.json_get("/notes/:id", #notes/show, fn(_request, params) -> Result<(Int, Note), AppError> {
-            let id = match params.get("id").and_then(fn(v) { v.parse_int() }) {
-                .some(n) => n,
-                .none => return err(AppError.invalid_input("id must be a number")),
-            }
-            if id > 100 {
-                return err(AppError.not_found(id))
-            }
-            ok((200, { id, title: $"note {id}" }))
-        }),
-        route.json(#post, "/notes", #notes/create, fn(_request, _params, body: NewNote) -> Result<(Int, Note), AppError> {
-            ok((201, { id: 2, title: body.title }))
-        }),
-        route.typed(#get, "/typed/:id", #typed, fn(_request, p: Id, _body: NoBody) -> Result<(Int, Note), AppError> {
-            ok((200, { id: p.id, title: "typed" }))
-        }),
-        route.get("/search", #search, fn(request, _params) -> Result<http.Response, AppError> {
-            let q = route.params(request).get("q").unwrap_or("")
-            ok(http.json(200, { q })?)
         }),
     ]
 }
 
 pub fn main() -> Result<Unit, AppError> {
     let handler = route.table(routes())?
-    for (method, path) in [(#get, "/health"), (#get, "/notes/7"), (#get, "/notes/999"), (#post, "/notes"), (#get, "/typed/3"), (#get, "/search?q=dune"), (#get, "/missing")] {
-        let body = if method == #post { "{\"title\":\"milk\"}" } else { "" }
-        let reply = http.call(handler, http.request(method, path, body))
-        io.println($"{reply.status} {text.from_bytes(reply.body).unwrap_or("")}")?
+    for (method, path, body) in [
+        (#get, "/notes/7", ""),
+        (#get, "/notes/x", ""),
+        (#get, "/notes/999", ""),
+        (#post, "/notes", "{\"title\":\"milk\"}"),
+        (#post, "/notes", "{}"),
+        (#get, "/search?q=dune", ""),
+        (#get, "/health", ""),
+        (#get, "/missing", ""),
+    ] {
+        io.println($"{http.call_text(handler, method, path, body)}")?
     }
     ok(())
 }
 ```
 
 ```text
-200 ok
-200 {"id":7,"title":"note 7"}
-404 {"error":"not_found","message":"not found: 999"}
-201 {"id":2,"title":"milk"}
-200 {"id":3,"title":"typed"}
-200 {"q":"dune"}
-404 {"error":"route/not_found"}
+(200, "{\"id\":7,\"title\":\"note 7\"}")
+(400, "{\"error\":\"route/invalid_path\",\"message\":\"expected an integer\",\"path\":\"$.id\"}")
+(404, "{\"error\":\"not_found\",\"message\":\"no note 999\"}")
+(201, "{\"id\":2,\"title\":\"milk\"}")
+(400, "{\"error\":\"route/invalid_body\",\"message\":\"missing required field\",\"path\":\"$.title\"}")
+(200, "{\"limit\":10,\"q\":\"dune\"}")
+(200, "ok")
+(404, "{\"error\":\"route/not_found\"}")
 ```
 
 | Constructor | Handler receives | Returns |
 |---|---|---|
-| `route.get`, `post`, `put`, `delete` | `(request, params)` | `Result<http.Response, E>` |
-| `route.json_get(path, name, f)` | `(request, params)` | `(status, reply)`, encoded as JSON |
-| `route.json(method, path, name, f)` | `(request, params, body)` | `(status, reply)`; the body is decoded and validated first, and a failure is a 400 naming the field |
-| `route.typed(method, path, name, f)` | `(request, path_params, body)` | `(status, reply)`; the path parameters decode into a record too |
+| `route.get_json`, `delete_json(path, name, f)` | `(params)` | the reply, sent with 200 |
+| `route.post_json`, `put_json(path, name, f)` | `(params, body)` | the reply, sent with 201 (POST) or 200 (PUT) |
+| `route.typed(method, path, name, f)` | `(request, params, body)` | `(status, reply)`, for another status or the request itself |
+| `route.json_get`, `json(method, ...)` | `(request, params map[, body])` | `(status, reply)`; the parameters as a map |
+| `route.get`, `post`, `put`, `delete` | `(request, params map)` | `Result<http.Response, E>`, for a reply that is not JSON |
 
-- The idiomatic form is a typed route (`route.json`, `route.typed`): the
-  body and the path parameters are decoded and checked before the handler
-  runs, and the reply is encoded from a record, so the shapes are in the
-  description and in the OpenAPI document. The alternative is a plain
-  `route.get` with `http.json` and `codec.decode` in the handler; use it
-  when the reply is not JSON, or when the body is not a record.
+- The idiomatic form is `get_json` and its siblings: the path's `:name`s
+  and the query's parameters decode into the handler's parameter record
+  (`{}` for none; numbers, booleans, and `Option`s are parsed), the body
+  into its body record, and an invalid one is a 400 naming the field before
+  the handler runs. The reply is encoded from a record, so the shapes are
+  in the description and in the OpenAPI document (query parameters
+  included).
 - `route.table(routes)` checks the table — unique names, well-formed
   paths, no two routes matching the same requests — and gives an
   `http.Handler`. The same descriptions give `route.url(routes, name,
   params)` and `route.openapi(routes, title, version)`.
-- A path parameter is a `:name` in the path and a field of the `params`
-  map. A query parameter is read with `route.params(request)`, which
-  returns the query string of the request as a map. `route.path_of(uri)`
-  and `route.query_of(uri)` split a URI into its two parts.
 - The error-to-status rule: a handler that returns `err(e)` is answered
-  with `e`'s status, from the `HttpStatus` implementation on the error
-  type. A 4xx carries the message, a 5xx does not. A route that does not
-  match is answered 404 with the status text only.
+  with `e`'s status (`derive(HttpError)`), code, and message. A 4xx
+  carries the code and message, a 5xx neither. A route that does not match
+  is answered 404 (`route/not_found`).
+- `http.call_text(handler, method, path, body)` runs the table in-process
+  and gives the reply's status and body text: the shape tests check.
 
 The routes are in [Services](guide/10-services.md#handlers-and-routes), the
 query string in
@@ -608,8 +581,8 @@ and the restart policies in [std.worker](api/worker.md).
 
 A test is a function whose name starts with `test_`. It may return a
 `Result`, and returning `err` fails it. For an HTTP handler, call the
-handler in process: `http.call` runs it with no socket and gives the
-reply.
+handler in process: `http.call_text` runs it with no socket and gives the
+reply's status and body.
 
 ```badger
 import std.http
@@ -618,34 +591,18 @@ import std.test
 
 type Note = { id: Int, title: String }
 
-@derive(Error, From)
+@derive(Error, HttpError, From)
 pub enum AppError {
+    @status(404) @message("no note {id}")
     not_found(id: Int),
-    http(source: http.Error),
     route(source: route.RouteError),
-}
-
-impl HttpStatus for AppError {
-    fn http_status(self: &Self) -> Int {
-        match self {
-            .not_found(_) => 404,
-            _ => 500,
-        }
-    }
 }
 
 fn routes() -> List<route.Route> {
     [
-        route.get("/health", #health, fn(_request, _params) -> Result<http.Response, AppError> {
-            ok(http.text(200, "ok")?)
-        }),
-        route.json_get("/notes/:id", #notes/show, fn(_request, params) -> Result<(Int, Note), AppError> {
-            let id = match params.get("id").and_then(fn(v) { v.parse_int() }) {
-                .some(n) => n,
-                .none => return err(AppError.not_found(0)),
-            }
-            if id > 100 { return err(AppError.not_found(id)) }
-            ok((200, { id, title: $"note {id}" }))
+        route.get_json("/notes/:id", #notes/show, fn(p: { id: Int }) -> Result<Note, AppError> {
+            if p.id > 100 { return err(AppError.not_found(p.id)) }
+            ok({ id: p.id, title: $"note {p.id}" })
         }),
     ]
 }
@@ -653,17 +610,15 @@ fn routes() -> List<route.Route> {
 requires amount > 0, "withdraw a positive amount"
 fn withdraw(balance: Int, amount: Int) -> Int { balance - amount }
 
-fn test_health_is_ok() -> Result<Unit, AppError> {
+fn test_a_note_is_found() -> Result<Unit, AppError> {
     let handler = route.table(routes())?
-    let reply = http.call(handler, http.request(#get, "/health", ""))
-    test.assert_eq(reply.status, 200)
+    test.assert_eq(http.call_text(handler, #get, "/notes/7", ""), (200, "{\"id\":7,\"title\":\"note 7\"}"))
     ok(())
 }
 
 fn test_missing_note_is_404() -> Result<Unit, AppError> {
     let handler = route.table(routes())?
-    let reply = http.call(handler, http.request(#get, "/notes/999", ""))
-    test.assert_eq(reply.status, 404)
+    test.assert_eq(http.call_text(handler, #get, "/notes/999", "").0, 404)
     ok(())
 }
 
@@ -675,10 +630,11 @@ fn test_withdraw_keeps_its_contract() {
 - `badger test FILE` runs the functions whose name starts with `test_`. A
   test file needs no `main`: the tests are its entry points. A test may
   return a `Result`, and returning `err` fails it.
-- `http.call(handler, http.request(#get, "/health", ""))` is the way to
-  test a route: no socket, no port, and the reply is a value you can
-  assert on. `http.request` builds the request; a body is the third
-  argument.
+- `http.call_text(handler, #get, "/notes/7", "")` is the way to test a
+  route: no socket, no port, and the reply's `(status, body)` is a value
+  you can assert on; the last argument is the request body.
+  `http.call(handler, http.request(...))` gives the whole `http.Response`
+  (headers too).
 - `test.assert_eq(actual, expected)`, `test.assert_true(condition,
   message)`, `test.expect_err(result)` and `test.fail(message)` are the
   assertions. A failure reports the caller's location.

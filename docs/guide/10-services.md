@@ -7,17 +7,21 @@ This chapter shows each piece with one small example and links to the full API.
 
 ### Handlers and routes
 
+A JSON route's handler takes its typed parameters (and body) and returns
+the reply, or an error:
+
 ```badger
 import std.http
 import std.io
 import std.route
-import std.text
 
 type NewNote = { title: String }
 type Note = { id: Int, title: String }
 
-@derive(Error, From)
+@derive(Error, HttpError, From)
 pub enum AppError {
+    @status(404) @message("no note {id}")
+    not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),
 }
@@ -25,47 +29,55 @@ pub enum AppError {
 fn routes() -> List<route.Route> {
     [
         route.get("/health", #health, fn(_request, _params) { http.text(200, "ok") }),
-        route.json_get("/notes/:id", #notes/show, fn(_request, params) -> Result<(Int, Note), String> {
-            ok((200, { id: 1, title: $"note {params["id"]}" }))
+        route.get_json("/notes/:id", #notes/show, fn(p: { id: Int }) -> Result<Note, AppError> {
+            if p.id > 100 { return err(AppError.not_found(p.id)) }
+            ok({ id: p.id, title: $"note {p.id}" })
         }),
-        route.json(#post, "/notes", #notes/create, fn(_request, _params, body: NewNote) -> Result<(Int, Note), String> {
-            ok((201, { id: 2, title: body.title }))
+        route.post_json("/notes", #notes/create, fn(_: {}, body: NewNote) -> Result<Note, AppError> {
+            ok({ id: 2, title: body.title })
         }),
     ]
 }
 
-fn show(r: http.Response) -> String {
-    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
-}
-
 pub fn main() -> Result<Unit, AppError> {
     let handler = route.table(routes())?
-    io.println(show(http.call(handler, http.request(#get, "/health", ""))))?
-    io.println(show(http.call(handler, http.request(#get, "/notes/7", ""))))?
-    io.println(show(http.call(handler, http.request(#post, "/notes", "{\"title\":\"milk\"}"))))?
-    io.println(show(http.call(handler, http.request(#post, "/notes", "{}"))))?
-    io.println(show(http.call(handler, http.request(#get, "/missing", ""))))?
+    io.println($"{http.call_text(handler, #get, "/health", "")}")?
+    io.println($"{http.call_text(handler, #get, "/notes/7", "")}")?
+    io.println($"{http.call_text(handler, #get, "/notes/700", "")}")?
+    io.println($"{http.call_text(handler, #post, "/notes", "{\"title\":\"milk\"}")}")?
+    io.println($"{http.call_text(handler, #post, "/notes", "{}")}")?
+    io.println($"{http.call_text(handler, #get, "/missing", "")}")?
     ok(())
 }
 ```
 
 ```text
-200 ok
-200 {"id":1,"title":"note 7"}
-201 {"id":2,"title":"milk"}
-400 {"error":"route/invalid_body","message":"missing required field","path":"$.title"}
-404 {"error":"route/not_found"}
+(200, "ok")
+(200, "{\"id\":7,\"title\":\"note 7\"}")
+(404, "{\"error\":\"not_found\",\"message\":\"no note 700\"}")
+(201, "{\"id\":2,\"title\":\"milk\"}")
+(400, "{\"error\":\"route/invalid_body\",\"message\":\"missing required field\",\"path\":\"$.title\"}")
+(404, "{\"error\":\"route/not_found\"}")
 ```
 
-`http.call(handler, request)` runs a handler in-process, with no socket.
-Use it in tests.
+`http.call_text(handler, method, path, body)` runs a handler in-process,
+with no socket, and gives the reply's status and body text; use it in
+tests (`http.call(handler, http.request(method, path, body))` gives the
+whole response).
 
 | Route constructor | Handler receives | Notes |
 |---|---|---|
-| `route.get`, `post`, `put`, `delete` | `(request, params)` | Returns `Result<http.Response, E>` |
-| `route.json_get(path, name, f)` | `(request, params)` | Returns `(status, reply)`, encoded as JSON |
-| `route.json(method, path, name, f)` | `(request, params, body)` | The body is decoded and validated first; a failure is a 400 naming the field |
-| `route.typed(method, path, name, f)` | `(request, path_params, body)` | Path parameters decode into a record too |
+| `route.get_json`, `delete_json(path, name, f)` | `(params)` | The reply is sent with 200 |
+| `route.post_json`, `put_json(path, name, f)` | `(params, body)` | The body is decoded and validated first; the reply is sent with 201 (POST) or 200 (PUT) |
+| `route.typed(method, path, name, f)` | `(request, params, body)` | Returns `(status, reply)`: another status, or the request itself |
+| `route.json_get(path, name, f)`, `route.json(method, ...)` | `(request, params map[, body])` | Return `(status, reply)`, encoded as JSON |
+| `route.get`, `post`, `put`, `delete` | `(request, params map)` | Return `Result<http.Response, E>` (a reply that is not JSON) |
+
+The parameter record of `get_json` and its siblings names the path's
+`:name`s (`{}` for none) and may name query parameters too; numbers,
+booleans, and `Option`s are parsed, and an invalid or missing one is a
+400 naming it. The parameter, body, and reply types are part of the
+route's description (and its OpenAPI document).
 
 `route.table(routes)` validates the table (unique names, well-formed
 paths, no two routes matching the same requests) and returns an
@@ -141,46 +153,39 @@ status for the one-off case: `http.status(404, error)`.
 ### Query parameters
 
 A route matches its path; the query string is part of the request, not of
-the path. `route.params(request)` reads it:
+the path. A `get_json` route's parameter fields that the path does not
+bind come from it (an `Option` field may be missing):
 
 ```badger
 import std.http
 import std.io
 import std.route
-import std.text
 
-@derive(Error, From)
+@derive(Error, HttpError, From)
 pub enum AppError {
-    http(source: http.Error),
     route(source: route.RouteError),
     io(source: io.Error),
 }
 
-impl HttpStatus for AppError { }
-
-fn show(r: http.Response) -> String {
-    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
-}
-
 pub fn main() -> Result<Unit, AppError> {
     let handler = route.table([
-        route.get("/search", #search, fn(request, _params) -> Result<http.Response, AppError> {
-            let q = route.params(request).get("q").unwrap_or("")
-            ok(http.json(200, { q: q })?)
+        route.get_json("/search", #search, fn(p: { q: String, page: Option<Int> }) -> Result<{ q: String, page: Int }, AppError> {
+            ok({ q: p.q, page: p.page.unwrap_or(1) })
         }),
     ])?
-    io.println(show(http.call(handler, http.request(#get, "/search?q=dune&page=2", ""))))?
+    io.println($"{http.call_text(handler, #get, "/search?q=dune&page=2", "")}")?
     ok(())
 }
 ```
 
 ```text
-200 {"q":"dune"}
+(200, "{\"page\":2,\"q\":\"dune\"}")
 ```
 
-A path parameter and a query parameter of the same name: the path
-parameter wins. `route.path_of(uri)` and `route.query_of(uri)` split a
-URI into its two parts.
+Elsewhere `route.params(request)` reads the query string as a map. A path
+parameter and a query parameter of the same name: the path parameter
+wins. `route.path_of(uri)` and `route.query_of(uri)` split a URI into its
+two parts.
 
 ### Serve it
 
