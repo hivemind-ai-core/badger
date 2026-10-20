@@ -50,17 +50,20 @@ are correctness-and-scale work, not current throughput wins.
   Go-style channel refactor (`9f1ff4c`, in `main`) fixes all three: their
   checks pass, each comes back as a mutation that puts the old code back,
   and the two repro programs pass.
-- **F4 (open, found by the model of the refactored protocol, 2026-10-20):**
-  a batch receiver woken to *retry* and then cancelled takes its wake with
-  it -- the publication wakes one receiver per message, but the woken
-  receiver takes a message only when it runs, and a cancellation before it
-  runs makes `park()` honour the interrupt and abandon, so the message is
-  stranded. Reproduced on the real runtime
-  (`spec/tla/repro/cancel_after_retry_wake.bdg`: "r2 got 1", "r1 cancelled",
-  then a deadlock with the third receiver waiting). It needs four tasks, so
-  it is outside the three-task bounds the model normally uses, and the §1.2
-  contract has the same gap: the contract must pass a cancelled receiver's
-  wake on to another receiver.
+- **F4 (found by the model of the refactored protocol, 2026-10-20; fixed
+  in `ac3f85c`):** a batch receiver woken to *retry* and then cancelled
+  takes its wake with it -- the publication wakes one receiver per message,
+  but the woken receiver takes a message only when it runs, and a
+  cancellation before it runs makes `park()` honour the interrupt and
+  abandon, so the message is stranded. Reproduced on the real runtime
+  (`spec/tla/repro/cancel_after_retry_wake.bdg`, now deterministic: it
+  prints "stranded 1" before the fix and "taken" after it). It needs four
+  tasks, so it was outside the three-task bounds the model normally uses.
+  The fix: a channel keeps the receivers it woke for a published message
+  and that have not taken it yet; a receiver releases its claim when it
+  takes the message, when it finds none, and when it dies; a released
+  claim is passed on, so a parked receiver is never left asleep with a
+  message waiting.
 - Slice 1, ownership APIs: split `ChanData` into immutable configuration
   and guarded state; stable waiter records independent of `Task`.
 - Slice 2, GC coordination without the runtime lock: collector election,
