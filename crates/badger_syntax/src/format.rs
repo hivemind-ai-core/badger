@@ -17,6 +17,9 @@ pub fn format(src: &str) -> String {
     let mut in_raw_string = false;
     let mut blank_run = 0usize;
     let mut prev_opened = false;
+    // a line ending in an operator (or `=`, `=>`) continues on the next,
+    // which is indented one level past the statement's first line
+    let mut continued: Option<usize> = None;
     let lines: Vec<&str> = src.lines().collect();
     for (li, raw) in lines.iter().enumerate() {
         let line = raw.trim_end();
@@ -34,6 +37,7 @@ pub fn format(src: &str) -> String {
         let trimmed = line.trim_start();
         if trimmed.is_empty() {
             blank_run += 1;
+            continued = None;
             continue;
         }
         // indentation follows the line as it will be written (spacing can
@@ -50,6 +54,11 @@ pub fn format(src: &str) -> String {
         if trimmed.starts_with("|>") {
             indent += 1;
         }
+        if let Some(base) = continued
+            && closes_first == 0
+        {
+            indent = indent.max(base + 1);
+        }
         if blank_run > 0 && !prev_opened && !trimmed.starts_with(['}', ')', ']']) && li > 0 && !out.is_empty()
         {
             out.push('\n');
@@ -63,6 +72,11 @@ pub fn format(src: &str) -> String {
         let before = stack.len();
         scan(trimmed, &mut stack, indent, &mut in_block_comment, &mut in_raw_string);
         prev_opened = stack.len() > before || trimmed.ends_with(['{', '(', '[']);
+        continued = if !in_raw_string && in_block_comment == 0 && ends_continued(trimmed) {
+            Some(continued.unwrap_or(indent))
+        } else {
+            None
+        };
     }
     while out.ends_with("\n\n") {
         out.pop();
@@ -74,6 +88,18 @@ pub fn format(src: &str) -> String {
         out.push('\n');
     }
     out
+}
+
+/// Does a line end in a binary operator, `=`, or `=>` (so the statement
+/// continues on the next line)? A line with a comment is not judged.
+fn ends_continued(line: &str) -> bool {
+    if line.contains("//") || line.contains("/*") || line.contains("*/") || line.contains('"') {
+        return false;
+    }
+    let l = line.trim_end();
+    const OPS: [&str; 16] =
+        ["=>", "==", "!=", "<=", ">=", "&&", "||", "<<", "=", "+", "-", "*", "/", "%", "|", "^"];
+    OPS.iter().any(|op| l.ends_with(op)) && !l.ends_with("->") && !l.ends_with("|>")
 }
 
 /// Count closing brackets at the start of a line (they dedent it).
@@ -162,6 +188,14 @@ mod tests {
             "fn f() {\n    let x = [\n        1,\n        2,\n    ]\n\n    if x {\n        // comment {\n        \"}{\"\n    }\n}\n"
         );
         assert_eq!(format(&once), once);
+    }
+
+    #[test]
+    fn continuation_lines_are_indented() {
+        let src = "fn g(n: Int) -> Int =>\nn * 2\nfn h() -> Int {\n    let t = 1 +\n    2 +\n    3\n    t\n}\n/* a */\nconst k = 1\n";
+        let want = "fn g(n: Int) -> Int =>\n    n * 2\nfn h() -> Int {\n    let t = 1 +\n        2 +\n        3\n    t\n}\n/* a */\nconst k = 1\n";
+        assert_eq!(format(src), want);
+        assert_eq!(format(want), want);
     }
 
     #[test]
