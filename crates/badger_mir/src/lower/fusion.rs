@@ -126,39 +126,11 @@ impl FnLower<'_, '_, '_> {
         module.is_std.then(|| (self.m.def_path(def), args))
     }
 
-    /// The fusion template of a called standard-library definition: from its
-    /// `@fusion(...)` annotation, or the legacy path table (kept while the
-    /// annotations are rolled out) so nothing regresses.
+    /// The fusion template of a called standard-library definition, from its
+    /// `@fusion(...)` annotation. Every standard-library sequence function
+    /// carries one; the recognizer still requires a matching shape.
     fn fusion_template(&self, name: &str) -> Option<FusionTemplate> {
-        if let Some(t) = self.m.fusion.get(name) {
-            return Some(t.clone());
-        }
-        Some(match name {
-            "std.seq.range" => FusionTemplate::new("range", &[]),
-            "std.seq.from_range" => FusionTemplate::new("from_range", &[]),
-            "std.list.of" | "std.list.seq" => FusionTemplate::new("list", &[]),
-            "std.list.map" | "std.list.filter" => FusionTemplate::new("call", &[]),
-            "std.seq.map" | "std.seq.filter" | "std.seq.filter_map" => FusionTemplate::new("call", &[]),
-            "std.seq.take" => FusionTemplate::new("cursor", &[("mode", "take")]),
-            "std.seq.skip" => FusionTemplate::new("cursor", &[("mode", "skip")]),
-            "std.seq.step_by" => FusionTemplate::new("cursor", &[("mode", "step_by")]),
-            "std.seq.scan" => FusionTemplate::new("scan", &[]),
-            "std.seq.enumerate" => FusionTemplate::new("enumerate", &[]),
-            "std.seq.dedup" => FusionTemplate::new("dedup", &[]),
-            "std.seq.distinct" => FusionTemplate::new("distinct", &[]),
-            "std.seq.fold" => FusionTemplate::new("fold", &[]),
-            "std.seq.count" => FusionTemplate::new("accumulate", &[("combine", "count")]),
-            "std.seq.sum" => FusionTemplate::new("accumulate", &[("combine", "add")]),
-            "std.seq.product" => FusionTemplate::new("accumulate", &[("combine", "mul")]),
-            "std.seq.collect" | "std.list.collect" => FusionTemplate::new("collect", &[]),
-            "std.seq.any" => FusionTemplate::new("any", &[]),
-            "std.seq.all" => FusionTemplate::new("all", &[]),
-            "std.seq.find" => FusionTemplate::new("find", &[]),
-            "std.seq.find_map" => FusionTemplate::new("find_map", &[]),
-            "std.seq.first" => FusionTemplate::new("first", &[]),
-            "std.seq.position" => FusionTemplate::new("position", &[]),
-            _ => return None,
-        })
+        self.m.fusion.get(name).cloned()
     }
 
     fn sequence_plan(&self, e: ExprId, depth: usize) -> Option<(Source, Vec<Stage>)> {

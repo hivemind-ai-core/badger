@@ -1,20 +1,21 @@
-// `derive(HttpError)`: each variant's `@status(code)` is its HTTP status,
+// `derive(HttpError)`: each variant's `@http.status(code)` is its HTTP status,
 // the others answer 500; generic enums too.
+import std.http
 import std.io
 
 @derive(Error, HttpError, From)
 pub enum AppError {
-    @status(404)
+    @http.status(404)
     not_found(id: Int),
-    @status(400) invalid(message: String),
-    @status(409)
+    @http.status(400) invalid(message: String),
+    @http.status(409)
     conflict,
     io(source: io.Error),
 }
 
 @derive(HttpError)
 pub enum Wrapped<T> {
-    @status(422)
+    @http.status(422)
     bad(value: T),
 }
 

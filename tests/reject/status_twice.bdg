@@ -1,8 +1,10 @@
 // expect-error: E0193
-// A variant has one `@status`, an HTTP error status (400 to 599).
+// A variant has one `@http.status`, an HTTP error status (400 to 599).
+import std.http
+
 @derive(HttpError)
 pub enum AppError {
-    @status(404) @status(410) gone,
+    @http.status(404) @http.status(410) gone,
     other,
 }
 

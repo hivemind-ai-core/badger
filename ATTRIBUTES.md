@@ -58,7 +58,7 @@ tags, or on the same line):
 | an `impl` method | `@allow(E0197) pub fn norm(self: &Self) -> Int { ... }` |
 | a local (nested) function | `@allow(E0196) fn helper() -> Int { ... }` |
 | a struct field | `@flatten pub id: BookId` (where it applies), `@db.column(name = "px") pub x: Int` |
-| an enum variant | `@status(404) @message("no book {id}") not_found(id: Int)` |
+| an enum variant | `@http.status(404) @message("no book {id}") not_found(id: Int)` |
 | a parameter (functions, methods, lambdas) | `fn f(@allow(E0197) x: Int)` |
 | a statement (a block written as a statement included) | `@allow(E0197) let total = 0` |
 
@@ -75,7 +75,7 @@ error, E0191, otherwise), which also counts as a use of the import. One the
 module does not declare is a warning in user code (an error in
 standard-library sources), so a library newer or older than its user does
 not break the build; one it declares is checked against the declaration
-(E0151; see [User-defined attributes](#user-defined-attributes-design-agreed-2026-10-20-declarations-and-uses-checked)).
+(E0151; see [User-defined attributes](#user-defined-attributes-agreed-2026-10-20-declarations-uses-and-reading-implemented)).
 
 **`@allow(CODE, ...)`** works in every position: it silences that warning
 within what it tags (an item, a method, a field, a variant, a parameter's
@@ -96,10 +96,10 @@ Run-time-readable, user-declared attributes are planned after 1.0 (next
 section); the namespacing rule above is what keeps them from colliding with
 the compiler's own names.
 
-## User-defined attributes (design, agreed 2026-10-20; declarations and uses checked)
+## User-defined attributes (agreed 2026-10-20; declarations, uses, and reading implemented)
 
-**Status:** declarations and uses are checked; the read side does not
-exist yet.
+**Status:** declarations, uses, and reading work; types do not yet carry
+their schema, and entries do not yet carry a file and line.
 
 - A declaration (`attribute NAME on POSITIONS { FIELDS }`) is parsed,
   formatted, and lowered (`DefKind::Attribute`); a bad position, a repeated
@@ -111,14 +111,21 @@ exist yet.
   module is lowered: an attribute its module does not declare is a warning
   in user code (E0191; an error in std); a private one, a position the
   declaration does not list, an unknown or repeated field, a missing
-  non-`Option` field, or a value of the wrong kind is E0151.
-- Not yet: a function's signature against `on fn(SIGNATURE)`, and reading
-  (`NAME.uses`).
-
-A library declares an attribute; other modules annotate with it; only the
-declaring module reads it, at run time, as the list of every use in the
-program — typically from an `init` function (a service's start-up) that
-builds a route table, a schema, or a registry from it.
+  non-`Option` field, or a value of the wrong kind is E0151. An item
+  annotated with a library's attribute counts as used (E0196).
+- Reading: `NAME.uses` in the declaring module is a module-level value,
+  built when the program is lowered and initialized before the module's own
+  values: a `List` of `{ value, target, call }`, one per use in the program
+  (definition order). `value` is the use's fields (an `Option` left out is
+  `none`); `target` is `{ module: String, name: String, kind: Symbol
+  (#fn, #type, #field, #variant, #value), owner: Option<String> }` (the
+  struct or enum of a field or variant); `call` is the annotated function,
+  of the declared `fn(SIGNATURE)` type — an `Option` when the attribute has
+  other positions too. A function of another signature is a type error at
+  its use. Reading the uses from another module, or naming the attribute as
+  a value otherwise, is E0151. The table is an ordinary value, so what it
+  references is kept by reachability like anything else, and it is in saved
+  MIR.
 
 **Declaration.** A new top-level definition, fields as in a struct, after
 `on` the positions it may be written at:
@@ -147,6 +154,9 @@ pub attribute column on field {
 - **One use per item** unless declared `repeatable` (a function serving two
   routes).
 - A name of the compiler's (`allow`, `derive`, ...) cannot be declared.
+- Attributes have a namespace of their own: they are named only after `@`
+  and as `NAME.uses`, so `std.http` declares `attribute status` beside its
+  function `status`.
 
 **Use.** Namespaced by the declaring module, with `key = value` arguments
 (one positional argument when the attribute has exactly one required
@@ -342,7 +352,7 @@ recognised attribute is a row, and the consumer does the work.
 |---|---|---|
 | `@derive(P, …)` | impl synthesis from the type’s shape | generator |
 | `@flatten` | codecs and schemas: a one-field struct is its field (done) | metadata |
-| `@status(code)` (variant) | `derive(HttpError)`: the variant's HTTP status (done) | metadata |
+| `@http.status(code)` (variant) | `derive(HttpError)`: the variant's HTTP status (done) | metadata |
 | `@message("text {field}")` (variant) | `derive(Error)` / `derive(Display)`: the variant's display (done) | metadata |
 | `@move_only` (struct, enum) | ownership: the type's values are moved, never copied (done; E0414) | metadata |
 | `@fusion(role, template)` | sequence/eager fusion templates | metadata |

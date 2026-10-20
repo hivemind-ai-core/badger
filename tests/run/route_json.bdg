@@ -7,8 +7,8 @@ import std.route
 
 @derive(Error, HttpError)
 pub enum E {
-    @status(404) missing(id: Int),
-    @status(400) invalid(message: String),
+    @http.status(404) missing(id: Int),
+    @http.status(400) invalid(message: String),
 }
 
 type Item = { id: Int, name: String }

@@ -60,6 +60,7 @@ extern "intrinsic" fn range_field(r: Range<Int>, i: Int) -> Int
 
 /// The integers of a range (`a..b` or `a..=b`), as a sequence. A range is
 /// used where a `Seq<Int>` is expected through this view.
+@fusion(role = source, template = from_range)
 pub fn from_range(r: Range<Int>) -> Seq<Int, !{}> {
     let (lo, hi, inclusive) = (range_field(r, 0), range_field(r, 1), range_field(r, 2) != 0)
     {
@@ -519,6 +520,7 @@ pub fn count<T, Eff>(items: Seq<T, Eff>) -> Int {
     n
 }
 
+@fusion(role = source, template = range)
 pub fn range(start: Int, end: Int) -> Seq<Int, !{}> {
     {
         start: fn() {
@@ -558,6 +560,7 @@ impl<T, Eff> Seq<T, Eff> {
     pub fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E> !Eff) -> Result<A, E> { try_fold(self, initial, f) }
     pub fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E> !Eff) -> Result<Unit, E> { try_each(self, f) }
     pub fn count(self: &Self) -> Int { count(self) }
+    @fusion(role = terminal, template = collect)
     pub fn collect(self: &Self) -> List<T> { list.collect(self) }
     pub fn group_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Map<K, List<T>> where K: Hash { group_by(self, key) }
     pub fn filter_map<U>(self: &Self, f: fn(T) -> Option<U> !Eff) -> Seq<U, Eff> { filter_map(self, f) }

@@ -193,7 +193,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0151",
         "attribute use",
-        "A use of a library's attribute (`@lib.name(...)`) does not fit its declaration: the attribute is private to its module, it is written at a position the declaration does not list, or its arguments do not give its fields — an unknown field, one given twice, a missing field that is not an `Option`, or a value of the wrong kind (`true`/`false`, an integer, a string, a `#symbol`, or a variant name). Arguments are `field = value`; an attribute with exactly one field that is not an `Option` also takes that value alone (`@db.table(\"books\")`).",
+        "A use of a library's attribute (`@lib.name(...)`) does not fit its declaration: the attribute is private to its module, it is written at a position the declaration does not list, or its arguments do not give its fields — an unknown field, one given twice, a missing field that is not an `Option`, or a value of the wrong kind (`true`/`false`, an integer, a string, a `#symbol`, or a variant name). Arguments are `field = value`; an attribute with exactly one field that is not an `Option` also takes that value alone (`@db.table(\"books\")`). Its uses are read as `NAME.uses`, only in the module declaring it; naming the attribute as a value otherwise is an error too.",
     ),
     (
         "E0200",
@@ -203,7 +203,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0199",
         "misplaced attribute",
-        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@status` and `@message` on an enum variant, `@move_only` (without arguments) on a struct or enum. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
+        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@message` on an enum variant, `@move_only` (without arguments) on a struct or enum. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
     ),
     (
         "E0190",
@@ -220,7 +220,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0204",
         "underivable protocol",
-        "Supported derivations: Eq, Hash, Display, Codec, From, Error, Default (structs; every field's type must implement Default), and HttpError (enums; each variant's `@status(code)`).",
+        "Supported derivations: Eq, Hash, Display, Codec, From, Error, Default (structs; every field's type must implement Default), and HttpError (enums; each variant's `@http.status(code)`).",
     ),
     ("E0205", "inference hole", "`_` is only allowed in private annotations."),
     (
@@ -376,11 +376,15 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "message template",
         "`@message(\"text\")` on an enum variant is that variant's display under `derive(Error)` or `derive(Display)` (the error message): `@message(\"no book {id}\")` interpolates the variant's field `id`, `{{` and `}}` are literal braces. A placeholder that names no field of the variant, or a malformed template, is an error; `@message` on an enum that derives neither is a warning. Variants without one display as `variant: payload`.",
     ),
-    ("E0194", "unknown fusion kind", "A `@fusion(...)` role, kind, or parameter value is not one the compiler knows, or an annotation gives no kind at all."),
+    (
+        "E0194",
+        "unknown fusion kind",
+        "A `@fusion(...)` role, kind, or parameter value is not one the compiler knows, or an annotation gives no kind at all.",
+    ),
     (
         "E0193",
         "misplaced status",
-        "`@status(code)` on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one error code from 400 to 599 (an error otherwise, as is a second `@status`), and a warning when the enum does not derive `HttpError`. Variants without one answer 500. `derive(HttpError)` itself is for an enum (on a struct it is this error).",
+        "`@http.status(code)` (the attribute `std.http` declares) on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one error code from 400 to 599 (an error otherwise, as is a second `@status`), and a warning when the enum does not derive `HttpError`. Variants without one answer 500. `derive(HttpError)` itself is for an enum (on a struct it is this error).",
     ),
     (
         "E0192",

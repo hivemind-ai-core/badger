@@ -636,7 +636,7 @@ dot
 | `Error` | `Display` plus the `Error` protocol (chapter 3); a variant's `@message("no book {id}")` is its display, `{field}` interpolating a field |
 | `From` | (enums) a conversion from each variant's single payload type (chapter 3) |
 | `Default` | (structs) `S.default()`: every field's default (`0`, `0.0`, `false`, `""`, `0s`, an empty collection, `none`, or the field type's own `Default`) |
-| `HttpError` | (enums) `HttpStatus` from each variant's `@status(code)`, 500 for the others (chapter 10) |
+| `HttpError` | (enums) `HttpStatus` from each variant's `@http.status(code)`, 500 for the others (chapter 10) |
 
 - Equality, hashing, and `Codec` encoding are structural and available
   without `derive` whenever every field supports them. Deriving them

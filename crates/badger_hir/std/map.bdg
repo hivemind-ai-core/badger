@@ -291,6 +291,7 @@ impl<K, V> Map<K, V> {
     pub fn remove(self: &Self, key: K) -> Map<K, V> { map_remove(self, key) }
     pub fn keys(self: &Self) -> List<K> { keys(self) }
     pub fn values(self: &Self) -> List<V> { values(self) }
+    @fusion(role = source, template = entries)
     pub fn entries(self: &Self) -> List<(K, V)> { map_entries(self) }
     pub fn get_or(self: &Self, key: K, default: V) -> V { get_or(self, key, default) }
     pub fn update(self: &Self, key: K, f: once fn(Option<V>) -> Option<V>) -> Map<K, V> { update(self, key, f) }

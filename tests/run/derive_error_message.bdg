@@ -6,13 +6,13 @@ import std.io
 
 @derive(Error, HttpError, From)
 pub enum AppError {
-    @status(404) @message("no book {id}")
+    @http.status(404) @message("no book {id}")
     not_found(id: Int),
-    @status(409) @message("a book called {title} by {author} exists")
+    @http.status(409) @message("a book called {title} by {author} exists")
     duplicate(title: String, author: String),
-    @status(400) @message("nothing to do {{yet}}")
+    @http.status(400) @message("nothing to do {{yet}}")
     empty,
-    @status(400)
+    @http.status(400)
     invalid(message: String),
     io(source: io.Error),
 }

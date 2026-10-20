@@ -7,7 +7,7 @@
 //
 //   * Errors: one `AppError` enum. `derive(From)` lets `?` convert every
 //     underlying error; `derive(HttpError)` answers each variant with its
-//     `@status`, and `@message` is its text, so a handler just returns `err`.
+//     `@http.status`, and `@message` is its text, so a handler just returns `err`.
 //
 //   * HTTP: JSON routes with typed path and query parameters
 //     (`route.get_json` and friends), behind a pipeline of stages (an access
@@ -81,7 +81,7 @@ impl Display for BookId {
 pub type Book = { id: BookId, title: String, author: String }
 pub type NewBook = { title: String, author: String }
 
-/// Every way a request can fail. A variant without `@status` is a 500,
+/// Every way a request can fail. A variant without `@http.status` is a 500,
 /// whose details stay in the log.
 @derive(Error, HttpError, From)
 pub enum AppError {
@@ -90,9 +90,9 @@ pub enum AppError {
     route(source: route.RouteError),
     system(source: system.Error),
     io(source: io.Error),
-    @status(400) @message("{message}")
+    @http.status(400) @message("{message}")
     invalid_input(message: String),
-    @status(404) @message("no book {id}")
+    @http.status(404) @message("no book {id}")
     not_found(id: Int),
 }
 
