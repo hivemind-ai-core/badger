@@ -1490,7 +1490,7 @@ fn query_rename_and_unsupported_inputs() {
     assert!(!ok && err.contains("no such file"), "{err}");
     let (ok, _, err) = q(&["bogus", "tests/projects/overlay"]);
     // the parser knows the questions: an unknown one is a usage error
-    assert!(!ok && err.contains("invalid value 'bogus'"), "{err}");
+    assert!(!ok && err.contains("unknown query `bogus`"), "{err}");
     assert!(err.contains("diagnostics, check,"), "{err}");
     // a `let ... else` binding and an or-pattern's binding, renamed from
     // their declarations, change every occurrence
