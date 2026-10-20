@@ -14,8 +14,7 @@ static RAN: [AtomicU64; task::MAX_WORKERS] = [const { AtomicU64::new(0) }; task:
 
 fn entry(adapter: Adapter) -> u64 {
     let desc =
-        TypeDesc::new("scheduler-closure", Kind::Opaque { trace: None, finalize: None, args: vec![] })
-            .leak();
+        TypeDesc::new("scheduler-closure", Kind::Opaque { trace: None, finalize: None, args: vec![] }).leak();
     let w = gc::alloc_immortal(desc, 16);
     unsafe {
         *(gc::obj(w).payload().add(8) as *mut usize) = adapter as usize;
@@ -53,11 +52,7 @@ extern "C" fn main_task(_: *mut TaskCtx, _: u64, _: *const u64) -> u64 {
         let Some(task::Exit::Returned(worker)) = exit else {
             panic!("child {id} did not return");
         };
-        assert!(
-            worker >= 1 && worker as usize <= task::workers(),
-            "child ran on worker {}",
-            worker - 1
-        );
+        assert!(worker >= 1 && worker as usize <= task::workers(), "child ran on worker {}", worker - 1);
         mask |= 1 << (worker - 1);
     }
     mask.count_ones() as u64

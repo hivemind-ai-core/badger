@@ -10,12 +10,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 static CH: AtomicU64 = AtomicU64::new(0);
 /// What the helper tasks saw (`u64::MAX`: nothing yet).
-static GOT: [AtomicU64; 4] = [
-    AtomicU64::new(u64::MAX),
-    AtomicU64::new(u64::MAX),
-    AtomicU64::new(u64::MAX),
-    AtomicU64::new(u64::MAX),
-];
+static GOT: [AtomicU64; 4] =
+    [AtomicU64::new(u64::MAX), AtomicU64::new(u64::MAX), AtomicU64::new(u64::MAX), AtomicU64::new(u64::MAX)];
 static SLOT: AtomicU64 = AtomicU64::new(0);
 
 fn entry(adapter: Adapter) -> u64 {
@@ -182,7 +178,8 @@ fn cancel_after_retry_wake_passes_the_wake_on() {
     for id in ids {
         task::await_task(id, false);
     }
-    let mut got: Vec<u64> = GOT.iter().map(|g| g.load(Ordering::Relaxed)).filter(|v| *v != u64::MAX).collect();
+    let mut got: Vec<u64> =
+        GOT.iter().map(|g| g.load(Ordering::Relaxed)).filter(|v| *v != u64::MAX).collect();
     got.sort_unstable();
     assert_eq!(got, vec![1, 2], "both messages were taken: the cancelled receiver's wake went on");
     assert!(channel::data(ch).batches.is_empty(), "no message was stranded");

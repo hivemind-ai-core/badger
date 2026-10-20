@@ -200,7 +200,9 @@ impl Waiters {
 
     /// Remove every entry of task `id`.
     fn remove_task(&mut self, id: TaskId) {
-        for k in [WaitKind::Recv, WaitKind::Send, WaitKind::WatchRecv, WaitKind::WatchSpace, WaitKind::Capacity] {
+        for k in
+            [WaitKind::Recv, WaitKind::Send, WaitKind::WatchRecv, WaitKind::WatchSpace, WaitKind::Capacity]
+        {
             self.remove(id, k);
         }
     }
@@ -648,7 +650,8 @@ mod fallback {
     pub const WAITER: usize = 1;
     /// No room, nothing to take, closed, or admission not by count alone.
     pub const STATE: usize = 2;
-    pub const NAMES: [&str; 3] = ["channel busy", "a task waits on the channel", "no room, or nothing to take"];
+    pub const NAMES: [&str; 3] =
+        ["channel busy", "a task waits on the channel", "no room, or nothing to take"];
 }
 
 static FALLBACKS: [AtomicU64; 3] = [const { AtomicU64::new(0) }; 3];
@@ -716,7 +719,8 @@ pub fn send_fast(ch: u64, v: u64) -> bool {
             ok = true;
         }
     }
-    let why = (!ok && task::stats_on()).then_some(if unserved > 0 { fallback::WAITER } else { fallback::STATE });
+    let why =
+        (!ok && task::stats_on()).then_some(if unserved > 0 { fallback::WAITER } else { fallback::STATE });
     end_fast(d);
     if let Some(r) = why {
         stat_fallback(r, 0, 0);
@@ -783,7 +787,11 @@ pub fn recv_one_fast(ch: u64) -> Option<u64> {
             d.accepted -= 1;
         }
     }
-    let why = (v.is_none() && task::stats_on()).then_some(if waiting > 0 { fallback::WAITER } else { fallback::STATE });
+    let why = (v.is_none() && task::stats_on()).then_some(if waiting > 0 {
+        fallback::WAITER
+    } else {
+        fallback::STATE
+    });
     end_fast(d);
     if let Some(r) = why {
         stat_fallback(r, 0, 0);
@@ -830,7 +838,11 @@ pub fn recv_fast(ch: u64) -> Option<u64> {
             }
         }
     }
-    let why = (v.is_none() && task::stats_on()).then_some(if watching > 0 { fallback::WAITER } else { fallback::STATE });
+    let why = (v.is_none() && task::stats_on()).then_some(if watching > 0 {
+        fallback::WAITER
+    } else {
+        fallback::STATE
+    });
     end_fast(d);
     if let Some(r) = why {
         stat_fallback(r, 0, 0);

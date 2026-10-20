@@ -92,8 +92,7 @@ fn superopt_func(f: &mut Func) -> usize {
             let mut candidate = canonicalize(rv);
             if let Some(c) = rewrite(rv, &bools, f, &defs, &def_at, b, i) {
                 let ok = smt::accepted(c.rule)
-                    && (!smt::needs_exhaustive(c.rule)
-                        || verify(rv, &c.rv, &defs, &bools, f).is_some());
+                    && (!smt::needs_exhaustive(c.rule) || verify(rv, &c.rv, &defs, &bools, f).is_some());
                 if ok {
                     candidate = canonicalize(&c.rv);
                 }

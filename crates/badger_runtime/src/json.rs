@@ -514,7 +514,7 @@ impl<'a> P<'a> {
                     },
                     _ => return derr("expected a number"),
                 };
-                crate::codec::float_bits(f, *bits).or_else(|m| derr(m))
+                crate::codec::float_bits(f, *bits).or_else(derr)
             }
             Kind::String => match self.peek() {
                 Some(b'"') => self.managed_bytes(crate::desc::builtin::string()),

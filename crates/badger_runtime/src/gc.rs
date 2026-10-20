@@ -449,7 +449,9 @@ impl Pool {
             self.chunks.retain(|chunk| {
                 let empty = (0..chunk.used).all(|i| block_empty(line_map(chunk.block(i))));
                 if empty {
-                    unsafe { dealloc(chunk.base, Layout::from_size_align(chunk.bytes, chunk.align).unwrap()) };
+                    unsafe {
+                        dealloc(chunk.base, Layout::from_size_align(chunk.bytes, chunk.align).unwrap())
+                    };
                     POOL_RESERVED.fetch_sub(chunk.bytes, Ordering::Relaxed);
                     #[cfg(feature = "gc-profile")]
                     allocations::record_pool_event(allocations::PoolEvent::Trim, chunk.bytes);
@@ -1703,13 +1705,20 @@ mod pool_tests {
             }
             for &(q, kept_payload) in &kept {
                 let (a, b) = (p.addr(), q.addr());
-                assert!(a + bytes <= b || b + size_of(kept_payload) <= a, "{a:#x} overlaps a survivor at {b:#x}");
+                assert!(
+                    a + bytes <= b || b + size_of(kept_payload) <= a,
+                    "{a:#x} overlaps a survivor at {b:#x}"
+                );
             }
             again.push((p, payload));
         }
         assert_eq!(pool_reserved_bytes(), reserved, "dead lines are reused before new chunks");
         for &(p, payload) in &kept {
-            assert!(unsafe { std::slice::from_raw_parts(p as *const u8, size_of(payload)) }.iter().all(|&b| b == 0xAB));
+            assert!(
+                unsafe { std::slice::from_raw_parts(p as *const u8, size_of(payload)) }
+                    .iter()
+                    .all(|&b| b == 0xAB)
+            );
         }
         for (p, payload) in again.into_iter().chain(kept) {
             free_cell(p, payload);
@@ -1739,7 +1748,10 @@ mod pool_tests {
         assert!(pool(w).chunks.len() >= 2);
         assert_eq!(pool(w).chunks[1].bytes, refill_bytes());
         let held = cells[0];
-        assert!(held.addr() >= pool(w).chunks[0].base.addr() && held.addr() < pool(w).chunks[0].base.addr() + CHUNK);
+        assert!(
+            held.addr() >= pool(w).chunks[0].base.addr()
+                && held.addr() < pool(w).chunks[0].base.addr() + CHUNK
+        );
         // This raw allocator fixture has not published a managed pointer
         // word, which normally exposes the provenance used by payload().
         let _ = held.expose_provenance();

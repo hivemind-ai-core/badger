@@ -599,7 +599,7 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             let Some(f) = j.as_f64().or_else(|| j.as_str().and_then(special_float)) else {
                 return fail("expected a number");
             };
-            float_bits(f, *bits).or_else(|m| fail(m))
+            float_bits(f, *bits).or_else(fail)
         }
         Kind::String => match j.as_str() {
             Some(s) => Ok(root(new_string(s))),
@@ -820,7 +820,7 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
                 },
                 _ => return fail("expected a number"),
             };
-            float_bits(f, *bits).or_else(|m| fail(m))
+            float_bits(f, *bits).or_else(fail)
         }
         Kind::String => match tag {
             4 => Ok(root(new_string(str_of(fields[0])))),

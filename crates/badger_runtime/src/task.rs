@@ -1618,12 +1618,7 @@ impl LocalQueue {
         let ready = Worker::new_fifo();
         let next = Worker::new_fifo();
         let (ready_stealer, next_stealer) = (ready.stealer(), next.stealer());
-        LocalQueue {
-            ready: UnsafeCell::new(ready),
-            ready_stealer,
-            next: UnsafeCell::new(next),
-            next_stealer,
-        }
+        LocalQueue { ready: UnsafeCell::new(ready), ready_stealer, next: UnsafeCell::new(next), next_stealer }
     }
 
     /// The owner's end of the ready queue (the owning worker only).
@@ -1676,8 +1671,7 @@ impl LocalQueue {
     }
 }
 
-static LOCAL: [LazyLock<LocalQueue>; MAX_WORKERS] =
-    [const { LazyLock::new(LocalQueue::new) }; MAX_WORKERS];
+static LOCAL: [LazyLock<LocalQueue>; MAX_WORKERS] = [const { LazyLock::new(LocalQueue::new) }; MAX_WORKERS];
 
 /// The queue of worker `w`, made when it is first used (on the worker's own
 /// thread, or by a thief looking for work to steal).
@@ -3130,9 +3124,7 @@ fn affinity() -> Vec<usize> {
     if !ok {
         return vec![];
     }
-    (0..libc::CPU_SETSIZE as usize)
-        .filter(|c| unsafe { libc::CPU_ISSET(*c, &set) })
-        .collect()
+    (0..libc::CPU_SETSIZE as usize).filter(|c| unsafe { libc::CPU_ISSET(*c, &set) }).collect()
 }
 
 fn run_main_multi(entry: u64) -> Exit {

@@ -39,7 +39,11 @@ enum Active {
     Map(Operand, Repr),
     Filter(Operand),
     /// The argument and the counter it spends.
-    Cursor { mode: CursorMode, arg: Local, left: Local },
+    Cursor {
+        mode: CursorMode,
+        arg: Local,
+        left: Local,
+    },
     /// The callback and the `Option<U>` it returns.
     FilterMap(Operand, Ty),
     /// The callback, the running accumulator, and its representation.
@@ -473,10 +477,8 @@ impl FnLower<'_, '_, '_> {
         let span = bin(self, BinOp::Sub, end, start);
         let raw = bin(self, BinOp::Add, span, inclusive);
         let out = self.copy_to_local(raw, Repr::I64, None);
-        let negative = self.assign(
-            Repr::I8,
-            Rvalue::Cmp { op: CmpOp::Lt, a: raw, b: int(0), ty: NumTy::I(64, true) },
-        );
+        let negative =
+            self.assign(Repr::I8, Rvalue::Cmp { op: CmpOp::Lt, a: raw, b: int(0), ty: NumTy::I(64, true) });
         let empty = self.block();
         let done = self.block();
         self.term(Term::Branch(negative, empty, done));
@@ -488,9 +490,7 @@ impl FnLower<'_, '_, '_> {
     }
 
     pub(super) fn lower_fused(&mut self, e: ExprId, plan: Plan) -> Option<Operand> {
-        if matches!(plan.terminal, Terminal::Accumulate(Combine::Count))
-            && self.count_is_known(&plan)
-        {
+        if matches!(plan.terminal, Terminal::Accumulate(Combine::Count)) && self.count_is_known(&plan) {
             let (start, end, inclusive, _) = self.lower_source(&plan.source)?;
             return Some(self.clamped_span(start, end, inclusive));
         }
@@ -757,8 +757,7 @@ impl FnLower<'_, '_, '_> {
                     // keep the first of each set of equal items: the map is
                     // the set of items seen so far
                     let unit = badger_typeck::ty::unit();
-                    let bool_ty =
-                        badger_typeck::ty::mk(TyKind::Con(self.m.g.env.b.bool_, vec![]));
+                    let bool_ty = badger_typeck::ty::mk(TyKind::Con(self.m.g.env.b.bool_, vec![]));
                     let seen_before = self.intrinsic(
                         "map_contains",
                         vec![elem.clone(), unit.clone()],
@@ -838,11 +837,8 @@ impl FnLower<'_, '_, '_> {
                 let payload = match plan.terminal {
                     Terminal::Position(_) => {
                         // snapshot before advancing: the local is mutated
-                        let idx = Operand::Local(self.copy_to_local(
-                            Operand::Local(pos.unwrap()),
-                            Repr::I64,
-                            None,
-                        ));
+                        let idx =
+                            Operand::Local(self.copy_to_local(Operand::Local(pos.unwrap()), Repr::I64, None));
                         let inc = self.assign(
                             Repr::I64,
                             Rvalue::Bin {
