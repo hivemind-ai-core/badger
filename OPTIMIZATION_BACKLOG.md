@@ -428,6 +428,31 @@ already in; Phase 2 makes the GC and the runtime symmetric to them.
 
 ### 2.1 QSBR (userspace-RCU) for the per-worker grace period
 
+**Status:** landed 2026-10-20 (`6cd8e06`) as a robustness change, **not** a latency
+win. The handshake is a grace period (`gc_handshake.rs`). A global epoch is odd
+while a collector stops the world. Each worker's slot holds the even epoch it
+observed when it went online, or `OFFLINE` in a quiescent state. The collector
+advances the epoch and reads each slot until the slot has acknowledged the new
+epoch. A stop depth keeps a nested stop and resume from restarting the world.
+That removes two of the dependencies the 1.3 model names, "no nested stop" and
+"balanced slots", and makes the acknowledgement real. Store-then-load, going
+online before unlocking, and publishing a root before going offline are kept.
+The expected 5–10× did not materialize: the wait still ends when the slowest
+worker reaches its next safe point, which no epoch shortens. The epoch changes
+how the wait is tracked, not what it waits for.
+
+Stop-world medians (`gc-profile` `stop_world` phase, interleaved A/B, 15 runs
+per binary, machine at load 26–52 on 16 cores):
+
+- `bench/records.bdg`: 0.9 → 0.3 µs at 4 workers (570 collections, reproduced)
+  and 0.4 → 0.3 µs at 1. The gain comes from reading the live workers' slots
+  instead of all 64 counters, which the old protocol could have had in one line.
+- `bench/parallel_alloc.bdg` at 4 workers: 2.5 → 2.3 ms and 5.4 → 4.3 ms, with
+  quartiles milliseconds apart in both. That is preemption of a running worker,
+  not a credible comparison on this machine.
+
+Stop-world time was already 0.07–0.16 % of GC time, so nothing moves end to end.
+
 - **Goal**: replace the current `STOP: AtomicU8` handshake
   (audit G3) with a userspace-RCU-style QSBR (Quiescent-State-Based
   Reclamation) per-worker epoch + global grace period.
