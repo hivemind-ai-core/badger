@@ -164,7 +164,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                     "message" => {
                         let [AttrArg::Str(template)] = a.args.as_slice() else {
                             self.error(
-                                "E0194",
+                                "E0198",
                                 a.span,
                                 "`@message` takes one string",
                                 "e.g. `@message(\"no book {id}\")`",
@@ -181,7 +181,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                             })
                             .collect();
                         match message_placeholders(template) {
-                            Err(why) => self.error("E0194", a.span, format!("`@message` template: {why}"), "here"),
+                            Err(why) => self.error("E0198", a.span, format!("`@message` template: {why}"), "here"),
                             Ok(names) => {
                                 if let Some(bad) = names.iter().find(|n| !fields.contains(n)) {
                                     let vname = self.interner.resolve(v.name.sym).to_string();
@@ -191,7 +191,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                                         format!("its fields are {}", fields.join(", "))
                                     };
                                     self.error(
-                                        "E0194",
+                                        "E0198",
                                         a.span,
                                         format!("`@message` names `{{{bad}}}`, which is not a field of `{vname}`"),
                                         have,
@@ -201,7 +201,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                                         Diagnostic::warning(
                                             "`@message` has no effect without `derive(Error)` or `derive(Display)`",
                                         )
-                                        .with_code("E0194")
+                                        .with_code("E0198")
                                         .with_label(a.span, "read by the derived display of the enum"),
                                     );
                                 }

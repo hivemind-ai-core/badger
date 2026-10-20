@@ -352,9 +352,14 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "A `let` binding whose value is never read (warning; assigning a `var` is not reading it). Remove it, start its name with `_` (`let _total = ...`), or discard the value with `let _ = ...`.",
     ),
     (
-        "E0194",
+        "E0198",
         "message template",
         "`@message(\"text\")` on an enum variant is that variant's display under `derive(Error)` or `derive(Display)` (the error message): `@message(\"no book {id}\")` interpolates the variant's field `id`, `{{` and `}}` are literal braces. A placeholder that names no field of the variant, or a malformed template, is an error; `@message` on an enum that derives neither is a warning. Variants without one display as `variant: payload`.",
+    ),
+    (
+        "E0194",
+        "unknown fusion kind",
+        "A `@fusion(...)` role or template is not one the compiler knows.",
     ),
     (
         "E0193",

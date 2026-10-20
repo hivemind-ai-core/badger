@@ -52,15 +52,14 @@ pub struct Mono<'g, 'a> {
     fusion: FxHashMap<String, String>,
 }
 
-/// The `@fusion(...)` template of each annotated standard-library item,
-/// keyed by definition path.
+/// The `@fusion(...)` template of each annotated item, keyed by definition
+/// path. Any module may annotate a function (opt-in fusion); the recognizers
+/// still require a matching shape and receiver type, so an unsuited marking
+/// simply does not fuse.
 fn fusion_templates(g: &Global) -> FxHashMap<String, String> {
     let mut out = FxHashMap::default();
     for (def, attrs) in &g.hir.attributes {
         let m = &g.hir.modules[g.hir.defs[*def].module];
-        if !m.is_std {
-            continue;
-        }
         for a in attrs {
             if g.interner.resolve(a.name) != "fusion" {
                 continue;

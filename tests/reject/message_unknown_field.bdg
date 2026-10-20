@@ -1,4 +1,4 @@
-// expect-error: E0194
+// expect-error: E0198
 // A `@message` placeholder names a field of its variant.
 @derive(Error)
 pub enum E {

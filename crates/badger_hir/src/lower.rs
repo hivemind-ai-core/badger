@@ -82,6 +82,19 @@ struct ModScope {
 /// error in standard-library sources and a warning elsewhere.
 const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten"];
 
+/// The closed fusion vocabulary: the values a `@fusion(...)` annotation may
+/// carry. A `stage`'s kind is either named here or derived from the
+/// callback's shape (the `call` kind).
+const FUSION_ROLES: &[&str] = &["source", "stage", "terminal"];
+const FUSION_KINDS: &[&str] = &[
+    // sources
+    "range", "from_range", "list", "entries", //
+    // stages
+    "call", "take", "skip", "step_by", "scan", "enumerate", "dedup", //
+    // terminals
+    "fold", "count", "sum", "collect",
+];
+
 /// Lower all modules into a single HIR. `entry` is the index of the user's
 /// entry module within `modules`.
 pub fn lower_program(
@@ -928,6 +941,33 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     };
                     if let Some(code) = code {
                         self.cx.hir.allows.push((code, item.span));
+                    }
+                }
+            }
+            // `@fusion(role = ..., template = ...)`: a closed vocabulary
+            if name == "fusion" {
+                for arg in &attr.args {
+                    let ast::AttrArg::KeyValue(k, v) = arg else { continue };
+                    let (label, allowed) = match self.cx.interner.resolve(*k) {
+                        "role" => ("role", FUSION_ROLES),
+                        "template" => ("kind", FUSION_KINDS),
+                        _ => continue,
+                    };
+                    let value = match &**v {
+                        ast::AttrArg::Name(s) => self.cx.interner.resolve(*s).to_string(),
+                        ast::AttrArg::Str(s) => s.clone(),
+                        _ => continue,
+                    };
+                    if !allowed.contains(&value.as_str()) {
+                        let msg = format!("unknown fusion {label} `{value}`");
+                        let mut d = Diagnostic::error(msg).with_code("E0194");
+                        if !is_std {
+                            d = Diagnostic::warning(format!("unknown fusion {label} `{value}`"))
+                                .with_code("E0194");
+                        }
+                        self.cx
+                            .diags
+                            .push(d.with_label(attr.span, "not a fusion kind the compiler knows"));
                     }
                 }
             }
