@@ -97,6 +97,10 @@ struct Own<'i, 'g, 'a> {
     /// Where each local is moved: a `Local` expression used by value, or a
     /// closure whose body consumes the capture (the linear check's uses).
     moves: FxHashSet<(ExprId, LocalId)>,
+    /// The generic pass over a definition of an ownership-trusted module
+    /// ([`OWNERSHIP_TRUSTED_MODULES`]): its intrinsics take borrowed values
+    /// by value without consuming them, so only a second use duplicates.
+    trusted: bool,
 }
 
 /// Standard modules whose code is not checked for ownership: they hand
@@ -150,6 +154,7 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         exits: FxHashMap::default(),
         stores_once: false,
         moves: FxHashSet::default(),
+        trusted: false,
     };
     o.stores_once = trusted_std(o.inf, d, TRUSTED_ONCE_STORE);
     for p in params.clone() {
@@ -770,6 +775,7 @@ pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
         exits: FxHashMap::default(),
         stores_once: false,
         moves: FxHashSet::default(),
+        trusted: false,
     };
     for (def, args, span) in calls {
         o.inf.g.dup_done.borrow_mut().insert(def);
@@ -818,6 +824,7 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
             _ => None,
         })
         .collect();
+    let trusted = ownership_trusted(inf, d);
     let saved = std::mem::take(&mut inf.diags);
     let mut o = Own {
         inf,
@@ -840,6 +847,7 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
         exits: FxHashMap::default(),
         stores_once: false,
         moves: FxHashSet::default(),
+        trusted,
     };
     for p in params {
         let mut ls = vec![];
@@ -1915,6 +1923,9 @@ impl Own<'_, '_, '_> {
         self.unread.remove(&l);
         self.check_loans(l, span, mode);
         if mode == Mode::Move && self.borrows_affine(l) {
+            if self.trusted {
+                return;
+            }
             if self.generic
                 && let Some(t) = self.local_ty(l)
             {
