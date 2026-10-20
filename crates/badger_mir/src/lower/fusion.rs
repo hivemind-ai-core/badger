@@ -11,12 +11,20 @@ enum Source {
     List(ExprId, Ty, bool),
     Stored(LocalId),
 }
+/// The positional stages share one shape: a counter that admits some items
+/// and drops the rest. `take` admits while the count lasts, `skip` drops
+/// the first `n`, and `step_by` passes one then drops `n - 1`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CursorMode {
+    Take,
+    Skip,
+    StepBy,
+}
 enum Stage {
     Map(ExprId),
     Filter(ExprId),
-    Take(ExprId),
-    Skip(ExprId),
-    StepBy(ExprId),
+    /// `take`/`skip`/`step_by`: the counter's argument.
+    Cursor(CursorMode, ExprId),
     FilterMap(ExprId),
     /// `f` and the initial accumulator.
     Scan(ExprId, ExprId),
@@ -28,10 +36,8 @@ enum Stage {
 enum Active {
     Map(Operand, Repr),
     Filter(Operand),
-    Take(Local),
-    Skip(Local),
-    /// `n` and the remaining-skip counter (reset to `n - 1` on each pass).
-    StepBy(Local, Local),
+    /// The argument and the counter it spends.
+    Cursor { mode: CursorMode, arg: Local, left: Local },
     /// The callback and the `Option<U>` it returns.
     FilterMap(Operand, Ty),
     /// The callback, the running accumulator, and its representation.
@@ -45,9 +51,7 @@ enum Active {
 enum PreparedStage {
     Map(Operand, Repr),
     Filter(Operand),
-    Take(Operand),
-    Skip(Operand),
-    StepBy(Operand),
+    Cursor(CursorMode, Operand),
     FilterMap(Operand, Ty),
     Scan(Operand, Operand, Repr),
     Enumerate(Ty),
@@ -174,11 +178,12 @@ impl FnLower<'_, '_, '_> {
             }
             ("take" | "skip" | "step_by", [inner, arg]) => {
                 let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
-                stages.push(match template.as_str() {
-                    "take" => Stage::Take(*arg),
-                    "skip" => Stage::Skip(*arg),
-                    _ => Stage::StepBy(*arg),
-                });
+                let mode = match template.as_str() {
+                    "take" => CursorMode::Take,
+                    "skip" => CursorMode::Skip,
+                    _ => CursorMode::StepBy,
+                };
+                stages.push(Stage::Cursor(mode, *arg));
                 Some((source, stages))
             }
             ("call", [inner, arg]) => {
@@ -400,9 +405,7 @@ impl FnLower<'_, '_, '_> {
                     PreparedStage::Map(self.lower(expr)?, ret)
                 }
                 Stage::Filter(expr) => PreparedStage::Filter(self.lower(expr)?),
-                Stage::Take(expr) => PreparedStage::Take(self.lower(expr)?),
-                Stage::Skip(expr) => PreparedStage::Skip(self.lower(expr)?),
-                Stage::StepBy(expr) => PreparedStage::StepBy(self.lower(expr)?),
+                Stage::Cursor(mode, expr) => PreparedStage::Cursor(mode, self.lower(expr)?),
                 Stage::FilterMap(expr) => {
                     let TyKind::Fn(ft) = &*self.ty(expr) else { unreachable!() };
                     // the callback returns `Option<U>`
@@ -490,11 +493,16 @@ impl FnLower<'_, '_, '_> {
             .map(|stage| match stage {
                 PreparedStage::Map(f, ret) => Active::Map(f, ret),
                 PreparedStage::Filter(f) => Active::Filter(f),
-                PreparedStage::Take(n) => Active::Take(self.copy_to_local(n, Repr::I64, None)),
-                PreparedStage::Skip(n) => Active::Skip(self.copy_to_local(n, Repr::I64, None)),
-                PreparedStage::StepBy(n) => {
-                    let n = self.copy_to_local(n, Repr::I64, None);
-                    Active::StepBy(n, self.copy_to_local(int(0), Repr::I64, None))
+                PreparedStage::Cursor(mode, n) => {
+                    let arg = self.copy_to_local(n, Repr::I64, None);
+                    // `step_by` starts having passed nothing and is primed by
+                    // the last stage below; the others spend a count from the
+                    // start.
+                    let left = match mode {
+                        CursorMode::StepBy => self.copy_to_local(int(0), Repr::I64, None),
+                        _ => self.copy_to_local(Operand::Local(arg), Repr::I64, None),
+                    };
+                    Active::Cursor { mode, arg, left }
                 }
                 PreparedStage::FilterMap(f, opt) => Active::FilterMap(f, opt),
                 PreparedStage::Scan(f, initial, ret) => {
@@ -596,7 +604,7 @@ impl FnLower<'_, '_, '_> {
         // An exhausted downstream take stops before requesting another
         // upstream item, including before upstream map/filter side effects.
         for stage in &stages {
-            if let Active::Take(left) = stage {
+            if let Active::Cursor { mode: CursorMode::Take, left, .. } = stage {
                 let empty = cmp(self, CmpOp::Le, Operand::Local(*left), int(0));
                 let more = self.block();
                 self.term(Term::Branch(empty, exit, more));
@@ -645,10 +653,30 @@ impl FnLower<'_, '_, '_> {
                     self.term(Term::Branch(keep, accepted, step));
                     self.switch(accepted);
                 }
-                Active::Take(left) => {
-                    let n = bin(self, BinOp::Sub, Operand::Local(left), int(1));
-                    self.emit(Stmt::Assign(left, Rvalue::Use(n)));
-                }
+                Active::Cursor { mode, arg, left } => match mode {
+                    // `take` admits while the count lasts
+                    CursorMode::Take => {
+                        let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
+                        self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
+                    }
+                    // `skip` and `step_by` drop while the skip lasts
+                    CursorMode::Skip | CursorMode::StepBy => {
+                        let positive = cmp(self, CmpOp::Gt, Operand::Local(left), int(0));
+                        let skipping = self.block();
+                        let passing = self.block();
+                        self.term(Term::Branch(positive, skipping, passing));
+                        self.switch(skipping);
+                        let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
+                        self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
+                        self.term(Term::Goto(step));
+                        self.switch(passing);
+                        if mode == CursorMode::StepBy {
+                            // one passed: drop the rest of the step
+                            let reset = bin(self, BinOp::Sub, Operand::Local(arg), int(1));
+                            self.emit(Stmt::Assign(left, Rvalue::Use(reset)));
+                        }
+                    }
+                },
                 Active::FilterMap(f, opt_ty) => {
                     // `f(x)` is `Option<U>`: pass on `some`, skip `none`
                     let opt = self.call(Callee::Closure(f), vec![value], Repr::Ptr);
@@ -713,32 +741,6 @@ impl FnLower<'_, '_, '_> {
                     self.emit(Stmt::Assign(prev, Rvalue::Use(value)));
                     self.term(Term::Goto(passing));
                     self.switch(passing);
-                }
-                Active::Skip(left) => {
-                    // drop this item while the counter is positive, then pass
-                    let positive = cmp(self, CmpOp::Gt, Operand::Local(left), int(0));
-                    let skipping = self.block();
-                    let passing = self.block();
-                    self.term(Term::Branch(positive, skipping, passing));
-                    self.switch(skipping);
-                    let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
-                    self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
-                    self.term(Term::Goto(step));
-                    self.switch(passing);
-                }
-                Active::StepBy(n, left) => {
-                    // pass one, then skip `n - 1` (a non-positive `n` passes all)
-                    let positive = cmp(self, CmpOp::Gt, Operand::Local(left), int(0));
-                    let skipping = self.block();
-                    let passing = self.block();
-                    self.term(Term::Branch(positive, skipping, passing));
-                    self.switch(skipping);
-                    let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
-                    self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
-                    self.term(Term::Goto(step));
-                    self.switch(passing);
-                    let reset = bin(self, BinOp::Sub, Operand::Local(n), int(1));
-                    self.emit(Stmt::Assign(left, Rvalue::Use(reset)));
                 }
             }
         }
