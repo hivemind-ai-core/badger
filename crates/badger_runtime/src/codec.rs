@@ -702,6 +702,8 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
                 };
                 let value = match lookup(body, &vty, &f.name) {
                     Some(v) => dec(f.desc, v),
+                    // as in a record: an `Option` may be left out
+                    None if omittable(f.desc) => Ok(absent(f.desc)),
                     None => fail("missing required field"),
                 };
                 vals.push(value.map_err(|e| e.field(&vty, &f.name).name(name))?);
@@ -939,6 +941,7 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
                 }
                 let value = match lookup_data(&body_entries, &vty, &f.name) {
                     Some(v) => dec_data(f.desc, v),
+                    None if omittable(f.desc) => Ok(absent(f.desc)),
                     None => fail("missing required field"),
                 };
                 vals.push(value.map_err(|e| e.field(&vty, &f.name).name(&name))?);

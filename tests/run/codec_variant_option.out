@@ -1,0 +1,2 @@
+moved: 3, none true
+{"oneOf":[{"type":"string","enum":["stopped"]},{"type":"object","properties":{"moved":{"type":"object","properties":{"x":{"type":"integer"},"note":{"anyOf":[{"type":"string"},{"type":"null"}]}},"required":["x"]}},"required":["moved"]}]}

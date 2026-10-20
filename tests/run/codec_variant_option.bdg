@@ -1,0 +1,19 @@
+// An `Option` field of an enum variant may be left out, as a record's may:
+// it decodes as `none`, and the schema does not require it.
+import std.codec
+import std.io
+import std.schema
+
+@derive(Codec, Eq, Display)
+pub enum Event {
+    moved(x: Int, note: Option<String>),
+    stopped,
+}
+
+pub fn main() -> Result<Unit, codec.DecodeError> {
+    let e = codec.decode_text<Event>("{\"moved\":{\"x\":3}}")?
+    let d = codec.from_data<Event>(codec.parse_data("{\"moved\":{\"x\":3}}").unwrap_or(Data.null))?
+    let _ = io.println($"{e} {d == e}")
+    let _ = io.println(schema.json_schema(schema.of<Event>()))
+    ok(())
+}

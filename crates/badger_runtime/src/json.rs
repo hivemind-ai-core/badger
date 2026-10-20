@@ -771,6 +771,8 @@ impl<'a> P<'a> {
         for (idx, f) in vfields.iter().enumerate() {
             match present[idx] {
                 Some((v, _)) => vals.push(v),
+                // as in a record: an `Option` may be left out
+                None if crate::codec::omittable(f.desc) => vals.push(crate::codec::absent(f.desc)),
                 None => {
                     return Err(PErr::Dec(
                         DecodeError { path: "$".into(), message: "missing required field".into() }

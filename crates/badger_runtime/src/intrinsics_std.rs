@@ -733,8 +733,13 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
                         )
                     })
                     .collect();
-                let req: Vec<String> =
-                    v.fields.iter().map(|f| json_quote(&crate::codec::wire_name(&vty, &f.name))).collect();
+                // as in a record, an `Option` field may be left out
+                let req: Vec<String> = v
+                    .fields
+                    .iter()
+                    .filter(|f| !crate::codec::omittable(f.desc))
+                    .map(|f| json_quote(&crate::codec::wire_name(&vty, &f.name)))
+                    .collect();
                 let vn = json_quote(&crate::codec::wire_name(&d.name, &v.name));
                 alts.push(format!(
                     "{{\"type\":\"object\",\"properties\":{{{vn}:{{\"type\":\"object\",\"properties\":{{{}}},\"required\":[{}]}}}},\"required\":[{vn}]}}",
