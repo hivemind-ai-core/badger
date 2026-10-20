@@ -564,6 +564,20 @@ typeck work. It builds on the existing `ownership.rs` and
 
 ### 3.1 Region / arena for typeck and AST
 
+**Status:** **the arena is not adopted; the win landed without it**
+(2026-10-20). The type checker never uses the managed heap. Its nodes are
+Rust values (`Rc<TyKind>`, an `la_arena` HIR), and the types escape the check
+by design, into `Checked` and the session's `StdCache`. `ownership.rs`
+analyses the Badger program's bindings, not the compiler's values. Stable
+Rust cannot point `Rc`/`Vec`/`HashMap` at an arena. The malloc traffic was
+real, but most of it was `resolve`/`ty_map` copying unchanged type trees and
+a `Vec` per visited expression. Sharing unchanged subtrees (`090efbc`) halves
+the typecheck allocations: typecheck −16.8 % and `badger check` wall
+−10.4 % over the 610-file corpus, with output identical. What allocation
+still costs is better taken by a process-wide allocator: jemalloc measured
+a further −13 % on typecheck, but that needs the runtime owners' gates. See
+[the report](reports/2026-10-20-typeck-allocation.md).
+
 - **Goal**: add a `bumpalo` / `typed-arena`-style arena for
   short-lived AST nodes during typeck; an `Immix`-style or
   `mimalloc`-style sub-allocator for the GC's bump pool refill
