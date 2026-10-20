@@ -1,0 +1,20 @@
+// A child spawned by a scope's `defer` (which runs as the scope closes)
+// settles before `task.scope` returns: no child outlives its scope.
+import std.io
+import std.task
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+pub fn main() -> Result<Unit, String> {
+    let r = task.scope(fn(s) -> Result<Unit, String> {
+        s.defer(fn() {
+            let _ = s.spawn(fn() {
+                task.sleep(30ms)
+                say("the deferred child finished")
+            })
+        })
+        ok(())
+    })
+    say($"scope returned {r}")
+    ok(())
+}

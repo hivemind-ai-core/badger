@@ -190,6 +190,20 @@ pub fn close(id: u64, cancel: bool) {
             task::current().unwrap().roots.pop();
         }
     }
+    // a child a defer spawned (the scope is open while they run) settles
+    // too before the scope is released: no child outlives its scope
+    let late: Vec<TaskId> = get(id)
+        .map(|s| scopes(|_| s.children.iter().copied().filter(|c| !children.contains(c)).collect()))
+        .unwrap_or_default();
+    if cancel {
+        for &c in &late {
+            task::cancel_with(c, task::CancelReason::ScopeExited);
+        }
+        task::await_cancelled(&late);
+    }
+    for &c in &late {
+        task::await_task(c, cancel);
+    }
     let failure = get(id).and_then(|s| s.failure.take());
     if let Some(r) = get(id).map(|s| s.release) {
         task::remove_cleanup(r);
