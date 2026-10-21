@@ -19,7 +19,10 @@
 //! allocated in the caller, possibly reached through plain copies, with that
 //! lambda's address as its code) are inlined the same way, with the object
 //! as the lambda's environment; if nothing else uses the object, scalar
-//! replacement then removes it. A callee given such a closure as an argument
+//! replacement then removes it. A closure that is a *static* (a function
+//! passed as a value, whose environment is null) is inlined too — the
+//! program records which function its object calls, so no allocation by the
+//! caller is needed. A callee given such a closure as an argument
 //! may be larger (`MAX_HIGHER_ORDER`), so `map`, `filter`, and `fold` become
 //! loops around the lambda's body.
 
@@ -324,6 +327,19 @@ pub fn inline(prog: &mut Program) -> usize {
                                 .get(l)
                                 .filter(|t| **t != id && body(**t, args, *dst, MAX_CALLEE))
                                 .map(|t| (i, *t, *c)),
+                            // A function value is a static closure (a null
+                            // environment with the function's code): the
+                            // program records which function that is, so the
+                            // call can be seen through without the caller
+                            // having allocated it.
+                            Callee::Closure(Operand::Const(Const::Addr(w)))
+                            | Callee::Lambda(_, Operand::Const(Const::Addr(w))) => {
+                                match prog.origins.closures.get(w) {
+                                    Some(&(_, _, t)) if t != id => body(t, args, *dst, MAX_CALLEE)
+                                        .then_some((i, t, Operand::Const(Const::Addr(*w)))),
+                                    _ => None,
+                                }
+                            }
                             _ => None,
                         }
                     }

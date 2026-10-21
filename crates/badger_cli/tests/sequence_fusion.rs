@@ -75,6 +75,31 @@ fn stored_pipeline_is_a_loop_before_dump_and_save() {
 }
 
 #[test]
+fn a_point_free_callback_is_called_directly() {
+    // A function passed by name lowers to a *static* closure (a null
+    // environment with that function's code), which the caller did not
+    // allocate. The program records which function such an object calls, so
+    // the inliner sees through the call and the function is pruned when
+    // nothing else uses it — no `callee: Closure` survives.
+    let dir = std::env::temp_dir().join(format!("badger-pointfree-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("pointfree.bdg");
+    std::fs::write(
+        &source,
+        "import std.list\nimport std.seq\nfn same(x: Int) -> Int { x }\n\
+         fn add(a: Int, x: Int) -> Int { a + x }\n\
+         pub fn main() -> Int {\n    let xs = [1, 2, 3, 4, 5]\n    \
+         let n = xs.seq().map(same).fold(0, add)\n    assert(n == 15)\n    0\n}\n",
+    )
+    .unwrap();
+    let out = lang().args(["run", "--release", "--dump-mir"]).arg(&source).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let mir = String::from_utf8_lossy(&out.stderr);
+    assert!(!mir.contains("callee: Closure"), "{mir}");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn count_of_a_counted_source_skips_the_loop_only_when_skipping_is_unobservable() {
     let dir = std::env::temp_dir().join(format!("badger-count-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
