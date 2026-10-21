@@ -617,9 +617,10 @@ a `Vec` per visited expression. Sharing unchanged subtrees (`090efbc`) halves
 the typecheck allocations (831K -> 386K per check): typecheck -16.8 % and
 `badger check` wall -10.4 % over the 610-file corpus, with output identical.
 What allocation still costs is better taken by a process-wide allocator:
-jemalloc measured a further -13 % on typecheck, but that needs the runtime
-owners' gates. See
-[the report](reports/2026-10-20-typeck-allocation.md).
+jemalloc measured a further -13 % on typecheck. See
+[the report](reports/2026-10-20-typeck-allocation.md). The follow-up landed
+2026-10-21 as an opt-in `jemalloc` feature on the CLI, off by default for its
+peak-RSS cost ([the report](reports/alloc-deadcalls/2026-10-21-global-allocator.md)).
 
 - **Goal**: add a `bumpalo` / `typed-arena`-style arena for
   short-lived AST nodes during typeck; an `Immix`-style or
@@ -1042,7 +1043,9 @@ already removes every removable one. No code changed, so the timing and
 `bench/messages.bdg` gates hold by construction (`BADGER_TIMINGS=2` reports
 typeck binding groups, not MIR pass timings). What would pay instead is
 effect information (a total, effect-free callee with an unused result), not
-lifetimes.
+lifetimes. That follow-up was built and measured (2026-10-21): the population
+of removable dead-result calls is empty, so a purity table is not adopted
+([the report](reports/alloc-deadcalls/2026-10-21-dead-result-calls.md)).
 
 - **Goal**: extend the inliner (`inline.rs:1-349`) and the
   dead-assignment eliminator (`simplify.rs:1-780`) to use the
@@ -1082,6 +1085,7 @@ listed.
 | MIR escape analysis with stack allocation (§3.2) | after `sra`/`enums`/`niche` the hot allocations on every benchmark escape for real (the one in `bench/records` is stored with `Atom.set`); the leftovers run once or cross into the runtime | `reports/2026-10-20-mir-escape-analysis.md` |
 | egg for straight-line MIR regions (§4.2) | with the §4.1 rule set the e-graph finds 2 rewrites `superopt` does not over the corpus (+0.15 %) and none on the benchmarks; the rules are independent strength reductions one pass already applies to their fixpoint | `reports/2026-10-20-egg-straight-line-regions.md` |
 | Lifetime-driven inlining and dead-assignment elimination (§4.4) | the type checker's ownership facts are subsumed by MIR liveness (borrows are erased in the MIR): an oracle of them changes 0 inlining decisions and removes 0 assignments over the corpus; every remaining dead assignment is kept for its effect | `reports/2026-10-20-lifetime-driven-optimisation.md` |
+| Purity-gated dead-call removal (§4.4 follow-up) | every dead-result call the optimiser sees is an effect or *is* the effect (a defect, an error origin, a scope close, a cleanup, a write, a push); the only pure, total callee left in the population occurs 2 times over the corpus | `reports/alloc-deadcalls/2026-10-21-dead-result-calls.md` |
 | Full Tofte-Talpin region inference | whole-program analysis; badger compiles per function | `research/13-type-system-memory-management.md` §9.5 |
 | Hazard Eras | hardware support (TSX-NI) is deprecated on desktop Intel | `research/12-runtime-scaling-extra.md` §13.6 |
 | Flat-combining | the cited gain is on MPSC scenarios where one producer is faster than all consumers combined; badger's slow path is rare (1 of 83 891 declines) | `research/12-runtime-scaling-extra.md` §13.8 |

@@ -271,6 +271,11 @@ cargo test --release -p badger_cli --test programs run_programs   # tests/run (n
   picks the start.
 - **Sanitizers:** ThreadSanitizer and AddressSanitizer builds need nightly
   and the `tsan` / `asan` features: [sanitizers.md](sanitizers.md).
+- **Allocator:** `cargo build --release -p badger_cli --features jemalloc`
+  uses jemalloc as the process's global allocator — −16 % wall / −16 %
+  typecheck over the 722-file check corpus, at +23–88 % peak RSS, so it is
+  off by default:
+  [reports/alloc-deadcalls/2026-10-21-global-allocator.md](../reports/alloc-deadcalls/2026-10-21-global-allocator.md).
 - **Debug switches** (`BADGER_GC_STRESS`, `BADGER_GC_VERIFY`,
   `BADGER_CHAOS`, `BADGER_DUMP_ASM`, `BADGER_TIMINGS`, ...):
   [reference/config.md](reference/config.md#debugging-and-diagnostics).

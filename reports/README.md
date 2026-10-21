@@ -7,6 +7,8 @@ states the revision it measured; newer work can change its numbers.
 
 | Report | What it covers |
 |---|---|
+| [alloc-deadcalls/2026-10-21-global-allocator.md](alloc-deadcalls/2026-10-21-global-allocator.md) | The CLI's opt-in `jemalloc` global allocator (§3.1 follow-up): the paired sweep over the 722-file corpus, and the peak-RSS cost that keeps it off by default |
+| [alloc-deadcalls/2026-10-21-dead-result-calls.md](alloc-deadcalls/2026-10-21-dead-result-calls.md) | Why purity-gated dead-call removal (§4.4 follow-up) is not adopted: every dead-result call the optimiser sees is an effect or *is* the effect |
 | [2026-10-20-egg-straight-line-regions.md](2026-10-20-egg-straight-line-regions.md) | Why egg over straight-line MIR regions (§4.2) is not adopted: with the §4.1 rule set it finds 2 rewrites `superopt` does not; the implementation is in [egg-survey/](egg-survey/) |
 | [2026-10-20-mir-escape-analysis.md](2026-10-20-mir-escape-analysis.md) | Why MIR escape analysis with stack allocation (§3.2) is not adopted: the remaining allocations escape; survey script in [escape-analysis-survey/](escape-analysis-survey/) |
 | [2026-10-19-language-and-compiler-changes.md](2026-10-19-language-and-compiler-changes.md) | Ergonomics backlog for the compiler team: syntax, type system, diagnostics, runtime semantics, incremental build — merge of the ergonomics investigation and the experience report |
