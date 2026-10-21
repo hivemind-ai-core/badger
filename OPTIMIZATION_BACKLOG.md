@@ -344,6 +344,20 @@ TLA+ form. The work is one engineer's; the gate is the existing
 
 ### 1.1 TLA+ model for the per-channel state machine (BACKLOG slice 4)
 
+**Status:** landed 2026-10-20 (`aec138e`, `2a2875a`): the model of the per-channel state
+machine, with the §1.2 contract beside it, a mutation for every property, and the
+model of the F4 fix. All the checks match their expected outcome, and the
+protocol satisfies `NoLostWake`, `RegisteredWhileWaiting`, `ExactlyOnce`,
+`ClaimsHeld` and `EveryBlockedRecvWoken` at four tasks, with a spurious wake, at
+one and at four workers. **The model found three defects in the code**: F1 (a
+value handed to a receiver that is then cancelled is lost, against
+`spec/05-tasks-and-channels.md:141`), F2 (a published batch wakes one receiver
+and strands the rest, against line 113) and F3 (the queue branch of `send` wakes
+the watchers and forgets them). F1 and F2 are spec violations, reproduced on the
+real runtime, and the §1.2 refactor fixes them; F4 -- a batch receiver woken to
+*retry* and then cancelled taking its wake with it -- was found by the model of
+the refactored protocol and is fixed too (`ac3f85c`).
+
 - **Goal**: write a TLA+ / PlusCal spec for the per-channel state
   machine; the spec is the contract that the channel refactor in
   1.2 must satisfy.
@@ -415,6 +429,19 @@ phase without a compare-and-swap).
   unchanged or improved.
 
 ### 1.3 TLA+ model for the GC handshake (audit G3)
+
+**Status:** landed 2026-10-20 (`8a9f2a4`): the model of the stop-the-world handshake,
+rewritten for the QSBR grace period that §2.1 replaced the stop flag with -- the
+epoch, the per-worker slots, the online transition (publish, re-read, back out,
+spin), the collector's slot-by-slot grace period, and the stop depth with a
+nested stop in every collection. `EveryWorkerObservesEpoch`, `RootsPublished`,
+`ScanUnderStop`, `ResumeAfterSweep`, `SlotMatches` (renamed from `CountMatches`,
+whose name the protocol made wrong), `CollectionCompletes` and `SpinnersProceed`
+all hold at 3 workers and 2 collections (60,597 states), and ten mutations catch
+their defects across 15 checks -- every property has at least one mutation that
+breaks it. The model finds no defect in the protocol; the one finding is a
+comment in `stop_the_world` that is false during the online publish-then-recheck
+window (harmless).
 
 - **Goal**: a TLA+ / PlusCal model for the `gc.rs:638-660`
   stop-the-world handshake that uses 0.1's polling-page trap.
