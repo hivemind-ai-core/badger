@@ -304,7 +304,10 @@ fn enc_at(d: &TypeDesc, w: u64, o: &mut String) {
                 crate::value::as_f64(d, w)
             };
             if f.is_finite() {
-                o.push_str(&serde_json::Number::from_f64(f).map(|n| n.to_string()).unwrap_or("null".into()))
+                // the shortest digits that read back exactly, as serde_json
+                // prints a number (it uses the same formatter), without its
+                // `String`
+                o.push_str(zmij::Buffer::new().format_finite(f))
             } else {
                 // JSON has no NaN or infinities: their names, as strings
                 o.push_str(if f.is_nan() {

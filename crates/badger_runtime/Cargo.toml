@@ -17,6 +17,7 @@ serde = "1.0.229"
 serde_json = { version = "1.0.154", features = ["unbounded_depth"] }
 base64 = "0.22.1"
 itoa = "1.0.18"
+zmij = "1.0.23"
 
 [features]
 # Collector diagnostics and policy experiments, absent from normal builds.
