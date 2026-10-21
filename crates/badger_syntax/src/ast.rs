@@ -87,6 +87,9 @@ pub enum ItemKind {
         name: Name,
         generics: Vec<GenericParam>,
         ty: TypeId,
+        /// The attributes on the fields of a record type
+        /// (`type Settings = { @config.env("DB_URL") database: String }`).
+        field_attributes: Vec<(Label, Vec<Attribute>)>,
     },
     Struct(StructDecl),
     Enum(EnumDecl),

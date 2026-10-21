@@ -203,7 +203,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0199",
         "misplaced attribute",
-        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@message` on an enum variant, `@move_only` (without arguments) on a struct or enum. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
+        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@message` on an enum variant, `@move_only` (without arguments) on a struct or enum. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it. Any attribute on a record type's field is misplaced unless the record is the body of a `type` declaration (`pub type Settings = { @config.env(\"DB_URL\") database: String }`), whose field it then is.",
     ),
     (
         "E0190",

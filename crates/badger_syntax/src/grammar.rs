@@ -351,7 +351,12 @@ where
             .then(ty.clone())
             .map(|(m, inner)| Ty::Ref { mutable: m.is_some(), inner: Box::new(inner) });
         let dyn_ty = kw("dyn").ignore_then(path_type.clone()).map(|p| Ty::Dyn(Box::new(p)));
-        let field = label.clone().then_ignore(just(Tok::Colon)).then(ty.clone());
+        let field = attributes
+            .clone()
+            .then(label.clone())
+            .then_ignore(just(Tok::Colon))
+            .then(ty.clone())
+            .map(|((attrs, l), t)| (attrs, l, t));
         let row_rest = just(Tok::DotDot).ignore_then(type_ident.clone());
         let record = just(Tok::LBrace)
             .ignore_then(nls.clone())

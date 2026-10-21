@@ -306,7 +306,8 @@ pub enum Ty<'a> {
     },
     Dyn(Box<T<'a>>),
     Record {
-        fields: Vec<(Label<'a>, T<'a>)>,
+        /// Each field's attributes (read where the record is a `type`'s).
+        fields: Vec<(Vec<Attribute<'a>>, Label<'a>, T<'a>)>,
         rest: Option<Ident<'a>>,
     },
     Effect(Effect<'a>),

@@ -2,8 +2,8 @@
 
 **Status: Phase 1 implemented.** The syntax (lexer, grammar, CST, AST, HIR
 storage) and the unknown-attribute policy are in place. Attributes may be
-written on declarations, methods, local functions, struct fields, enum
-variants, parameters, and statements (see
+written on declarations, methods, local functions, struct fields (and
+the fields of a `type` declaration's record), enum variants, parameters, and statements (see
 [Placement, namespaces, and visibility](#placement-namespaces-and-visibility));
 a library's attributes are namespaced by its module (`@lib.name`).
 The old `derive(...)` form has since been removed (Phase 3): `@derive(...)` is
@@ -58,6 +58,7 @@ tags, or on the same line):
 | an `impl` method | `@allow(E0197) pub fn norm(self: &Self) -> Int { ... }` |
 | a local (nested) function | `@allow(E0196) fn helper() -> Int { ... }` |
 | a struct field | `@flatten pub id: BookId` (where it applies), `@db.column(name = "px") pub x: Int` |
+| a field of a `type` declaration's record | `pub type Settings = { @config.env("DB_URL") database: String }` (a record type written anywhere else names no item: E0199) |
 | an enum variant | `@http.status(404) @message("no book {id}") not_found(id: Int)` |
 | a parameter (functions, methods, lambdas) | `fn f(@allow(E0197) x: Int)` |
 | a statement (a block written as a statement included) | `@allow(E0197) let total = 0` |
@@ -100,7 +101,9 @@ the compiler's own names.
 
 **Status:** implemented: declarations, uses, reading, schemas for
 `on type: Codec`, each use's file and line, and the declarations in
-`badger query api` / `badger doc`. Not yet: `repeatable`.
+`badger query api` / `badger doc`; `on field` covers struct fields and
+the fields of a `type` declaration's record (owner: the type). Not yet:
+`repeatable`.
 
 - A declaration (`attribute NAME on POSITIONS { FIELDS }`) is parsed,
   formatted, and lowered (`DefKind::Attribute`); a bad position, a repeated

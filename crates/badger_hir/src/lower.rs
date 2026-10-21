@@ -104,7 +104,7 @@ impl Place {
             Place::Item("let") => "a module-level value",
             Place::Item(_) => "this declaration",
             Place::Method => "a method",
-            Place::Field => "a struct field",
+            Place::Field => "a field",
             Place::Variant => "an enum variant",
             Place::Param => "a parameter",
             Place::Statement => "a statement",
@@ -436,7 +436,7 @@ impl Cx<'_> {
                     .map(|(p, _)| match p {
                         AttributePosition::Type(_) => "a type",
                         AttributePosition::Fn(_) => "a function",
-                        AttributePosition::Field => "a struct field",
+                        AttributePosition::Field => "a field",
                         AttributePosition::Variant => "an enum variant",
                         AttributePosition::Value => "a module-level value",
                     })
@@ -2010,8 +2010,14 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     .collect();
                 DefKind::Attribute(AttributeDef { positions, fields })
             }
-            ast::ItemKind::TypeAlias { generics, ty, .. } => {
+            ast::ItemKind::TypeAlias { generics, ty, field_attributes, .. } => {
                 let generics = self.push_generics(generics, Some(def));
+                // a record body's field attributes: fields of the type
+                for (label, attrs) in field_attributes {
+                    self.attr_target = Some((def, Some(label.sym)));
+                    self.check_attributes(attrs, Place::Field, label.span);
+                    self.attr_target = None;
+                }
                 let ty = self.lower_ty(*ty);
                 self.generics.pop();
                 DefKind::Alias(AliasDef { generics, ty })
