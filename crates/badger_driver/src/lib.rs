@@ -946,6 +946,18 @@ fn annotate_scopes(
 }
 
 impl Session {
+    /// Print the diagnostics so far (a built program's: warnings) on
+    /// stderr, and forget them.
+    fn flush_warnings(&mut self) {
+        use std::io::IsTerminal;
+        if self.diagnostics.is_empty() {
+            return;
+        }
+        let color = std::io::stderr().is_terminal();
+        let _ = self.diagnostics.render_with(&self.sources, &mut std::io::stderr(), color);
+        self.diagnostics.clear();
+    }
+
     /// Compile with Cranelift and run `main` in-process. Returns the process
     /// exit code.
     pub fn run(&mut self, path: &Path, args: Vec<String>, opts: &RunOptions) -> Result<i32, Outcome> {
@@ -1118,6 +1130,11 @@ impl Session {
             }
         }
         badger_runtime::intrinsics_io::set_args(args);
+        // the build's warnings come before the program's own output, not
+        // after it ends (`--json` reports them with its result)
+        if !opts.json {
+            self.flush_warnings();
+        }
         if opts.tests {
             return Ok(run_tests(&built.compiled, &built.prog, opts));
         }
