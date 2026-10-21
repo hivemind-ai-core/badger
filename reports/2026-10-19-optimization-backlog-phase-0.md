@@ -610,7 +610,9 @@ payload is observable (floats are hashed by their bits ✓, and the binary codec
 writes them bit for bit ✓). The validator refuted four functions of the corpus
 where this happens ✓ (`basics.main`, `basics.area` and two `area`s of
 `dyn_protocol` ✓), at `--opt superopt` only ✓. The fix restricts the operand
-swap to the integers ✓.
+swap to the integers ✓, and the validator confirms it: with the fix, the
+corpus has **zero refutations** ✓ and `superopt basics.main` -- one of the
+four ✓ -- is proven equivalent ✓.
 
 That is the item's whole point in one instance: the rules were "obviously right"
 and were not ✓, and a proof found it ✓.
