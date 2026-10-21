@@ -8,15 +8,40 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+/// One request on its own connection, read to its end (the server keeps
+/// connections alive unless asked not to).
 fn request(port: u16, method: &str, path: &str, body: &str) -> (u16, String) {
     let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
-    let req = format!("{method} {path} HTTP/1.1\r\nhost: x\r\ncontent-length: {}\r\n\r\n{body}", body.len());
+    let req = format!(
+        "{method} {path} HTTP/1.1\r\nhost: x\r\nconnection: close\r\ncontent-length: {}\r\n\r\n{body}",
+        body.len()
+    );
     s.write_all(req.as_bytes()).unwrap();
     let mut out = String::new();
     s.read_to_string(&mut out).unwrap();
     let status = out[9..12].parse().unwrap();
     let body = out.split("\r\n\r\n").nth(1).unwrap_or("").to_string();
     (status, body)
+}
+
+/// The body of one reply on a connection that stays open (its length from
+/// `content-length`).
+fn read_reply(s: &mut TcpStream) -> String {
+    let mut head = Vec::new();
+    let mut byte = [0u8; 1];
+    while !head.ends_with(b"\r\n\r\n") {
+        assert_eq!(s.read(&mut byte).unwrap(), 1, "connection closed: {}", String::from_utf8_lossy(&head));
+        head.push(byte[0]);
+    }
+    let head = String::from_utf8_lossy(&head).to_ascii_lowercase();
+    let len: usize = head
+        .lines()
+        .find_map(|l| l.strip_prefix("content-length:"))
+        .map(|v| v.trim().parse().unwrap())
+        .unwrap_or_else(|| panic!("no content-length: {head}"));
+    let mut body = vec![0u8; len];
+    s.read_exact(&mut body).unwrap();
+    String::from_utf8(body).unwrap()
 }
 
 #[test]
@@ -218,17 +243,29 @@ fn http_limits_and_streaming() {
     assert_eq!(slow.join().unwrap().0, 200);
     // a streamed reply arrives chunked and its source is closed
     let mut s = TcpStream::connect(("127.0.0.1", port + 1)).unwrap();
-    s.write_all(b"GET /s HTTP/1.1\r\nhost: x\r\n\r\n").unwrap();
+    s.write_all(b"GET /s HTTP/1.1\r\nhost: x\r\nconnection: close\r\n\r\n").unwrap();
     let mut out = String::new();
     s.read_to_string(&mut out).unwrap();
     assert!(out.contains("transfer-encoding: chunked"), "{out}");
     assert!(out.contains("chunk 0\n") && out.contains("chunk 2\n") && out.ends_with("0\r\n\r\n"), "{out}");
     // a request-scoped handler streams inside its scope
     let mut s = TcpStream::connect(("127.0.0.1", port + 2)).unwrap();
-    s.write_all(b"GET /s HTTP/1.1\r\nhost: x\r\n\r\n").unwrap();
+    s.write_all(b"GET /s HTTP/1.1\r\nhost: x\r\nconnection: close\r\n\r\n").unwrap();
     let mut out = String::new();
     s.read_to_string(&mut out).unwrap();
     assert!(out.contains("chunk 0\n") && out.contains("chunk 1\n") && out.ends_with("0\r\n\r\n"), "{out}");
+    // requests one after another on a kept-alive connection, then one
+    // asking to close it
+    let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    for body in ["one", "three"] {
+        let req = format!("POST /echo HTTP/1.1\r\nhost: x\r\ncontent-length: {}\r\n\r\n{body}", body.len());
+        s.write_all(req.as_bytes()).unwrap();
+        assert_eq!(read_reply(&mut s), format!(r#"{{"path":"/echo","size":{}}}"#, body.len()));
+    }
+    s.write_all(b"GET /echo HTTP/1.1\r\nhost: x\r\nconnection: close\r\n\r\n").unwrap();
+    let mut out = String::new();
+    s.read_to_string(&mut out).unwrap();
+    assert!(out.ends_with(r#"{"path":"/echo","size":0}"#), "{out}");
     let output = child.output();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("stream closed after 3 chunks"), "{stdout}");
@@ -265,7 +302,7 @@ fn stream_backpressure() {
     };
     // connect with a small receive buffer and stop reading
     let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
-    s.write_all(b"GET /s HTTP/1.1\r\nhost: x\r\n\r\n").unwrap();
+    s.write_all(b"GET /s HTTP/1.1\r\nhost: x\r\nconnection: close\r\n\r\n").unwrap();
     std::thread::sleep(Duration::from_millis(1500));
     let stalled = produced();
     std::thread::sleep(Duration::from_millis(500));
