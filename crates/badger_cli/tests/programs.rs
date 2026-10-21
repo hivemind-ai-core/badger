@@ -372,6 +372,53 @@ fn attribute_values_locations_and_schemas() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// `on fn via ADAPTER`: functions of different shapes registered through
+/// one generic adapter, each use's entry what it builds (`built`); the
+/// adapter counts as used. A function the adapter cannot take is a type
+/// error at the use; an adapter whose result names its own type
+/// parameters, or one the module does not have, is E0150.
+#[test]
+fn attribute_adapters_build_each_use() {
+    let dir = std::env::temp_dir().join(format!("badger-attr-via-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("badger.toml"), "[package]\nname = \"via\"\nentry = \"src/main.bdg\"\n").unwrap();
+    let web = "// A tiny typed router: handlers of different shapes register with `@web.get`.\nimport std.codec\n\npub type Route = { path: String, name: String, run: fn(String) -> String }\n\n/// A JSON GET route: the handler's input decodes from the request text,\n/// its output encodes to the reply.\npub attribute get on fn via get_route { path: String }\n\nfn get_route<P, R>(f: fn(P) -> R, given: { path: String }, target: { module: String, name: String, kind: Symbol, owner: Option<String>, file: String, line: Int }) -> Route where P: Codec, R: Codec {\n    {\n        path: given.path,\n        name: $\"{target.module}.{target.name}\",\n        run: fn(input: String) -> String {\n            match codec.decode_text<P>(input) {\n                .ok(p) => codec.encode_text(f(p)),\n                .err(e) => $\"400 {e.path}\",\n            }\n        },\n    }\n}\n\npub fn routes() -> List<Route> { get.uses.map(fn(u) => u.built) }\n\npub fn call(path: String, input: String) -> String {\n    match routes().find(fn(r) => r.path == path) {\n        .some(r) => r.run(input),\n        .none => \"404\",\n    }\n}\n";
+    let main = "import std.io\nimport web\n\n@web.get(\"/double\")\npub fn double(n: Int) -> Int { n * 2 }\n\n@web.get(\"/greet\")\npub fn greet(p: { name: String }) -> { text: String } { { text: $\"hello {p.name}\" } }\n\npub fn main() -> Result<Unit, io.Error> {\n    for r in web.routes() {\n        io.println($\"{r.path} {r.name}\")?\n    }\n    io.println(web.call(\"/double\", \"21\"))?\n    io.println(web.call(\"/greet\", \"{\\\"name\\\": \\\"Ada\\\"}\"))?\n    io.println(web.call(\"/greet\", \"{}\"))?\n    io.println(web.call(\"/nope\", \"\"))?\n    ok(())\n}\n";
+    std::fs::write(dir.join("src/web.bdg"), web).unwrap();
+    std::fs::write(dir.join("src/main.bdg"), main).unwrap();
+    let run = lang().arg("run").arg(&dir).output().unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&run.stdout),
+        "/double main.double\n/greet main.greet\n42\n{\"text\":\"hello Ada\"}\n400 $.name\n404\n"
+    );
+    assert!(run.stderr.is_empty(), "{}", String::from_utf8_lossy(&run.stderr));
+    let check = |web: &str, main: &str| {
+        std::fs::write(dir.join("src/web.bdg"), web).unwrap();
+        std::fs::write(dir.join("src/main.bdg"), main).unwrap();
+        let out = lang().args(["check", "--json"]).arg(&dir).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    let shape = check(
+        web,
+        "import std.io\nimport web\n\n@web.get(\"/two\")\npub fn two(a: Int, b: Int) -> Int { a + b }\n\npub fn main() -> Result<Unit, io.Error> { io.println(web.call(\"/two\", \"1\")) }\n",
+    );
+    assert!(
+        shape.contains("\"code\":\"E0305\"") && shape.contains("expected 1 parameters, found 2"),
+        "{shape}"
+    );
+    let generic = check(
+        "pub attribute get on fn via adapt { path: String }\n\nfn adapt<P, R>(f: fn(P) -> R, given: { path: String }, target: { module: String, name: String, kind: Symbol, owner: Option<String>, file: String, line: Int }) -> fn(P) -> R { f }\n\npub fn n() -> Int { get.uses.len() }\n",
+        main,
+    );
+    assert!(generic.contains("returns a type of its own type parameters"), "{generic}");
+    let missing = check(
+        "pub attribute get on fn via nowhere { path: String }\n\npub fn n() -> Int { get.uses.len() }\n",
+        main,
+    );
+    assert!(missing.contains("no function `nowhere` in this module"), "{missing}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn attribute_allow_silences_warnings() {
     let dir = std::env::temp_dir().join(format!("badger-allow-{}", std::process::id()));

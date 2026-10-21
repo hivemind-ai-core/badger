@@ -32,6 +32,9 @@ pub enum AttrPosition<'a> {
     Type(Option<T<'a>>),
     /// A top-level function of this signature (a function type).
     Fn(T<'a>),
+    /// A top-level function of any shape the adapter takes
+    /// (`fn via get_route`): each use is the adapter applied to it.
+    FnVia(Ident<'a>),
     /// A field (of a struct or a `type`'s record), of a protocol its
     /// owner must implement (`field: Codec`).
     Field(Option<T<'a>>),

@@ -630,6 +630,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                             cst::AttrPosition::Field(p) => AttrPosition::Field(p.map(|t| self.ty(t))),
                             cst::AttrPosition::Variant => AttrPosition::Variant,
                             cst::AttrPosition::Value => AttrPosition::Value,
+                            cst::AttrPosition::FnVia(a) => AttrPosition::FnVia(self.value_name(a)),
                             cst::AttrPosition::Fn(t) => {
                                 let t = self.ty(t);
                                 if !matches!(self.ast.types[t].kind, TypeKind::Fn { .. }) {

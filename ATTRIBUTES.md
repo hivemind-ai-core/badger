@@ -207,6 +207,22 @@ annotating a particular function or type has no point:
 
 - `on fn(SIGNATURE)`: each use carries the function as a value of that type
   (`use.call`); annotating a function of another signature is an error.
+- `on fn via ADAPTER`: functions of any shape the adapter takes. The
+  adapter is a function of the declaring module taking the annotated
+  function, the use's fields, and its target; each use's entry carries
+  what it returns (`use.built`, one type for every use, so it names none
+  of the adapter's type parameters). The adapter's parameter types and
+  bounds are the shape check: a function it cannot take is a type error at
+  the use. A typed router is one adapter:
+
+  ```text
+  pub attribute get on fn via get_route { path: String }
+
+  fn get_route<P, R>(f: fn(P) -> R, given: { path: String }, target: { ... }) -> Route
+      where P: Codec, R: Codec { ... decode P, call f, encode R ... }
+
+  pub fn routes() -> List<Route> { get.uses.map(fn(u) => u.built) }
+  ```
 - `on type: Codec`: each use carries the type's schema (`use.schema`, as
   `schema<T>().describe()` gives); a plain `on type` carries the target
   only.
@@ -220,6 +236,48 @@ is lowered, stored with the type descriptors (where `@display` already
 lives) and in saved MIR, and must keep what it references alive — the
 reachability pass may not prune a function or type that only an attribute
 table reaches.
+
+## Proposed: attribute routes wired by systems (design, not implemented)
+
+Proposed 2026-10-21, waiting on the std/stdx split. The principle:
+lifecycle and dependency injection are what systems are for, so
+attribute-registered handlers get their dependencies from a system plan
+rather than from a service locator or type-level machinery.
+
+```text
+// a handler names the nodes it needs; the rest of its parameters are
+// the request's (decoded by the library's `via` adapter)
+@http.get("/tasks/:id")
+fn show(@system.node tasks: model.Tasks, p: { id: Int }) -> Result<model.Task, model.Error> { ... }
+
+let plan = system {
+    store: memory.store({ first_id: 1 }),
+    tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+    api: http.routes_of(web),     // every @http route in `web`, wired here
+    server: http.server({ ..., handler: ref(#api) }),
+}
+```
+
+- **Expansion at the plan.** `system { }` is compiler-native, and its
+  nodes are a typed row (`Running<S, Os>`). `routes_of(MODULE)` names a
+  module's uses, which the compiler knows statically, so it expands into
+  an ordinary provider whose config is `{ tasks: ref(#tasks), ... }`, one
+  `ref` per `@system.node` parameter. Each route is the library's adapter
+  applied to the handler with those nodes applied first. A missing node is
+  the system's existing error, a mismatched type an ordinary type error,
+  and start order and shutdown are the system's.
+- **What it keeps.** A test plan with `store: memory.store(...)` gets the
+  same routes wired to its own nodes; two plans give two independently
+  wired route sets; `routes_of` selects by module (each entry's
+  `target.module` already records where it was written).
+- **Built on `via`.** The adapter takes the handler with its node
+  parameters already applied, so a library declares routes as
+  `on fn via route_adapter` plus the system hook.
+- **Open.** Wiring is by node name (`@system.node tasks` is node `#tasks`;
+  `@system.node(#store)` names it explicitly). `routes_of` is a
+  compiler-known plan entry, one more piece of system support. Interceptors
+  (stages) attach the same way: `routes_of(web, around: [access_log()])`,
+  or a `@pipeline.stage(...)` on the handler.
 
 ## Semantics, by phase
 

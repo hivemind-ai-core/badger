@@ -267,6 +267,10 @@ pub enum AttributePosition {
     Type(Option<HTy>),
     /// A top-level function of this signature.
     Fn(HTy),
+    /// A top-level function of any shape this adapter (a function of the
+    /// declaring module) takes: each use's entry is the adapter applied to
+    /// the function, the use's fields, and its target (`built`).
+    FnVia(DefId),
     /// A field; `Some` of the protocol its owner must implement
     /// (`field: Codec`).
     Field(Option<HTy>),

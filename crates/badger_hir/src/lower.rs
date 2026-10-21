@@ -130,6 +130,19 @@ struct ValidUse {
     place: Place,
 }
 
+/// Whether a type names a type parameter (an adapter's result must not).
+fn mentions_generic(t: &HTy) -> bool {
+    match &t.kind {
+        HTyKind::Generic(_) => true,
+        HTyKind::Named { args, .. } => args.iter().any(mentions_generic),
+        HTyKind::Tuple(ts) => ts.iter().any(mentions_generic),
+        HTyKind::Record { fields, rest } => rest.is_some() || fields.iter().any(|(_, t)| mentions_generic(t)),
+        HTyKind::Fn { params, ret, .. } => params.iter().any(mentions_generic) || mentions_generic(ret),
+        HTyKind::Ref { inner, .. } => mentions_generic(inner),
+        _ => false,
+    }
+}
+
 /// Where each of the compiler's attributes may be written (`allow`
 /// anywhere).
 fn attribute_fits(name: &str, place: Place) -> bool {
@@ -288,6 +301,41 @@ impl Cx<'_> {
                 }
             }
         }
+        // `fn via ADAPTER`: a function taking the annotated function, the
+        // use's fields, and its target, whose result type is one type for
+        // every use (it names none of the adapter's own type parameters)
+        let mut adapters = vec![];
+        for (_, def) in self.hir.defs.iter() {
+            let DefKind::Attribute(a) = &def.kind else { continue };
+            for (p, span) in &a.positions {
+                let AttributePosition::FnVia(adapter) = p else { continue };
+                let why = match &self.hir.defs[*adapter].kind {
+                    DefKind::Fn(f) if f.params.len() != 3 => Some(format!(
+                        "takes {} parameter(s); an adapter takes the function, the use's fields, and its target",
+                        f.params.len()
+                    )),
+                    DefKind::Fn(f) => match &f.ret {
+                        Some(r) if mentions_generic(r) => {
+                            Some("returns a type of its own type parameters; every use's result must have one type".into())
+                        }
+                        None => Some("returns nothing".into()),
+                        _ => None,
+                    },
+                    _ => Some("is not a function".into()),
+                };
+                if let Some(why) = why {
+                    adapters.push((*span, self.sym(self.hir.defs[*adapter].name).to_string(), why));
+                }
+            }
+        }
+        for (span, name, why) in adapters {
+            self.err(
+                "E0150",
+                span,
+                format!("the adapter `{name}` {why}"),
+                "`fn get_route<P, R, E>(f: fn(P) -> Result<R, E>, given: { path: String }, target: { ... }) -> route.Route`",
+            );
+        }
         for (span, name) in bad {
             self.err(
                 "E0150",
@@ -408,7 +456,7 @@ impl Cx<'_> {
             // the position
             let fits = decl.positions.iter().any(|(p, _)| match (p, u.place) {
                 (AttributePosition::Type(_), Place::Item("struct" | "enum" | "type")) => true,
-                (AttributePosition::Fn(_), Place::Item("fn")) => true,
+                (AttributePosition::Fn(_) | AttributePosition::FnVia(_), Place::Item("fn")) => true,
                 (AttributePosition::Field(_), Place::Field) => true,
                 (AttributePosition::Variant, Place::Variant) => true,
                 (AttributePosition::Value, Place::Item("let")) => true,
@@ -420,7 +468,7 @@ impl Cx<'_> {
                     .iter()
                     .map(|(p, _)| match p {
                         AttributePosition::Type(_) => "a type",
-                        AttributePosition::Fn(_) => "a function",
+                        AttributePosition::Fn(_) | AttributePosition::FnVia(_) => "a function",
                         AttributePosition::Field(_) => "a field",
                         AttributePosition::Variant => "an enum variant",
                         AttributePosition::Value => "a module-level value",
@@ -616,6 +664,17 @@ impl Cx<'_> {
             _ => None,
         });
         let only_fns = sig.is_some() && decl.positions.len() == 1;
+        // `fn via ADAPTER`: each function's entry carries what the adapter
+        // builds from it (`built`), an `Option` when there are other positions
+        let via = decl.positions.iter().find_map(|(p, _)| match p {
+            AttributePosition::FnVia(a) => Some(*a),
+            _ => None,
+        });
+        let built_ty = via.and_then(|a| match &self.hir.defs[a].kind {
+            DefKind::Fn(f) => f.ret.clone(),
+            _ => None,
+        });
+        let only_via = via.is_some() && decl.positions.len() == 1;
         // `on type: Codec` / `on field: Codec`: each use carries the
         // (owning) type's schema, an `Option` unless every position does
         let codec = |p: &AttributePosition| {
@@ -654,6 +713,10 @@ impl Cx<'_> {
         if let Some(sig) = &sig {
             let call_ty = if only_fns { sig.clone() } else { self.lang_ty("Option", vec![sig.clone()], at) };
             entry_fields.push((self.interner.intern("call"), call_ty));
+        }
+        if let Some(t) = &built_ty {
+            let ty = if only_via { t.clone() } else { self.lang_ty("Option", vec![t.clone()], at) };
+            entry_fields.push((self.interner.intern("built"), ty));
         }
         if codec_types {
             let schema_ty =
@@ -803,9 +866,50 @@ impl Cx<'_> {
                 };
                 entry.push((self.interner.intern("schema"), span, schema));
             }
-            entries.push(
-                self.hir.exprs.alloc(Expr { kind: ExprKind::Record { spread: None, fields: entry }, span }),
-            );
+            let mut stmts = vec![];
+            if built_ty.is_some() {
+                let built = match via {
+                    // `{ let value = ...; let target = ...; { value, target, built: ADAPTER(f, value, target) } }`
+                    Some(adapter) if place == Place::Item("fn") => {
+                        let mut reads = vec![];
+                        for slot in 0..2 {
+                            let local = self.hir.locals.alloc(Local {
+                                name: entry[slot].0,
+                                span,
+                                mutable: false,
+                                owner: Some(Owner::Global(table)),
+                            });
+                            let pat = self.hir.pats.alloc(Pat { kind: PatKind::Bind(local), span });
+                            let init = entry[slot].2;
+                            stmts.push(Stmt::Let { pat, ty: None, init, span });
+                            entry[slot].2 = self.hir.exprs.alloc(Expr { kind: ExprKind::Local(local), span });
+                            reads.push(self.hir.exprs.alloc(Expr { kind: ExprKind::Local(local), span }));
+                        }
+                        let f = self
+                            .hir
+                            .exprs
+                            .alloc(Expr { kind: ExprKind::Def { def: item, type_args: vec![] }, span });
+                        let callee = self
+                            .hir
+                            .exprs
+                            .alloc(Expr { kind: ExprKind::Def { def: adapter, type_args: vec![] }, span });
+                        let call = self.hir.exprs.alloc(Expr {
+                            kind: ExprKind::Call { callee, args: vec![f, reads[0], reads[1]] },
+                            span,
+                        });
+                        if only_via { call } else { self.some_expr(call, span) }
+                    }
+                    _ => self.none_expr(span),
+                };
+                entry.push((self.interner.intern("built"), span, built));
+            }
+            let record =
+                self.hir.exprs.alloc(Expr { kind: ExprKind::Record { spread: None, fields: entry }, span });
+            entries.push(if stmts.is_empty() {
+                record
+            } else {
+                self.hir.exprs.alloc(Expr { kind: ExprKind::Block { stmts, tail: Some(record) }, span })
+            });
         }
         let list = self.hir.exprs.alloc(Expr { kind: ExprKind::List(entries), span: at });
         // the value: `let NAME.uses: List<...> = [...]`, initialized before
@@ -922,7 +1026,16 @@ impl Cx<'_> {
             .filter(|d| d.severity == badger_base::Severity::Error)
             .filter_map(|d| d.primary().map(|s| s.file))
             .collect();
-        let registered: FxHashSet<DefId> = self.attr_valid.iter().map(|u| u.target.0).collect();
+        let mut registered: FxHashSet<DefId> = self.attr_valid.iter().map(|u| u.target.0).collect();
+        // an attribute's adapter (`fn via get_route`) is used by its uses
+        for (_, def) in self.hir.defs.iter() {
+            if let DefKind::Attribute(a) = &def.kind {
+                registered.extend(a.positions.iter().filter_map(|(p, _)| match p {
+                    AttributePosition::FnVia(d) => Some(*d),
+                    _ => None,
+                }));
+            }
+        }
         let mut files = FxHashSet::default();
         for (mi, m) in modules.iter().enumerate() {
             if !checked(m) {
@@ -1981,6 +2094,24 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                             AttributePosition::Type(p)
                         }
                         ast::AttrPosition::Fn(t) => AttributePosition::Fn(self.lower_ty(*t)),
+                        // the adapter: a function of this module (its shape is
+                        // checked once every module is lowered)
+                        ast::AttrPosition::FnVia(n) => {
+                            let module = self.cx.hir.defs[def].module;
+                            match self.cx.hir.modules[module].items.get(&n.sym) {
+                                Some(adapter) => AttributePosition::FnVia(*adapter),
+                                None => {
+                                    let name = self.sym(n.sym).to_string();
+                                    self.err(
+                                        "E0150",
+                                        n.span,
+                                        format!("no function `{name}` in this module to adapt the uses"),
+                                        "`via` names a function of the declaring module: `fn get_route<P, R, E>(f: fn(P) -> Result<R, E>, given: { ... }, target: { ... }) -> Route`",
+                                    );
+                                    continue;
+                                }
+                            }
+                        }
                         ast::AttrPosition::Field(p) => {
                             let p = p.map(|t| self.lower_ty(t));
                             // the protocol a field's owner offers: `Codec`
@@ -1999,8 +2130,13 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         ast::AttrPosition::Variant => AttributePosition::Variant,
                         ast::AttrPosition::Value => AttributePosition::Value,
                     };
-                    let same =
-                        |q: &AttributePosition| std::mem::discriminant(q) == std::mem::discriminant(&p);
+                    // (one function position: a signature or an adapter)
+                    let fun = |q: &AttributePosition| {
+                        matches!(q, AttributePosition::Fn(_) | AttributePosition::FnVia(_))
+                    };
+                    let same = |q: &AttributePosition| {
+                        std::mem::discriminant(q) == std::mem::discriminant(&p) || (fun(q) && fun(&p))
+                    };
                     if positions.iter().any(|(q, _)| same(q)) {
                         self.err("E0150", *span, "this position is listed twice", "remove one");
                         continue;

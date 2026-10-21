@@ -149,6 +149,9 @@ pub enum AttrPosition {
     Type(Option<TypeId>),
     /// A top-level function of this signature (a function type).
     Fn(TypeId),
+    /// A top-level function of any shape the named adapter takes
+    /// (`fn via get_route`).
+    FnVia(Name),
     /// A field, of a protocol its owner must implement (`field: Codec`).
     Field(Option<TypeId>),
     Variant,

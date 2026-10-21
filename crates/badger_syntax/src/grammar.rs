@@ -1342,11 +1342,15 @@ where
         kw("field").ignore_then(just(Tok::Colon).ignore_then(ty.clone()).or_not()).map(AttrPosition::Field),
         kw("variant").to(AttrPosition::Variant),
         kw("value").to(AttrPosition::Value),
+        // `fn via ADAPTER`: functions of the shapes the adapter takes
+        kw("fn").ignore_then(kw("via")).ignore_then(value_ident.clone()).map(AttrPosition::FnVia),
         // a function position names the signature the functions have
         choice((kw("fn"), kw("once"))).rewind().ignore_then(ty.clone()).map(AttrPosition::Fn),
     ))
     .map_with(|p, e| (p, e.span()))
-    .labelled("an attribute position (`type`, `fn(...) -> ...`, `field`, `variant`, or `value`)");
+    .labelled(
+        "an attribute position (`type`, `fn(...) -> ...`, `fn via ADAPTER`, `field`, `variant`, or `value`)",
+    );
     let attribute_decl = is_pub
         .clone()
         .then_ignore(kw("attribute"))
