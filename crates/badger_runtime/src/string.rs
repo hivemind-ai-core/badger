@@ -27,6 +27,32 @@ pub fn new_bytes(b: &[u8]) -> u64 {
     alloc_bytes(builtin::bytes(), b)
 }
 
+/// One object of `desc` (a string or byte string) holding `parts` in order,
+/// `sep` between them: sized from the parts' lengths and filled in place, so
+/// the bytes are copied once (no intermediate buffer). The parts and the
+/// separator must stay rooted across the allocation (the collector does not
+/// move objects, so their bytes stay where they are).
+pub fn alloc_joined(desc: &'static crate::desc::TypeDesc, parts: &[u64], sep: &[u8]) -> u64 {
+    let total = parts.iter().map(|&w| bytes_of(w).len()).sum::<usize>()
+        + sep.len() * parts.len().saturating_sub(1);
+    let w = gc::alloc(desc, 8 + total);
+    unsafe {
+        let p = obj(w).payload();
+        *(p as *mut u64) = total as u64;
+        let mut at = p.add(8);
+        for (i, &part) in parts.iter().enumerate() {
+            if i > 0 {
+                std::ptr::copy_nonoverlapping(sep.as_ptr(), at, sep.len());
+                at = at.add(sep.len());
+            }
+            let b = bytes_of(part);
+            std::ptr::copy_nonoverlapping(b.as_ptr(), at, b.len());
+            at = at.add(b.len());
+        }
+    }
+    w
+}
+
 pub fn immortal_string(s: &str) -> u64 {
     let w = gc::alloc_immortal(builtin::string(), 8 + s.len());
     unsafe {

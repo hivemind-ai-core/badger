@@ -410,6 +410,7 @@ dependencies = [
  "base64 0.22.1",
  "corosensei",
  "crossbeam-deque",
+ "itoa",
  "libc",
  "regex",
  "rustc-hash",
