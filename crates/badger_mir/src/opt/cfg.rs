@@ -31,6 +31,35 @@ pub fn reachable(f: &Func) -> Vec<bool> {
     reach
 }
 
+/// Reachable blocks in reverse postorder of a depth-first walk from the entry.
+fn reverse_postorder(f: &Func, reach: &[bool]) -> Vec<usize> {
+    let n = f.blocks.len();
+    let mut seen = vec![false; n];
+    let mut post = Vec::with_capacity(n);
+    if n == 0 {
+        return post;
+    }
+    let succ =
+        |b: usize| f.blocks[BlockId::from_usize(b)].term.as_ref().map(Term::successors).unwrap_or_default();
+    let mut stack: Vec<(usize, Vec<BlockId>, usize)> = vec![(0, succ(0), 0)];
+    seen[0] = true;
+    while let Some((b, ss, i)) = stack.last_mut() {
+        if *i < ss.len() {
+            let s = ss[*i].index();
+            *i += 1;
+            if s < n && reach[s] && !seen[s] {
+                seen[s] = true;
+                stack.push((s, succ(s), 0));
+            }
+        } else {
+            post.push(*b);
+            stack.pop();
+        }
+    }
+    post.reverse();
+    post
+}
+
 /// Blocks dominated by each block, as a membership test `dominates(def,
 /// use)`. The entry's dominance over block 0 holds by definition.
 pub struct Dominators {
@@ -58,6 +87,9 @@ impl Dominators {
         }
         let mut preds: Vec<Vec<usize>> = vec![vec![]; n];
         for (b, block) in f.blocks.iter_enumerated() {
+            if !reach[b.index()] {
+                continue;
+            }
             if let Some(t) = &block.term {
                 for s in t.successors() {
                     if s.index() < n {
@@ -66,24 +98,27 @@ impl Dominators {
                 }
             }
         }
+        // the maximal fixpoint does not depend on the visiting order;
+        // reverse postorder reaches it in a few sweeps
+        let order = reverse_postorder(f, &reach);
+        let mut next = vec![0u64; words];
         let mut changed = true;
         while changed {
             changed = false;
-            for b in 1..n {
-                if !reach[b] {
+            for &b in &order {
+                if b == 0 {
                     continue;
                 }
-                let ps: Vec<usize> = preds[b].iter().copied().filter(|p| reach[*p]).collect();
-                let Some(&first) = ps.first() else { continue };
-                let mut next = sets[first].clone();
-                for p in &ps[1..] {
+                let Some((&first, rest)) = preds[b].split_first() else { continue };
+                next.copy_from_slice(&sets[first]);
+                for p in rest {
                     for (w, v) in next.iter_mut().zip(&sets[*p]) {
                         *w &= *v;
                     }
                 }
                 next[b / 64] |= 1 << (b % 64);
                 if next != sets[b] {
-                    sets[b] = next;
+                    sets[b].copy_from_slice(&next);
                     changed = true;
                 }
             }
@@ -207,33 +242,32 @@ pub fn thread_and_merge(f: &mut Func) -> usize {
             break;
         }
     }
-    loop {
-        let reach = reachable(f);
-        let mut preds = vec![0usize; f.blocks.len()];
-        for block in &f.blocks {
-            if let Some(t) = &block.term {
-                for s in t.successors() {
-                    preds[s.index()] += 1;
-                }
+    // Merging `t` into its only predecessor `b` moves `t`'s edges to `b`
+    // (no other count changes) and leaves `t` unreachable, so one forward
+    // sweep that keeps merging into `b` makes the same merges, in the same
+    // order, as restarting the scan after each one.
+    let mut reach = reachable(f);
+    let mut preds = vec![0usize; f.blocks.len()];
+    for block in &f.blocks {
+        if let Some(t) = &block.term {
+            for s in t.successors() {
+                preds[s.index()] += 1;
             }
         }
-        let mut merged = false;
-        for b in 0..f.blocks.len() {
-            let Some(Term::Goto(t)) = f.blocks[b].term else { continue };
+    }
+    for b in 0..f.blocks.len() {
+        while let Some(Term::Goto(t)) = f.blocks[b].term {
             let ti = t.index();
             if ti == b || ti == 0 || !reach[b] || !reach[ti] || preds[ti] != 1 {
-                continue;
+                break;
             }
             let stmts = std::mem::take(&mut f.blocks[ti].stmts);
             let term = f.blocks[ti].term.take();
             f.blocks[b].stmts.extend(stmts);
             f.blocks[b].term = term;
-            merged = true;
+            preds[ti] = 0;
+            reach[ti] = false;
             changed += 1;
-            break;
-        }
-        if !merged {
-            break;
         }
     }
     let reach = reachable(f);

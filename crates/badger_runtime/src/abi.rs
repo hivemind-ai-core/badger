@@ -165,11 +165,9 @@ pub extern "C" fn badger_rt_global_done(_ctx: *mut TaskCtx, flag: u64) {
 /// Concatenate `n` strings (interpolation).
 pub extern "C" fn badger_rt_concat(_ctx: *mut TaskCtx, parts: *const u64, n: u64) -> u64 {
     gc::budget_check(64);
-    let mut s = String::new();
-    for i in 0..n as usize {
-        s.push_str(str_of(unsafe { *parts.add(i) }));
-    }
-    new_string(&s)
+    // the parts are operands of the caller, rooted across the allocation
+    let parts = if n == 0 { &[][..] } else { unsafe { std::slice::from_raw_parts(parts, n as usize) } };
+    crate::string::alloc_joined(crate::desc::builtin::string(), parts, &[])
 }
 
 pub extern "C" fn badger_rt_eq(_ctx: *mut TaskCtx, d: u64, a: u64, b: u64) -> u64 {

@@ -1,0 +1,24 @@
+// Deque peeks of a deque built from one end, map.omit_keys, and
+// text.char_at.
+import std.deque
+import std.io
+import std.map
+import std.text
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+fn main() {
+    var d = deque.empty<Int>()
+    for i in 0..5 { d = d.push_back(i) }
+    say($"deque back-built {d.peek_front()} {d.peek_back()} {d.to_list()}")
+    var e = deque.empty<Int>()
+    for i in 0..5 { e = e.push_front(i) }
+    say($"deque front-built {e.peek_front()} {e.peek_back()} {e.to_list()}")
+    let one = deque.empty<Int>().push_front(7)
+    say($"deque one {one.peek_front()} {one.peek_back()} {one.pop_back().map(fn(p) { p.0 })} {deque.empty<Int>().peek_front()}")
+    let m = map.from_list([(1, "a"), (2, "b"), (3, "c")])
+    say($"omit {map.to_list(m.omit_keys([2, 9])).sort()}")
+    say($"char_at {text.char_at("héllo", 1)} {text.char_at("héllo", 4)} {text.char_at("héllo", 5)} {text.char_at("héllo", -1)}")
+}

@@ -115,15 +115,17 @@ intrinsics! {
         exact as u64
     }
     fn int_to_string(ctx, targs, ret, v) {
+        // formatted on the stack: no `core::fmt` and no intermediate `String`
         let d = targ(targs, 0);
+        let mut buf = itoa::Buffer::new();
         let s = match &d.kind {
             Kind::Int { signed: false, bits } => {
                 let m = if *bits == 64 { u64::MAX } else { (1u64 << bits) - 1 };
-                (v & m).to_string()
+                buf.format(v & m)
             }
-            _ => value::as_i64(d, v).to_string(),
+            _ => buf.format(value::as_i64(d, v)),
         };
-        new_string(&s)
+        new_string(s)
     }
     fn float_to_string(ctx, targs, ret, v) {
         new_string(&value::fmt_float_of(targ(targs, 0), v))

@@ -378,19 +378,36 @@ pub extern "C" fn config_from_env(
     targs: Targs,
     ret: *const TypeDesc,
     prefix: u64,
+    names: u64,
 ) -> u64 {
-    config_decode(targs, ret, prefix, Mode { strict: false, profile: false })
+    config_decode(targs, ret, prefix, names, Mode { strict: false, profile: false })
 }
 
 /// Profile data overlaid by prefixed environment variables.
-pub extern "C" fn config_load(_ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix: u64) -> u64 {
-    config_decode(targs, ret, prefix, Mode { strict: false, profile: true })
+pub extern "C" fn config_load(
+    _ctx: *mut TaskCtx,
+    targs: Targs,
+    ret: *const TypeDesc,
+    prefix: u64,
+    names: u64,
+) -> u64 {
+    config_decode(targs, ret, prefix, names, Mode { strict: false, profile: true })
+}
+
+/// The variables settings read in place of `PREFIX` + their name
+/// (`@config.env("DATABASE_URL")`): `path=VARIABLE` lines.
+fn env_names(names: u64) -> Vec<(String, String)> {
+    str_of(names)
+        .lines()
+        .filter_map(|l| l.split_once('='))
+        .map(|(p, v)| (p.to_string(), v.to_string()))
+        .collect()
 }
 
 /// `config.load` and `config.from_env`: the leaves of `T` from the profile
 /// data (when `mode.profile`) and prefixed environment variables, without
 /// `resolve`'s strictness, defaults, or overrides.
-fn config_decode(targs: Targs, ret: *const TypeDesc, prefix: u64, mode: Mode) -> u64 {
+fn config_decode(targs: Targs, ret: *const TypeDesc, prefix: u64, names: u64, mode: Mode) -> u64 {
     use crate::desc::Kind;
     let t = targ(targs, 0);
     let ret = rdesc(ret);
@@ -398,7 +415,7 @@ fn config_decode(targs: Targs, ret: *const TypeDesc, prefix: u64, mode: Mode) ->
     let Kind::Record { .. } = &t.kind else {
         return resolve_err(ret, &pre, "configuration type must be a record");
     };
-    decode_layers(t, ret, resolve_layers(t, &pre, &[], "{}", mode))
+    decode_layers(t, ret, resolve_layers(t, &pre, &env_names(names), &[], "{}", mode))
 }
 
 /// A configured value with `${NAME}` (an environment variable, which must
@@ -619,12 +636,19 @@ struct Candidate {
 fn resolve_layers(
     t: &'static TypeDesc,
     pre: &str,
+    names: &[(String, String)],
     overrides: &[String],
     defaults: &str,
     mode: Mode,
 ) -> Result<(serde_json::Map<String, serde_json::Value>, Vec<(Leaf, Vec<Candidate>)>), (String, String)> {
     let mut ls = vec![];
     leaves(t, pre, "", None, &mut ls);
+    // a setting that names its variable reads that one
+    for l in &mut ls {
+        if let Some((_, v)) = names.iter().find(|(p, _)| *p == l.path) {
+            l.env = v.clone();
+        }
+    }
     // one environment variable for two fields (`db_port` and `db.port`)
     for (i, a) in ls.iter().enumerate() {
         if let Some(b) = ls[i + 1..].iter().find(|b| b.env == a.env) {
@@ -863,6 +887,7 @@ pub extern "C" fn config_resolve(
     targs: Targs,
     ret: *const TypeDesc,
     prefix: u64,
+    names: u64,
     overrides: u64,
     defaults: u64,
 ) -> u64 {
@@ -878,7 +903,14 @@ pub extern "C" fn config_resolve(
     decode_layers(
         t,
         ret,
-        resolve_layers(t, &pre, &over, str_of(defaults), Mode { strict: true, profile: true }),
+        resolve_layers(
+            t,
+            &pre,
+            &env_names(names),
+            &over,
+            str_of(defaults),
+            Mode { strict: true, profile: true },
+        ),
     )
 }
 
@@ -888,6 +920,7 @@ pub extern "C" fn config_provenance(
     targs: Targs,
     _ret: *const TypeDesc,
     prefix: u64,
+    names: u64,
     overrides: u64,
     defaults: u64,
 ) -> u64 {
@@ -895,9 +928,16 @@ pub extern "C" fn config_provenance(
     let pre = str_of(prefix).to_string();
     let over: Vec<String> =
         crate::list::to_vec(overrides).into_iter().map(|w| str_of(w).to_string()).collect();
-    let rows = resolve_layers(t, &pre, &over, str_of(defaults), Mode { strict: true, profile: true })
-        .map(|r| r.1)
-        .unwrap_or_default();
+    let rows = resolve_layers(
+        t,
+        &pre,
+        &env_names(names),
+        &over,
+        str_of(defaults),
+        Mode { strict: true, profile: true },
+    )
+    .map(|r| r.1)
+    .unwrap_or_default();
     let out: Vec<serde_json::Value> = rows
         .into_iter()
         .filter_map(|(l, cs)| {
@@ -1012,23 +1052,76 @@ fn wire_clash(d: &'static TypeDesc, seen: &mut Vec<*const TypeDesc>) -> Option<S
 /// A contract's names for `d`, checked: two members of one type renamed (or
 /// left) to the same wire name would encode one over the other, a defect
 /// where the contract is used (a swap may pass through one while built).
-fn checked_wire(d: &'static TypeDesc, names: u64, aliases: u64) -> codec::WireNames {
+/// A contract is usually used many times: the checked names (and the key
+/// tables decoding builds on them) are kept per thread, found again by the
+/// type and the content of `names` and `aliases`.
+fn checked_wire(d: &'static TypeDesc, names: u64, aliases: u64) -> std::rc::Rc<codec::WireNames> {
+    let given: Vec<(&str, &str)> =
+        crate::map::entries(names).into_iter().map(|(k, v)| (str_of(k), str_of(v))).collect();
+    let olds: Vec<(&str, Vec<&str>)> = crate::map::entries(aliases)
+        .into_iter()
+        .map(|(k, v)| (str_of(k), crate::list::to_vec(v).into_iter().map(str_of).collect()))
+        .collect();
+    // order-independent: a map's entries come in no promised order
+    let mut key = 0u64;
+    for (k, v) in &given {
+        key = key.wrapping_add(content_hash(&[*k, *v]));
+    }
+    for (k, olds) in &olds {
+        let mut parts = vec![*k];
+        parts.extend(olds);
+        key = key.wrapping_add(content_hash(&parts).rotate_left(1));
+    }
+    let ty = d as *const TypeDesc as usize;
+    let hit = CHECKED.with(|c| {
+        c.borrow()
+            .iter()
+            .find(|(t, k, w)| {
+                *t == ty && *k == key && w.same_as(given.iter().copied(), olds.iter().map(|(k, o)| (*k, o.as_slice())))
+            })
+            .map(|(_, _, w)| w.clone())
+    });
+    if let Some(w) = hit {
+        return w;
+    }
     let w = wire_names(names, aliases);
-    let probe = codec::WireNames { names: w.names.clone(), aliases: Default::default() };
-    if let Some(m) = codec::with_wire(probe, || wire_clash(d, &mut Vec::new())) {
+    if let Some(m) = codec::with_wire(std::rc::Rc::new(w.names_only()), || wire_clash(d, &mut Vec::new())) {
         crate::task::panic_current(m, crate::task::caller_location());
     }
+    let w = std::rc::Rc::new(w);
+    CHECKED.with(|c| {
+        let mut c = c.borrow_mut();
+        if c.len() >= CHECKED_MAX {
+            c.remove(0);
+        }
+        c.push((ty, key, w.clone()));
+    });
     w
+}
+
+/// The checked contracts a thread used last (a few: a program has few).
+const CHECKED_MAX: usize = 32;
+
+thread_local! {
+    static CHECKED: std::cell::RefCell<Vec<(usize, u64, std::rc::Rc<codec::WireNames>)>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn content_hash(parts: &[&str]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = rustc_hash::FxHasher::default();
+    parts.hash(&mut h);
+    h.finish()
 }
 
 fn wire_names(names: u64, aliases: u64) -> codec::WireNames {
     let mut w = codec::WireNames::default();
     for (k, v) in crate::map::entries(names) {
-        w.names.insert(str_of(k).to_string(), str_of(v).to_string());
+        w.insert_name(str_of(k), str_of(v).to_string());
     }
     for (k, v) in crate::map::entries(aliases) {
         let olds = crate::list::to_vec(v).into_iter().map(|x| str_of(x).to_string()).collect();
-        w.aliases.insert(str_of(k).to_string(), olds);
+        w.insert_aliases(str_of(k), olds);
     }
     w
 }

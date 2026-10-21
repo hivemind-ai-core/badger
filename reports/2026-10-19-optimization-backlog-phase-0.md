@@ -576,6 +576,47 @@ rule set's rewrites do not compose ✓. The dependency and the +3-4% on the
 optimisation phase do not pay for that. The report and the measured patch are in
 `reports/2026-10-20-egg-straight-line-regions.md`.
 
+## §4.3's full form: the translation validator, and the bug it found
+
+The survey came first — what can a translation validator decide about this
+pipeline, and at what cost? The validator (`badger_mir::opt::tv`) states the
+MIR operations as code generation compiles them (over the bitvectors `opt::smt`
+already used for the algebraic rules ✓), builds a function's meaning from them —
+the locals as places, the control flow as a path condition, and every effect as
+an opaque *world*, so an uninterpreted operation can fail a proof but never make
+one ✓ — and proves the two versions equivalent ✓.
+
+**The answer splits the pipeline in two.** In reach: the simplification pass (all
+four instances ✓), the common-subexpression pass ✓ and the superoptimiser ✓ — at
+the release level **18 666 of the 18 695** functions these passes change are
+proven equivalent (99.84 % ✓), none refuted ✓; a function proof takes 0.69 ms at
+p50 and 4.1 ms at p90 ✓; the 40 programs of 40–60 KB of MIR answer in 55 ms
+(median ✓) and 5.2 s at most ✓, and a 9 s budget for the validator's own time
+keeps every compilation inside the item's 10 s gate ✓. Out of reach: inlining,
+specialisation, scalar replacement, the enum and niche layout passes, the map
+and receive passes, and reachability ✓ — they change what the model leaves
+uninterpreted (calls, objects, runtime entry points, the function table ✓), and
+the report records what each would need ✓.
+
+§4.1 proved the *algebraic rules* in the abstract ✓; this proves **whole passes
+on the actual program** ✓, including the simplification pass, which §4.1 did not
+cover ✓. The check is behind `BADGER_MIR_TV=1` ✓: with it off it costs nothing ✓,
+and with it on the compiler's output is byte for byte the same ✓.
+
+**And it found a real bug.** The superoptimiser's operand canonicalisation
+treated `+` and `*` as commutative for *every* type ✓; on x86-64 `a * b` and
+`b * a` propagate different NaN payloads when both operands are NaNs ✓, and the
+payload is observable (floats are hashed by their bits ✓, and the binary codec
+writes them bit for bit ✓). The validator refuted four functions of the corpus
+where this happens ✓ (`basics.main`, `basics.area` and two `area`s of
+`dyn_protocol` ✓), at `--opt superopt` only ✓. The fix restricts the operand
+swap to the integers ✓, and the validator confirms it: with the fix, the
+corpus has **zero refutations** ✓ and `superopt basics.main` -- one of the
+four ✓ -- is proven equivalent ✓.
+
+That is the item's whole point in one instance: the rules were "obviously right"
+and were not ✓, and a proof found it ✓.
+
 ## Where the backlog stands
 
 | phase | item | outcome |
@@ -604,7 +645,7 @@ optimisation phase do not pay for that. The report and the measured patch are in
 | 3 | 3.5 move-only marker | landed (`@move_only`, E0415) |
 | 4 | 4.1 SMT-validated rules | **landed: the check found a wrong shift mask** |
 | 4 | 4.2 egg for straight-line MIR | **not adopted** (the search works -- 1 318 of superopt's 1 323 rewrites found -- but the rule set's rewrites do not compose: 2 extra rewrites over the corpus, 0 on the benchmarks, +0.15% against the expected 3-5%) |
-| 4 | 4.3 translation validation | landed in its cheap form; the SMT version is open |
+| 4 | 4.3 translation validation | **landed** -- the cheap form (the structural comparator and the behavioural gate) and the SMT validator (`opt::tv`), which proves the simplification, CSE and superoptimiser passes on the actual program: 18 666 of 18 695 functions proven (99.84 %), none refuted, 0.69 ms per proof at p50 |
 | 4 | 4.4 lifetime-driven inlining | **not adopted** (surveyed: the MIR's liveness already has every lifetime fact the type checker knows -- 0 inlining decisions and 0 assignments change) |
 
 ## What is left
@@ -626,7 +667,7 @@ own:
 | §2.2 per-worker heap segments | a per-worker bump pool and free list | **already satisfied**: `POOLS.0[w]`, `alloc_cell(w, ...)` and `free_cell(w, ...)` are per-worker, and were at the snapshot the backlog was written against; the missing part was §2.3's block and line layer, which has landed |
 | §2.3 Immix-style blocks and lines | a line bitmap and in-place reuse of dead lines | **landed**: the expected 10-20% holds (the work ratio 0.79-0.90, the mutator time 13-22% lower, the trim 24 ms -> 1-3 ms) |
 | §3.1 the type check's allocation traffic | an arena for the typeck's short-lived nodes | **not adopted as an arena** (the typeck never touches the managed heap); the traffic was fixed instead -- allocations 831K -> 386K, the type check phase -33% |
-| §4.3 translation validation | an end-to-end validator over the MIR pipeline | **landed in its cheap form** (the structural comparator and the behavioural gate); the SMT version is open |
+| §4.3 translation validation | an end-to-end validator over the MIR pipeline | **landed**: the SMT validator proves the simplification, CSE and superoptimiser passes on the actual program (99.84 % of the functions they change ✓) and found a real miscompile -- the superoptimiser reordering float operands, which changes the NaN payload ✓ |
 | §3.2 MIR escape analysis | stack-allocate the records that do not escape | **not adopted**: after `sra`/`enums`/`niche` the hot allocations on every benchmark escape for real, and the leftovers run once or cross into the runtime -- the expected win is 0% |
 | §3.4 linear resources | a `Linear` mode in the typeck, applied to the file, socket and channel modules | **landed**: `E0413` says when a linear resource was not used |
 | §4.1 SMT-validated rules | every algebraic rule proven with Z3 | **landed**: 11 rules, 81 claims; the check found a wrong shift mask |

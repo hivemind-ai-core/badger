@@ -8,6 +8,7 @@ pub mod simplify;
 pub mod smt;
 pub mod specialize;
 pub mod superopt;
+pub mod tv;
 
 use crate::mir::Program;
 
@@ -120,6 +121,26 @@ fn disabled() -> Vec<String> {
 
 /// Run the pipeline for `level` on a program, returning the pass report.
 pub fn optimize(prog: &mut Program, level: Level) -> Vec<(&'static str, usize)> {
+    pipeline(prog, level, None)
+}
+
+/// [`optimize`], handing `check` every pass that ran with the program before
+/// and after it (the translation validator's hook, [`tv`]). The program is
+/// only copied when a check is given, and `check` cannot change it: the
+/// result is the one [`optimize`] produces.
+pub fn optimize_checked(
+    prog: &mut Program,
+    level: Level,
+    check: &mut dyn FnMut(&'static str, &Program, &Program),
+) -> Vec<(&'static str, usize)> {
+    pipeline(prog, level, Some(check))
+}
+
+fn pipeline(
+    prog: &mut Program,
+    level: Level,
+    mut check: Option<&mut dyn FnMut(&'static str, &Program, &Program)>,
+) -> Vec<(&'static str, usize)> {
     if prog.live || level == Level::None {
         return vec![];
     }
@@ -140,7 +161,11 @@ pub fn optimize(prog: &mut Program, level: Level) -> Vec<(&'static str, usize)> 
         if name == "simplify2" && !representation_changed {
             continue;
         }
+        let before = check.is_some().then(|| prog.clone());
         let n = run(prog);
+        if let (Some(check), Some(before)) = (check.as_mut(), before) {
+            check(name, &before, prog);
+        }
         if n > 0 && matches!(name, "maps-private" | "maps-snapshot" | "split" | "niche" | "enums") {
             representation_changed = true;
         }

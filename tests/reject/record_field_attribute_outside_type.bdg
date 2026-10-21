@@ -1,0 +1,7 @@
+// expect-error: E0199
+// A record's fields take attributes only as the body of a `type`
+// declaration (`type Settings = { @lib.env("DB_URL") database: String }`),
+// whose fields they are; a record type written elsewhere names no item.
+fn first(pair: { @allow(E0197) a: Int, b: Int }) -> Int { pair.a }
+
+pub fn main() {}

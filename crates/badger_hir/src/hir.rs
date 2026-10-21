@@ -267,7 +267,9 @@ pub enum AttributePosition {
     Type(Option<HTy>),
     /// A top-level function of this signature.
     Fn(HTy),
-    Field,
+    /// A field; `Some` of the protocol its owner must implement
+    /// (`field: Codec`).
+    Field(Option<HTy>),
     Variant,
     Value,
 }

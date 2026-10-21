@@ -10,9 +10,12 @@
 //! chunks wait (the task parks) while more than `max_stream_buffer_bytes`
 //! are still unwritten. `abort` answers 500, or truncates a started stream,
 //! for a request whose task failed. A request not answered within 60
-//! seconds is answered 500. Each connection closes after its reply, but
-//! for a websocket upgrade (`ws_accept`), which takes the connection over;
-//! `ws_connect` opens client websockets (see `ws.rs`).
+//! seconds is answered 500. Connections are kept alive between requests
+//! (but after a refusal, or a websocket upgrade (`ws_accept`), which takes
+//! the connection over); one idle for [`IDLE`] is closed, and every one
+//! closes after its reply in progress when the server stops or its
+//! connection table is full. `ws_connect` opens client websockets (see
+//! `ws.rs`).
 
 use std::collections::VecDeque;
 use std::convert::Infallible;
@@ -27,12 +30,17 @@ use http_body_util::{BodyExt, Full, Limited, combinators::BoxBody};
 use hyper::body::{Frame, Incoming};
 use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioIo, TokioTimer};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot, watch};
 
 mod ws;
 
 type Body = BoxBody<Bytes, std::io::Error>;
+
+/// How long a connection may wait for a request's head: a kept-alive
+/// connection idle this long, or a client this slow to send its headers,
+/// is closed.
+const IDLE: Duration = Duration::from_secs(30);
 
 pub(crate) fn empty_body() -> Body {
     Full::new(Bytes::new()).map_err(|e| match e {}).boxed()
@@ -163,7 +171,7 @@ fn response(status: i64, headers: &[(String, Value)], body: Body) -> Response<Bo
     if !typed {
         b = b.header("content-type", "application/json");
     }
-    b.header("connection", "close").body(body).expect("a response of checked parts")
+    b.body(body).expect("a response of checked parts")
 }
 
 impl Server {
@@ -354,10 +362,12 @@ fn listen(a: &Args) -> Outcome {
     SERVERS.lock().unwrap().push(server.clone());
     let s = server.clone();
     // open connections are bounded too (a slow or idle client holds one
-    // without being in flight): past the cap, accepting waits and new
-    // connections queue in the listen backlog
+    // without being in flight): past the cap, the kept-alive connections
+    // are asked to close (each after its reply in progress), accepting
+    // waits, and new connections queue in the listen backlog
     let connections =
         Arc::new(Semaphore::new((limits.in_flight.saturating_mul(4)).clamp(256, Semaphore::MAX_PERMITS)));
+    let full = Arc::new(tokio::sync::Notify::new());
     rt.spawn(async move {
         loop {
             let stopped = s.stop.notified();
@@ -365,28 +375,54 @@ fn listen(a: &Args) -> Outcome {
             if s.stopped.load(Ordering::SeqCst) {
                 break;
             }
-            let permit = tokio::select! {
-                _ = &mut stopped => break,
-                p = connections.clone().acquire_owned() => p,
+            let permit = match connections.clone().try_acquire_owned() {
+                Ok(p) => p,
+                Err(_) => {
+                    full.notify_waiters();
+                    let p = tokio::select! {
+                        _ = &mut stopped => break,
+                        p = connections.clone().acquire_owned() => p,
+                    };
+                    let Ok(p) = p else { break };
+                    p
+                }
             };
-            let Ok(permit) = permit else { break };
             let conn = tokio::select! {
                 _ = &mut stopped => break,
                 c = listener.accept() => c,
             };
             let Ok((stream, _)) = conn else { continue };
-            let s = s.clone();
+            // a reply goes out when written, not held back (Nagle) for the
+            // client's acknowledgement of the previous one
+            let _ = stream.set_nodelay(true);
+            let (s, full) = (s.clone(), full.clone());
             tokio::spawn(async move {
                 let _permit = permit;
                 let max_buf = (s.limits.header + 1024).max(8192);
-                let svc = service_fn(move |req| handle(s.clone(), req));
-                // every reply says `connection: close` (but a websocket
-                // upgrade's 101, which `keep_alive(false)` would rewrite)
-                let _ = hyper::server::conn::http1::Builder::new()
+                let svc = service_fn({
+                    let s = s.clone();
+                    move |req| handle(s.clone(), req)
+                });
+                let conn = hyper::server::conn::http1::Builder::new()
                     .max_buf_size(max_buf)
+                    .timer(TokioTimer::new())
+                    .header_read_timeout(IDLE)
                     .serve_connection(TokioIo::new(stream), svc)
-                    .with_upgrades()
-                    .await;
+                    .with_upgrades();
+                tokio::pin!(conn);
+                // (a `Notified` made before the check sees a later stop)
+                let (stop, busy) = (s.stop.notified(), full.notified());
+                tokio::pin!(stop, busy);
+                if !s.stopped.load(Ordering::SeqCst) {
+                    tokio::select! {
+                        _ = conn.as_mut() => return,
+                        _ = &mut stop => {}
+                        _ = &mut busy => {}
+                    }
+                }
+                // close now if idle, else after the reply in progress
+                conn.as_mut().graceful_shutdown();
+                let _ = conn.await;
             });
         }
     });

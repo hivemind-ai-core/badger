@@ -84,7 +84,9 @@ handling is in
 ## Validation
 
 State the rules of a value once, as a list, and check the value against
-them. [std.validate](api/validate.md) holds the rules, and
+them. Rules that only look at one field can be written on the field
+itself: `pub type NewBook = { @validate.not_blank @validate.max_len(200) title: String }`,
+checked by `validate.check(book)`, which reports every broken one. [std.validate](api/validate.md) holds the rules, and
 [std.result](api/result.md) holds the guard clauses for the checks that
 belong to one function.
 
@@ -139,6 +141,7 @@ err(invalid input: port out of range)
 | `validate.validate_all(value, rules)` | every failing rule's error, in rule order, as a list |
 | `validate.not_blank(text)`, `at_most(text, n)`, `at_least(text, n)` | the text conditions |
 | `validate.in_range(n, low, high)`, `greater_than(n, low)`, `less_than(n, high)` | the number conditions |
+| `validate.check(value)` | the value when its fields keep their rules (`@validate.not_blank`, `min_len(n)`, `max_len(n)`, `min(n)`, `max(n)`, `one_of([...])` on the fields of its type); every broken rule otherwise, as `Violation`s (`validate.summary` joins their messages) |
 | `result.must(condition, error)` | `ok(())` when the condition holds, the error otherwise |
 | `result.must_eq(a, b, error)` | the same, for equality |
 | `result.check(value, valid, error)` | the value when the predicate accepts it; the error is built only when it is rejected |
@@ -167,7 +170,7 @@ they read:
 
 | Call | Reads |
 |---|---|
-| `config.from_env<T>(prefix)` | environment variables only: `PREFIX` + the upper-cased field name |
+| `config.from_env<T>(prefix)` | environment variables only: `PREFIX` + the upper-cased field name (or the variable a field's `@config.env("DATABASE_URL")` names) |
 | `config.load<T>(prefix)` | the project's `[config]` table, then the selected profile, then the prefixed variables |
 | `config.resolve<T>(prefix, overrides)` | the same, plus `key=value` overrides; strict, and it reports where each value came from |
 | `config.resolve_or<T>(prefix, overrides, defaults)` | `resolve` with typed defaults as the lowest layer |
@@ -247,6 +250,10 @@ token = [redacted] (default token)
   secret for anything that must not reach a log.
 - A configured value may read the environment: `"${NAME}"` (which must be
   set) or `"${NAME:-default}"`. `$${` is a literal `${`.
+- A setting whose variable the platform names reads it directly:
+  `pub type Settings = { @config.env("DATABASE_URL") database: String, port: Int }`
+  reads `DATABASE_URL` instead of `APP_DATABASE` (and strict resolution
+  then refuses `APP_DATABASE`).
 - The command line is a value too: `cli.parse_env` takes a record of
   defaults (`cli.text`, `cli.integer`, `cli.flag`, and friends) and returns
   the parsed options. The usual shape is to parse the command line, use it

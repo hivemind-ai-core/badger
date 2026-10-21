@@ -4,6 +4,8 @@
 //! record each request by its method and URL, with a digest of what it
 //! sends, so a replay answers it from the recording.
 
+use std::sync::Mutex;
+
 use badger_native::{Args, Error, Handler, ModuleDef, Outcome, Value};
 
 /// `scheme://host[:port]` of an `http` or `https` URL that names only an
@@ -56,15 +58,28 @@ fn check_url(url: &str) -> Result<(), Error> {
 
 /// A client with a time limit that follows at most `redirects` redirects
 /// (answering with the last response past that) and reports HTTP error
-/// statuses as responses.
+/// statuses as responses. Clients are kept per configuration, so requests
+/// share their connection pool (and TLS setup) instead of each opening a
+/// connection of its own; a few configurations are kept.
 fn agent(timeout_ms: u64, redirects: u32) -> ureq::Agent {
-    ureq::Agent::config_builder()
+    static AGENTS: Mutex<Vec<((u64, u32), ureq::Agent)>> = Mutex::new(Vec::new());
+    const KEPT: usize = 32;
+    let mut agents = AGENTS.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((_, a)) = agents.iter().find(|(k, _)| *k == (timeout_ms, redirects)) {
+        return a.clone();
+    }
+    let a: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(std::time::Duration::from_millis(timeout_ms)))
         .max_redirects(redirects)
         .max_redirects_will_error(false)
         .http_status_as_error(false)
         .build()
-        .into()
+        .into();
+    if agents.len() >= KEPT {
+        agents.remove(0);
+    }
+    agents.push(((timeout_ms, redirects), a.clone()));
+    a
 }
 
 /// A request failure as an `io.Error` naming the request.

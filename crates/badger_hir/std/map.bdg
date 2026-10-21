@@ -186,13 +186,12 @@ pub fn select_keys<K, V>(m: Map<K, V>, keys: List<K>) -> Map<K, V> where K: Hash
     out
 }
 
-/// The entries whose keys are not in `keys`.
+/// The entries whose keys are not in `keys` (the map with each removed:
+/// a lookup per key, not a scan of `keys` per entry).
 pub fn omit_keys<K, V>(m: Map<K, V>, keys: List<K>) -> Map<K, V> where K: Hash {
-    let out = map_empty()
-    for (k, v) in m {
-        if !keys.contains(k) {
-            map_insert_mut(out, k, v)
-        }
+    var out = m
+    for k in keys {
+        out = map_remove(out, k)
     }
     out
 }

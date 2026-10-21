@@ -213,11 +213,14 @@ pub fn read_all<R>(from: R) -> Result<Bytes, Error> !{Io, Wait, State} where R: 
 pub struct LineReader<R> {
     source: R,
     pending: Cell<Bytes>,
+    /// Where the unread part of `pending` starts: a line is sliced out
+    /// without copying what follows it.
+    start: Cell<Int>,
     done: Cell<Bool>,
 }
 
 /// Read `from` line by line (`\n`, or `\r\n`, ends a line).
-pub fn lines<R>(from: R) -> LineReader<R> where R: Reader { { source: from, pending: Cell.new(text_to_bytes("")), done: Cell.new(false) } }
+pub fn lines<R>(from: R) -> LineReader<R> where R: Reader { { source: from, pending: Cell.new(text_to_bytes("")), start: Cell.new(0), done: Cell.new(false) } }
 
 impl<R> LineReader<R> {
     /// The next line without its break; `none` at the end.
@@ -225,23 +228,30 @@ impl<R> LineReader<R> {
         let newline = text_to_bytes("\n")
         loop {
             let buf = self.pending.get()
-            match bytes_find(buf, newline, 0) {
+            let start = self.start.get()
+            match bytes_find(buf, newline, start) {
                 .some(i) => {
-                    let line = bytes_slice(buf, 0, i).unwrap_or(buf)
-                    self.pending.set(bytes_slice(buf, i + 1, bytes_len(buf)).unwrap_or(text_to_bytes("")))
+                    let line = bytes_slice(buf, start, i).unwrap_or(buf)
+                    self.start.set(i + 1)
                     return ok(Option.some(strip_cr(utf8(line)?)))
                 },
                 .none => {
+                    // the unread rest, a partial line
+                    let rest = bytes_slice(buf, start, bytes_len(buf)).unwrap_or(text_to_bytes(""))
+                    self.start.set(0)
                     if self.done.get() {
-                        if bytes_len(buf) == 0 {
+                        self.pending.set(text_to_bytes(""))
+                        if bytes_len(rest) == 0 {
                             return ok(Option.none)
                         }
-                        self.pending.set(text_to_bytes(""))
-                        return ok(Option.some(strip_cr(utf8(buf)?)))
+                        return ok(Option.some(strip_cr(utf8(rest)?)))
                     }
                     match self.source.read(chunk_size)? {
-                        .some(more) => self.pending.set(bytes_concat(buf, more)),
-                        .none => self.done.set(true),
+                        .some(more) => self.pending.set(bytes_concat(rest, more)),
+                        .none => {
+                            self.pending.set(rest)
+                            self.done.set(true)
+                        },
                     }
                 },
             }
