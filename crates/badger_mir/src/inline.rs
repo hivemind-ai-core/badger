@@ -71,9 +71,14 @@ fn inlinable(prog: &Program, id: FuncId) -> bool {
 }
 
 /// Locals that certainly hold a closure of a known lambda: a single
-/// allocation whose code word is the lambda's address, and single-definition
-/// copies of it.
-fn known_closures(kinds: &[FuncKind], f: &Func) -> FxHashMap<Local, FuncId> {
+/// allocation whose code word is the lambda's address, a single use of a
+/// *static* closure (a function passed by name, whose object the program
+/// records), and single-definition copies of either.
+fn known_closures(
+    kinds: &[FuncKind],
+    f: &Func,
+    statics: &FxHashMap<u64, (u64, u32, FuncId)>,
+) -> FxHashMap<Local, FuncId> {
     let mut defs: FxHashMap<Local, (usize, Option<&Rvalue>)> = FxHashMap::default();
     for b in f.blocks.iter() {
         for s in &b.stmts {
@@ -105,6 +110,16 @@ fn known_closures(kinds: &[FuncKind], f: &Func) -> FxHashMap<Local, FuncId> {
             {
                 known.insert(*c, *l);
             }
+        }
+    }
+    // a local that holds a static closure (`let f = same`): no allocation,
+    // but the program records which function the object calls
+    for (l, (_, rv)) in &defs {
+        if let Some(Rvalue::Use(Operand::Const(Const::Addr(w)))) = rv
+            && single(l).is_some()
+            && let Some(&(_, _, t)) = statics.get(w)
+        {
+            known.insert(*l, t);
         }
     }
     loop {
@@ -305,7 +320,7 @@ pub fn inline(prog: &mut Program) -> usize {
             let f = &mut prog.funcs[id];
             let mut changed = false;
             let mut bi = 0;
-            let mut known = known_closures(&kinds, f);
+            let mut known = known_closures(&kinds, f, &prog.origins.closures);
             while bi < f.blocks.len() && size(f) < MAX_CALLER {
                 let b = BlockId::from_usize(bi);
                 let body = |t: FuncId, args: &[Operand], dst: Local, limit: usize| {
@@ -348,7 +363,7 @@ pub fn inline(prog: &mut Program) -> usize {
                 match site {
                     Some((i, t, env)) => {
                         inline_at(f, b, i, bodies[t.index()].as_ref().unwrap(), env);
-                        known = known_closures(&kinds, f);
+                        known = known_closures(&kinds, f, &prog.origins.closures);
                         changed = true;
                         round += 1;
                         // the rest of this block moved to a new block: keep

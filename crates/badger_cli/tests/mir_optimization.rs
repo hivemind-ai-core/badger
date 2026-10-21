@@ -46,6 +46,27 @@ fn large_helper(capture: bool) -> String {
     s
 }
 
+/// `let f = same; f(x)`: the local holds a *static* closure — a function
+/// passed by name, whose object the caller never allocates — and the
+/// program records which function that object calls, so the call is seen
+/// through like a direct one. A single-definition copy of the local is too.
+#[test]
+fn a_function_held_in_a_local_is_inlined() {
+    let dir = temp("static-local");
+    let src = dir.join("static_local.bdg");
+    std::fs::write(
+        &src,
+        "import std.io\n\nfn same(x: Int) -> Int { x }\n\
+         fn by_local(x: Int) -> Int { let f = same; f(x) }\n\
+         fn by_copy(x: Int) -> Int { let f = same; let g = f; g(x) }\n\n\
+         pub fn main() -> Unit {\n    let _ = io.println($\"{by_local(3)} {by_copy(4)}\")\n}\n",
+    )
+    .unwrap();
+    let (stdout, mir) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
+    assert_eq!(stdout, "3 4\n");
+    assert!(!mir.contains("callee: Closure"), "an indirect call remains:\n{mir}");
+}
+
 #[test]
 fn a_large_helper_called_with_a_known_closure_is_specialized() {
     let dir = temp("specialize");
