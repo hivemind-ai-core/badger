@@ -114,7 +114,8 @@ program, in `crates/badger_driver/src/`:
   folding, dead definitions, branch folding, switch-chain merging, CFG
   cleanup), map/snapshot
   reuse, `split.rs` (channel receives whose result is only examined),
-  `niche.rs` (local options as nullable pointers), `enums.rs` (local enums
+  `niche.rs` (local options as nullable pointers), jump threading
+  (`opt/cfg.rs`, the `thread` pass), `enums.rs` (local enums
   as scalars), `opt/cse.rs` (common subexpressions), and `reach.rs` (drop
   unreferenced functions). `--opt aggressive` adds another
   inlining/simplification round; `--opt superopt` adds the verified

@@ -314,6 +314,13 @@ error. `badger_cli` is the `badger` binary.
   clearing; empty-goto threading and single-predecessor block merging; a
   match's chain of switches on one tag merges into one switch (a jump
   table).
+- Jump threading (`thread` pass, after the option representation pass and
+  before enum scalarization; `badger_mir::opt::cfg`): a predecessor that
+  already knows the value a join block tests — a constant, the tag it just
+  stored into a fresh enum object, or a nullary variant's static object —
+  runs a copy of the join's statements and jumps straight to the chosen
+  successor; block-local copy propagation then detaches the object, so a
+  `Result` built only to be tested by `?` is scalarized away.
 - CSE (`badger_mir::opt::cse`): within a block, identical pure computations
   with unchanged operands read the earlier result. A checked operation
   shares an identical earlier checked one's result whatever its source

@@ -60,6 +60,7 @@ pub fn passes(level: Level) -> Vec<(&'static str, fn(&mut Program) -> usize)> {
     push("maps-snapshot", crate::maps::reuse_snapshot_maps);
     push("split", crate::split::split_receives);
     push("niche", crate::niche::elide_local_options);
+    push("thread", thread);
     push("enums", crate::enums::scalarize);
     push("simplify2", simplify::simplify);
     push("cse", cse::cse);
@@ -76,6 +77,29 @@ pub fn passes(level: Level) -> Vec<(&'static str, fn(&mut Program) -> usize)> {
     }
     push("reach", crate::reach::prune);
     out
+}
+
+/// Jump threading, then the block merges, copies, and dead values it
+/// exposes (so a threaded enum object no longer shares a local with the
+/// other paths).
+fn thread(prog: &mut Program) -> usize {
+    if prog.live {
+        return 0;
+    }
+    let mut n = 0;
+    let nullary = &prog.origins.nullary;
+    for f in prog.funcs.iter_mut() {
+        let threaded = cfg::thread_known_branches(f, nullary);
+        if threaded > 0 {
+            // merge the threaded paths first: the copies to forward are
+            // then in one block
+            simplify::simplify_func(f);
+            simplify::local_copies(f);
+            simplify::simplify_func(f);
+            n += threaded;
+        }
+    }
+    n
 }
 
 fn program_scalar_replace(prog: &mut Program) -> usize {

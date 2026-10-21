@@ -596,6 +596,59 @@ fn propagate(f: &mut Func) -> usize {
     changed
 }
 
+/// Block-local copy propagation, including locals with several
+/// definitions: after `a = b` (same representation), a use of `a` later in
+/// the block reads `b` until either is reassigned.
+pub(crate) fn local_copies(f: &mut Func) -> usize {
+    let mut changed = 0;
+    for b in 0..f.blocks.len() {
+        let mut copies: FxHashMap<Local, Local> = FxHashMap::default();
+        let n = f.blocks[b].stmts.len();
+        for i in 0..n {
+            if copies.is_empty()
+                && !matches!(f.blocks[b].stmts[i], Stmt::Assign(_, Rvalue::Use(Operand::Local(_))))
+            {
+                continue;
+            }
+            let mut fix = |o: &mut Operand| {
+                if let Operand::Local(l) = o
+                    && let Some(src) = copies.get(l)
+                {
+                    *o = Operand::Local(*src);
+                    changed += 1;
+                }
+            };
+            match &mut f.blocks[b].stmts[i] {
+                Stmt::Assign(_, rv) => rewrite_operands(rv, &mut fix),
+                Stmt::Store { base, value, .. } => {
+                    fix(base);
+                    fix(value);
+                }
+                Stmt::GlobalStore { value, .. } => fix(value),
+                Stmt::Poll | Stmt::Loc { .. } => {}
+            }
+            if let Stmt::Assign(l, rv) = &f.blocks[b].stmts[i] {
+                let l = *l;
+                copies.retain(|a, src| *a != l && *src != l);
+                if let Rvalue::Use(Operand::Local(src)) = rv
+                    && *src != l
+                    && f.locals[*src].repr == f.locals[l].repr
+                {
+                    copies.insert(l, *src);
+                }
+            }
+        }
+        if let Some(Term::Branch(o, ..) | Term::Switch(o, ..) | Term::Return(o)) = &mut f.blocks[b].term
+            && let Operand::Local(l) = o
+            && let Some(src) = copies.get(l)
+        {
+            *o = Operand::Local(*src);
+            changed += 1;
+        }
+    }
+    changed
+}
+
 /// Whether evaluating `rv` can be removed when its result is unused: no
 /// side effect, no allocation, and no possible defect.
 fn removable(rv: &Rvalue) -> bool {

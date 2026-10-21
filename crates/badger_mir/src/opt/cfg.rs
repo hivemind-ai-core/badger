@@ -362,6 +362,176 @@ fn recomputes(stmts: &[Stmt], t1: Local, rv: &Rvalue) -> bool {
     })
 }
 
+/// Jump threading (the `thread` pass, between the option and enum
+/// representation passes). A join block that only copies, reads a tag, and
+/// then branches or switches on the result decides its successor from what
+/// a predecessor ending in `goto` already knows: a constant, or the tag its
+/// own constructor just stored into a fresh enum object (or a nullary
+/// variant's static object, `nullary` from the program's origins). That predecessor
+/// runs a copy of the join's statements and jumps straight to the chosen
+/// successor. A function returning a `Result` through `?` builds an `ok` or
+/// an `err` and then tests which one it built; threading separates the
+/// paths, so the `ok` object no longer flows into the shared test and enum
+/// scalarization can remove it. (Before the option pass it would hide the
+/// shapes that pass recognizes.)
+pub fn thread_known_branches(f: &mut Func, nullary: &FxHashMap<u64, (u64, u32)>) -> usize {
+    let mut changed = 0;
+    // each threading removes one edge into a decided join; the bound only
+    // guards against a cycle of such joins
+    for _ in 0..64 {
+        let mut step = 0;
+        for p in 0..f.blocks.len() {
+            let Some(Term::Goto(j)) = f.blocks[p].term else { continue };
+            if j.index() == p || j.index() == 0 {
+                continue;
+            }
+            let Some(target) = decided_target(f, nullary, &f.blocks[p].stmts, &f.blocks[j]) else {
+                continue;
+            };
+            if target == j {
+                continue;
+            }
+            let copies: Vec<Stmt> =
+                f.blocks[j].stmts.iter().filter(|s| !matches!(s, Stmt::Loc { .. })).cloned().collect();
+            f.blocks[p].stmts.extend(copies);
+            f.blocks[p].term = Some(Term::Goto(target));
+            step += 1;
+        }
+        changed += step;
+        if step == 0 {
+            break;
+        }
+    }
+    changed
+}
+
+/// The successor `join` takes after `pred`'s statements, when it is known.
+fn decided_target(
+    f: &Func,
+    nullary: &FxHashMap<u64, (u64, u32)>,
+    pred: &[Stmt],
+    join: &Block,
+) -> Option<BlockId> {
+    let body: Vec<&Stmt> = join.stmts.iter().filter(|s| !matches!(s, Stmt::Loc { .. })).collect();
+    if body.len() > 4 {
+        return None;
+    }
+    let operand = match &join.term {
+        Some(Term::Branch(o, ..) | Term::Switch(o, ..)) => *o,
+        _ => return None,
+    };
+    let mut facts = block_facts(f, nullary, pred);
+    for s in body {
+        let Stmt::Assign(l, rv) = s else { return None };
+        let fact = match rv {
+            Rvalue::Use(Operand::Const(Const::Int(v, r))) if *r == f.locals[*l].repr => Some(Fact::Int(*v)),
+            Rvalue::Use(Operand::Local(src)) if f.locals[*src].repr == f.locals[*l].repr => {
+                facts.get(src).copied()
+            }
+            Rvalue::Use(_) => None,
+            Rvalue::Tag(Operand::Local(src)) => match facts.get(src) {
+                Some(Fact::Tag(t)) => Some(Fact::Int(*t)),
+                _ => None,
+            },
+            Rvalue::Tag(Operand::Const(Const::Addr(a))) => nullary.get(a).map(|(_, t)| Fact::Int(*t as i64)),
+            Rvalue::Tag(_) => None,
+            _ => return None,
+        };
+        facts.remove(l);
+        if let Some(x) = fact {
+            facts.insert(*l, x);
+        }
+    }
+    let v = match operand {
+        Operand::Const(Const::Int(v, _)) => v,
+        Operand::Local(l) => match facts.get(&l) {
+            Some(Fact::Int(v)) => *v,
+            _ => return None,
+        },
+        _ => return None,
+    };
+    Some(match &join.term {
+        Some(Term::Branch(_, a, b)) => {
+            if v != 0 {
+                *a
+            } else {
+                *b
+            }
+        }
+        Some(Term::Switch(_, cases, d)) => cases.iter().find(|(k, _)| *k == v).map(|(_, t)| *t).unwrap_or(*d),
+        _ => return None,
+    })
+}
+
+/// What a predecessor knows about a local at its end.
+#[derive(Clone, Copy, PartialEq)]
+enum Fact {
+    Int(i64),
+    /// A fresh enum object whose constructor stored this tag.
+    Tag(i64),
+}
+
+/// The facts holding at the end of a block's statements: constants, the
+/// tags of enum objects it allocated (a constructor's tag store; an enum's
+/// tag is never written again), and those of nullary variants' static
+/// objects, carried through copies.
+fn block_facts(f: &Func, nullary: &FxHashMap<u64, (u64, u32)>, stmts: &[Stmt]) -> FxHashMap<Local, Fact> {
+    let mut facts: FxHashMap<Local, Fact> = FxHashMap::default();
+    let mut fresh: FxHashSet<Local> = FxHashSet::default();
+    for s in stmts {
+        match s {
+            Stmt::Assign(l, rv) => {
+                facts.remove(l);
+                fresh.remove(l);
+                match rv {
+                    Rvalue::Use(Operand::Const(Const::Int(v, r))) if *r == f.locals[*l].repr => {
+                        facts.insert(*l, Fact::Int(*v));
+                    }
+                    Rvalue::Use(Operand::Local(src)) if f.locals[*src].repr == f.locals[*l].repr => {
+                        if let Some(x) = facts.get(src).copied() {
+                            facts.insert(*l, x);
+                        }
+                    }
+                    Rvalue::Use(Operand::Const(Const::Addr(a))) if f.locals[*l].repr == Repr::Ptr => {
+                        if let Some((_, t)) = nullary.get(a) {
+                            facts.insert(*l, Fact::Tag(*t as i64));
+                        }
+                    }
+                    Rvalue::Alloc { desc, .. } if is_enum(*desc) => {
+                        fresh.insert(*l);
+                    }
+                    _ => {}
+                }
+            }
+            Stmt::Store { base: Operand::Local(b), offset: 0, repr: Repr::I32, value } => {
+                // only the constructor's tag store, directly after the
+                // allocation, gives a fresh object its tag
+                match value {
+                    Operand::Const(Const::Int(v, _)) if fresh.remove(b) => {
+                        facts.insert(*b, Fact::Tag(*v));
+                    }
+                    _ => facts.retain(|_, x| matches!(x, Fact::Int(_))),
+                }
+            }
+            Stmt::Store { offset: 0, .. } => facts.retain(|_, x| matches!(x, Fact::Int(_))),
+            _ => {}
+        }
+        // a fresh object is fresh only until its constructor's first store
+        if !matches!(s, Stmt::Assign(_, Rvalue::Alloc { .. })) {
+            fresh.clear();
+        }
+    }
+    facts
+}
+
+fn is_enum(desc: u64) -> bool {
+    desc != 0
+        && matches!(
+            unsafe { &(*(desc as *const badger_runtime::desc::TypeDesc)).kind },
+            badger_runtime::desc::Kind::Enum { .. }
+        )
+}
+
 /// Full CFG cleanup (returns changes).
 pub fn cleanup(f: &mut Func) -> usize {
     fold_terms(f) + merge_switch_chains(f) + thread_and_merge(f)

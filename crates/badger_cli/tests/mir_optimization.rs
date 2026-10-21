@@ -325,3 +325,21 @@ fn a_repeated_checked_computation_is_computed_once() {
     }
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_question_mark_on_a_known_result_skips_building_it() {
+    let dir = temp("try-thread");
+    let src = dir.join("try.bdg");
+    std::fs::write(
+        &src,
+        "import std.io\nfn check(x: Int) -> Result<Int, String> { if x >= 0 { ok(x) } else { err(\"neg\") } }\nfn run(n: Int, k: Int) -> Result<Int, String> {\n    var s = 0\n    for i in 0..n {\n        let v = check(i - k)?\n        s = s + v\n    }\n    ok(s)\n}\npub fn main(args: List<String>) -> Unit {\n    let n = args.len() + 10\n    let _ = io.println($\"{run(n, 0).unwrap_or(-1)} {run(n, 3).unwrap_or(-1)}\")\n}\n",
+    )
+    .unwrap();
+    let (out, mir) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
+    assert_eq!(out, "45 -1\n");
+    let main = function(&mir, "try.main");
+    // the `ok` results are tested where they are built: none is allocated
+    assert!(!main.contains("value: Const(Int(0, I32))"), "an `ok` is still built and tested:\n{main}");
+    assert!(main.contains("value: Const(Int(1, I32))"), "the `err` path disappeared:\n{main}");
+    let _ = std::fs::remove_dir_all(dir);
+}
