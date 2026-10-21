@@ -177,13 +177,7 @@ impl<S: Scope> RequestScope<S> {
     }
     fn stream_with(self: &Self, status: Int, headers: Map<String, String>, chunks: Seq<Bytes>) -> Sent {
         match self.exchange.sink {
-            .some(cell) => {
-                var body = text_to_bytes("")
-                for chunk in chunks {
-                    body = bytes_concat(body, chunk)
-                }
-                cell.set({ status, headers, body })
-            },
+            .some(cell) => cell.set({ status, headers, body: collect_body(chunks) }),
             .none => match self.exchange.conn {
                 .some(conn) => pump(conn, self.exchange.service, status, headers, chunks),
                 .none => (),
@@ -502,7 +496,17 @@ fn pump(conn: native.Handle, service: Int, status: Int, headers: Map<String, Str
     http_stream_end(conn)
 }
 
-extern "intrinsic" fn bytes_concat(a: Bytes, b: Bytes) -> Bytes
+extern "intrinsic" fn bytes_join(parts: List<Bytes>, sep: Bytes) -> Bytes
+
+/// A streamed body, collected: the chunks joined once at the end (not
+/// copied again with each chunk).
+fn collect_body(chunks: Seq<Bytes>) -> Bytes {
+    let parts = list.builder<Bytes>()
+    for chunk in chunks {
+        parts.append(chunk)
+    }
+    bytes_join(parts.finish(), text_to_bytes(""))
+}
 
 /// Run a handler in-process on `request` (tests and adapters): a streamed
 /// reply is collected into the body.
@@ -511,13 +515,7 @@ pub fn call(h: Handler, request: Request) -> Response {
     match h.run(request, { conn: Option.none, sink: Option.some(sink), service: 0 }) {
         .full(r) => r,
         .sent => sink.get(),
-        .stream(s) => {
-            var body = text_to_bytes("")
-            for chunk in s.chunks {
-                body = bytes_concat(body, chunk)
-            }
-            { status: s.status, headers: s.headers, body }
-        },
+        .stream(s) => { status: s.status, headers: s.headers, body: collect_body(s.chunks) },
     }
 }
 

@@ -198,9 +198,12 @@ define_intrinsics! {
         if s > e || e > bs.len() { none(rdesc(ret)) } else { let w = new_bytes(&bs[s..e]); some(rdesc(ret), w) }
     }
     fn bytes_concat(ctx, targs, ret, a, b) {
-        let mut v = bytes_of(a).to_vec();
-        v.extend_from_slice(bytes_of(b));
-        new_bytes(&v)
+        crate::string::alloc_joined(crate::desc::builtin::bytes(), &[a, b], &[])
+    }
+    // `parts` with `sep` between them, copied once into the result (the
+    // list keeps the parts alive across its allocation)
+    fn bytes_join(ctx, targs, ret, l, sep) {
+        crate::string::alloc_joined(crate::desc::builtin::bytes(), &crate::list::to_vec(l), bytes_of(sep))
     }
     fn bytes_to_list(ctx, targs, ret, b) {
         let g = Roots::new();

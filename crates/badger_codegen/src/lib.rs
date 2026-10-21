@@ -1854,6 +1854,7 @@ pub const UNLOCKED: &[&str] = &[
     "badger_rt_i_bytes_at",
     "badger_rt_i_bytes_slice",
     "badger_rt_i_bytes_concat",
+    "badger_rt_i_bytes_join",
 ];
 
 /// Run the compiled program's `main` on the runtime scheduler.
