@@ -159,6 +159,18 @@ impl<'a> Analysis<'a> {
             .is_some_and(|t| matches!(t.split('<').next(), Some("List" | "Array" | "String" | "Map" | "Set")))
     }
 
+    /// Whether a method belongs to a protocol (its default body), or to an
+    /// implementation of one: either may also run through a generic bound
+    /// or a `dyn` value, where the call sites are not the direct calls the
+    /// analysis sees, and a default body may be overridden.
+    fn protocol_method(&self, f: &FnDef) -> bool {
+        f.owner.is_some_and(|o| match &self.hir.defs[o].kind {
+            DefKind::Protocol(_) => true,
+            DefKind::Impl(i) => i.protocol.is_some(),
+            _ => false,
+        })
+    }
+
     // ------------------------------------------------------------ evaluation
 
     fn eval(&self, e: ExprId, env: &Env) -> V {
@@ -266,6 +278,7 @@ impl<'a> Analysis<'a> {
             if let Some(b) = f.body
                 && self.types.exprs.get(&call).is_some_and(|t| t == "Bool")
                 && !is_std(self.hir, self.hir.defs[d].span)
+                && !self.protocol_method(f)
                 && self.inlining.get() < 3
                 && self.one_expression(b)
             {
