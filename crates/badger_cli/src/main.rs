@@ -59,8 +59,10 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Check a program and save it as binary MIR, which `badger run FILE`
-    /// loads without parsing or checking (only code generation remains).
+    /// Check a program and save it as binary MIR.
+    ///
+    /// `badger run FILE` loads it without parsing or checking (only code
+    /// generation remains).
     Compile {
         /// Entry file or project directory (default: the current project).
         #[arg(default_value = ".")]
@@ -80,10 +82,12 @@ enum Command {
         #[arg(long, value_name = "LEVEL", value_parser = OPT_LEVELS)]
         opt: Option<String>,
     },
-    /// Write a self-contained release directory: the `badger` executable,
-    /// the program as binary MIR, the native libraries it calls, and a
-    /// manifest of their digests. `DIR/run ARGS` (or `badger start DIR`)
-    /// starts it without the sources or a compiler installation.
+    /// Write a self-contained release directory.
+    ///
+    /// It holds the `badger` executable, the program as binary MIR, the
+    /// native libraries it calls, and a manifest of their digests.
+    /// `DIR/run ARGS` (or `badger start DIR`) starts it without the sources
+    /// or a compiler installation.
     Release {
         /// Entry file or project directory (default: the current project).
         #[arg(default_value = ".")]
@@ -103,9 +107,10 @@ enum Command {
         #[arg(long, value_name = "LEVEL", value_parser = OPT_LEVELS)]
         opt: Option<String>,
     },
-    /// Write a self-contained release directory: its target, program, and
-    /// native libraries (digests and ABI version) are checked before any
-    /// program code runs.
+    /// Start a release directory written by `badger release`.
+    ///
+    /// Its target, program, and native libraries (digests and ABI version)
+    /// are checked before any program code runs.
     Start {
         /// The release directory.
         dir: PathBuf,
@@ -116,8 +121,9 @@ enum Command {
         #[arg(last = true)]
         args: Vec<String>,
     },
-    /// Compile a program with the JIT and run it (a source program, or a
-    /// binary MIR file written by `badger compile`).
+    /// Compile a program with the JIT and run it.
+    ///
+    /// A source program, or a binary MIR file written by `badger compile`.
     Run {
         /// Entry file, project directory (with `badger.toml`), or the name of
         /// an `[entries]` module of the project in the current directory
@@ -169,8 +175,9 @@ enum Command {
         #[arg(last = true)]
         args: Vec<String>,
     },
-    /// Re-run a command when a source file of the project changes: the
-    /// default is `badger check PATH`, and with `-- COMMAND...` the
+    /// Re-run a command when a source file of the project changes.
+    ///
+    /// The default is `badger check PATH`, and with `-- COMMAND...` the
     /// given command runs instead (in the project's directory). The
     /// files are polled, so the command needs no file-watching
     /// dependency. The command's exit status is reported, but does not
@@ -184,8 +191,9 @@ enum Command {
         #[arg(last = true)]
         command: Vec<String>,
     },
-    /// Run a program again from a reproduction bundle (`badger run --record`):
-    /// every external operation is answered from the bundle, nothing is
+    /// Run a program again from a reproduction bundle (`badger run --record`).
+    ///
+    /// Every external operation is answered from the bundle, nothing is
     /// requested, run, or written, and an operation the bundle does not hold
     /// ends the replay (exit 3). Exits 0 when the recorded outcome (exit
     /// code, output, failure) is reproduced and 1 when it differs.
@@ -200,8 +208,11 @@ enum Command {
         #[arg(long)]
         release: bool,
     },
-    /// Run the `test_*` functions of the entry module and the package modules it imports (not those of dependencies): `badger test [PATH]`
-    /// (path defaults to the current project).
+    /// Run the program's tests.
+    ///
+    /// The `test_*` functions of the entry module and of the package
+    /// modules it imports (not those of dependencies); PATH defaults to
+    /// the current project.
     Test {
         /// The program or project to test (default `.`).
         #[arg(default_value = ".")]
@@ -223,8 +234,10 @@ enum Command {
         #[arg(long)]
         watch: bool,
     },
-    /// Run a user task: a typed function declared in the project's
-    /// `[tasks]` table (`name = "src/file.bdg#function"`).
+    /// Run a user task of the project's `[tasks]` table.
+    ///
+    /// A task is a typed function declared there
+    /// (`name = "src/file.bdg#function"`).
     Task {
         /// The task's name in `[tasks]`.
         name: String,
@@ -283,14 +296,20 @@ enum Command {
         #[arg(default_value = ".")]
         path: PathBuf,
     },
-    /// Language server over stdio (diagnostics, hover, definition,
-    /// references, rename, symbols, formatting, completion).
+    /// Language server over stdio.
+    ///
+    /// Diagnostics, hover, definition, references, rename, symbols,
+    /// formatting, completion.
     Lsp,
-    /// Model Context Protocol server over stdio: a persistent REPL session
-    /// ("code mode", with `std.compiler`), checking, queries, and runs.
+    /// Model Context Protocol server over stdio.
+    ///
+    /// A persistent REPL session ("code mode", with `std.compiler`),
+    /// checking, queries, and runs.
     Mcp,
-    /// Program structure as a graph: `calls`, `modules`, `types`, or
-    /// `systems`, in DOT (default), Mermaid, or JSON.
+    /// Program structure as a graph.
+    ///
+    /// `calls`, `modules`, `types`, or `systems`, in DOT (default),
+    /// Mermaid, or JSON.
     Graph {
         /// `calls`, `modules`, `types`, or `systems`.
         #[arg(value_parser = GRAPH_KINDS)]
@@ -308,13 +327,14 @@ enum Command {
         #[arg(long)]
         std: bool,
     },
-    /// Answer one question about a program as JSON (1-based positions):
+    /// Answer one question about a program as JSON.
+    ///
     /// `diagnostics`, `check` (diagnostics with the inputs and roots
-    /// checked; with `--overlays`, of proposed contents), `symbols`, `api`
-    /// (public interface; PATH may also be a standard module such as
-    /// `std.list`), or at `--line`/`--col` `hover`, `definition`,
-    /// `references`, `completion`, `rename` (with `--name`: the edits, not
-    /// applied).
+    /// checked; with `--overlays`, of proposed contents), `symbols`,
+    /// `symbol` (with `--name`: a definition by its qualified name, and its
+    /// references), `api` (public interface; PATH may also be a standard
+    /// module such as `std.list`), or at `--line`/`--col` (1-based)
+    /// `hover`, `definition`, `references`, `completion`.
     Query {
         /// What to ask (see above).
         #[arg(value_parser = lsp::QueryKind)]
@@ -331,7 +351,8 @@ enum Command {
         /// (`-` reads it from standard input).
         #[arg(long)]
         source: Option<String>,
-        /// The new name, for `rename` (the edits are returned, not applied).
+        /// The definition `symbol` looks for (`orders.service.create`,
+        /// `Order.total`, or just `create`).
         #[arg(long)]
         name: Option<String>,
         /// Proposed file contents to check in place of the files on disk: a
@@ -340,9 +361,10 @@ enum Command {
         #[arg(long)]
         overlays: Option<String>,
     },
-    /// Reference documentation in Markdown from checked interfaces: `std`
-    /// (every standard module, one page each plus an index), a standard
-    /// module (`std.list`), or the program at a path.
+    /// Reference documentation in Markdown from checked interfaces.
+    ///
+    /// `std` (every standard module, one page each plus an index), a
+    /// standard module (`std.list`), or the program at a path.
     Doc {
         /// `std`, a standard module (`std.list`), or a program path.
         target: String,
@@ -356,8 +378,9 @@ enum Command {
         #[arg(long)]
         open: bool,
     },
-    /// Rename a definition and every use of it: the edits are computed
-    /// and applied to the files.
+    /// Rename a definition and every use of it.
+    ///
+    /// The edits are computed and applied to the files.
     Rename {
         /// The file the definition (or a use of it) is in.
         path: PathBuf,
@@ -389,8 +412,10 @@ enum Command {
         #[arg(long, value_name = "N", value_parser = workers())]
         workers: Option<usize>,
     },
-    /// Turn a directory into a project: `badger.toml` and
-    /// `src/main.bdg` (a program with a test). The directory is created
+    /// Turn a directory into a project.
+    ///
+    /// It gets `badger.toml` and `src/main.bdg` (a program with a test),
+    /// or the files of a `--template`. The directory is created
     /// when it does not exist; an existing file is never overwritten.
     Init {
         /// The directory of the project (default `.`).
@@ -401,7 +426,9 @@ enum Command {
         #[arg(long, value_name = "NAME", value_parser = templates::names())]
         template: Option<String>,
     },
-    /// Generate code: `sql` turns SQL files of named queries
+    /// Generate code: typed functions for SQL queries, or a module.
+    ///
+    /// `sql` turns SQL files of named queries
     /// (`-- name: find_user :one`) into typed functions, `NAME.bdg` next
     /// to each `NAME.sql`. Types come from Postgres (`--database`, or
     /// `DATABASE_URL`) or from a SQLite schema (`--schema`, or the
@@ -438,7 +465,9 @@ enum Command {
         check: bool,
     },
     /// Each contract clause (`requires`, `ensures`) and what the compiler
-    /// decided about it: proven (its runtime check is compiled out),
+    /// decided about it.
+    ///
+    /// Proven (its runtime check is compiled out),
     /// refuted (an error), or checked at run time, and why.
     Contracts {
         /// Entry file or project directory (default `.`).
@@ -465,8 +494,9 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Report the environment for bug reports: the version, the current
-    /// directory, the project (its name, its manifest, its sources), the
+    /// Report the environment for bug reports.
+    ///
+    /// The version, the current directory, the project (its name, its manifest, its sources), the
     /// effective runtime settings, and the `BADGER_*` environment
     /// variables that are set.
     Doctor {
@@ -474,16 +504,19 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Print a shell completion script for the given shell, so the
-    /// command names and their flags are not typed by hand.
+    /// Print a shell completion script for the given shell.
+    ///
+    /// The command names and their flags are then not typed by hand.
     Completions {
         /// The shell to write the script for.
         #[arg(value_parser = ["bash", "zsh", "fish", "powershell"])]
         shell: String,
     },
     /// Find a definition in the standard library and in the project's
-    /// modules: the name (or a word of it) is looked for in the names
-    /// and in the documentation.
+    /// modules.
+    ///
+    /// The name (or a word of it) is looked for in the names and in the
+    /// documentation.
     Search {
         /// The text to look for.
         query: String,
