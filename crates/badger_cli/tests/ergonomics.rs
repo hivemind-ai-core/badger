@@ -107,6 +107,32 @@ fn repl_loads_a_file() {
     assert!(text.contains("42"), "{text}");
 }
 
+/// An input ends where its brackets close, counted by token: a bracket in
+/// a comment or a character literal does not keep it open, and a raw
+/// string or block comment that is not closed yet does.
+#[test]
+fn repl_inputs_end_by_token() {
+    let mut child = lang()
+        .arg("repl")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("badger repl");
+    {
+        use std::io::Write;
+        let mut stdin = child.stdin.take().expect("stdin");
+        let input = "let b = 1 // {\nb + 1\nlet c = '('\n3 + 4\n/* (\n*/ 5 + 6\nlet r = \"\"\"\n)\n\"\"\"\n8 + 9\n:quit\n";
+        stdin.write_all(input.as_bytes()).expect("the input");
+    }
+    let out = child.wait_with_output().expect("the session");
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    let lines: Vec<&str> = text.lines().map(str::trim).collect();
+    for want in ["2", "7", "11", "17"] {
+        assert!(lines.contains(&want), "{want} in {text}\n{}", String::from_utf8_lossy(&out.stderr));
+    }
+}
+
 /// The benchmark programs are run and their measurements reported, with a
 /// baseline to compare against.
 #[test]

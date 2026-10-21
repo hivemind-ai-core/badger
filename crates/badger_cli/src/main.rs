@@ -1721,7 +1721,7 @@ fn repl_loop(addr: &str, prompt_text: &str) -> i32 {
         let Ok(line) = line else { break };
         buf.push_str(&line);
         buf.push('\n');
-        if depth(&buf) > 0 {
+        if incomplete(&buf) {
             prompt(true);
             continue;
         }
@@ -1891,20 +1891,30 @@ fn apply_edits(edits: &serde_json::Value) -> Result<Vec<String>, String> {
     Ok(changed)
 }
 
-fn depth(s: &str) -> i32 {
-    let mut d = 0;
-    let mut in_str = false;
-    let mut prev = ' ';
-    for c in s.chars() {
-        match c {
-            '"' if prev != '\\' => in_str = !in_str,
-            '{' | '(' | '[' if !in_str => d += 1,
-            '}' | ')' | ']' if !in_str => d -= 1,
+/// Whether an input continues on the next line: a bracket is still open,
+/// or a raw string, block comment, or interpolation is not closed yet.
+/// Counted by token, so brackets in strings, character literals, and
+/// comments do not count.
+fn incomplete(s: &str) -> bool {
+    use badger_syntax::token::Tok;
+    let (tokens, errors) = badger_syntax::token::lex(s);
+    let open = |e: &badger_syntax::token::LexError| {
+        ["unterminated raw string", "unterminated block comment", "unterminated interpolation"]
+            .iter()
+            .any(|m| e.message.starts_with(m))
+    };
+    if errors.iter().any(open) {
+        return true;
+    }
+    let mut d = 0i32;
+    for (t, _) in &tokens {
+        match t {
+            Tok::LParen | Tok::LBracket | Tok::LBrace | Tok::HoleStart => d += 1,
+            Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::HoleEnd => d -= 1,
             _ => {}
         }
-        prev = c;
     }
-    d
+    d > 0
 }
 
 /// Run a program, report its diagnostics, and leave the process with its
