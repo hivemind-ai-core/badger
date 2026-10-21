@@ -1894,7 +1894,9 @@ pub fn finish_tests(json: bool, filter: Option<&str>) -> i32 {
     }
     // the JSON object names the error too
     let error = unmatched
-        .map(|f| format!(",\"error\":{}", badger_base::diagnostics::json_str(&format!("no test matches `{f}`"))))
+        .map(|f| {
+            format!(",\"error\":{}", badger_base::diagnostics::json_str(&format!("no test matches `{f}`")))
+        })
         .unwrap_or_default();
     if LISTING.load(std::sync::atomic::Ordering::Relaxed) {
         if json {
