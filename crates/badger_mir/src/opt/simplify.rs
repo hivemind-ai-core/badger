@@ -474,7 +474,8 @@ fn rewrite_operands(rv: &mut Rvalue, f: &mut impl FnMut(&mut Operand)) {
 /// uses. Values do not change between the definition and the use, so the
 /// substitutions preserve semantics.
 fn propagate(f: &mut Func) -> usize {
-    let mut defs: FxHashMap<Local, (BlockId, usize, Rvalue)> = FxHashMap::default();
+    // only a copy's operand is needed from a definition, not the rvalue
+    let mut defs: FxHashMap<Local, (BlockId, usize, Option<Operand>)> = FxHashMap::default();
     let mut multi: FxHashSet<Local> = FxHashSet::default();
     for (b, block) in f.blocks.iter_enumerated() {
         for (i, s) in block.stmts.iter().enumerate() {
@@ -482,7 +483,11 @@ fn propagate(f: &mut Func) -> usize {
                 if defs.contains_key(l) || multi.contains(l) {
                     multi.insert(*l);
                 } else {
-                    defs.insert(*l, (b, i, rv.clone()));
+                    let copy = match rv {
+                        Rvalue::Use(o) => Some(*o),
+                        _ => None,
+                    };
+                    defs.insert(*l, (b, i, copy));
                 }
             }
         }
@@ -496,12 +501,12 @@ fn propagate(f: &mut Func) -> usize {
     let params: FxHashSet<Local> = f.params.iter().copied().chain(std::iter::once(f.env)).collect();
     let dom = Dominators::new(f);
     let mut repl: FxHashMap<Local, Operand> = FxHashMap::default();
-    for (l, (db, ds, rv)) in &defs {
+    for (l, (db, ds, copy)) in &defs {
         if params.contains(l) {
             continue;
         }
-        match rv {
-            Rvalue::Use(c @ Operand::Const(_)) => {
+        match copy {
+            Some(c @ Operand::Const(_)) => {
                 // The defining assignment coerced the constant to the
                 // local's representation; substituting it elsewhere is only
                 // safe when that is the constant's own representation (or
@@ -516,7 +521,7 @@ fn propagate(f: &mut Func) -> usize {
                     repl.insert(*l, *c);
                 }
             }
-            Rvalue::Use(Operand::Local(src)) if src != l && f.locals[*src].repr == f.locals[*l].repr => {
+            Some(Operand::Local(src)) if src != l && f.locals[*src].repr == f.locals[*l].repr => {
                 if let Some((sb, ss, _)) = defs.get(src) {
                     if !multi.contains(src) && dom.dominates(*sb, *ss, *db, *ds) {
                         repl.insert(*l, Operand::Local(*src));
@@ -699,37 +704,69 @@ fn dead_assignments(f: &mut Func) -> usize {
     // Removing one dead definition can make the definitions of its operands
     // dead too (including across blocks), so iterate to a fixpoint.
     for _ in 0..8 {
-        let mut live_in: Vec<Vec<u64>> = vec![vec![0u64; w]; n];
-        let mut live_out: Vec<Vec<u64>> = vec![vec![0u64; w]; n];
-        let mut changed = true;
-        while changed {
-            changed = false;
-            for b in (0..n).rev() {
-                let mut out = vec![0u64; w];
-                if let Some(t) = &f.blocks[b].term {
-                    for s in t.successors() {
-                        if s.index() < n {
-                            union_into(&mut out, &live_in[s.index()]);
-                        }
+        // per block: the locals used before any definition (`gen`) and the
+        // locals defined (`kill`), so the fixpoint is word operations only:
+        // live_in = gen | (live_out & !kill)
+        let mut gen_ = vec![0u64; n * w];
+        let mut kill = vec![0u64; n * w];
+        let mut succs: Vec<Vec<usize>> = Vec::with_capacity(n);
+        for b in 0..n {
+            let (g, k) = (&mut gen_[b * w..(b + 1) * w], &mut kill[b * w..(b + 1) * w]);
+            if let Some(l) = term_local(&f.blocks[b].term) {
+                set_bit(g, l);
+            }
+            for s in f.blocks[b].stmts.iter().rev() {
+                if let Stmt::Assign(l, _) = s {
+                    clear_bit(g, *l);
+                    set_bit(k, *l);
+                }
+                for_each_use(s, &mut |l| set_bit(g, l));
+            }
+            succs.push(
+                f.blocks[b]
+                    .term
+                    .as_ref()
+                    .map(|t| t.successors().into_iter().map(|s| s.index()).filter(|s| *s < n).collect())
+                    .unwrap_or_default(),
+            );
+        }
+        let mut preds: Vec<Vec<usize>> = vec![vec![]; n];
+        for (b, ss) in succs.iter().enumerate() {
+            for &s in ss {
+                preds[s].push(b);
+            }
+        }
+        let mut live_in_flat = vec![0u64; n * w];
+        let mut live_out_flat = vec![0u64; n * w];
+        let mut out = vec![0u64; w];
+        // worklist: a block is revisited only when a successor's live-in grew
+        let mut queued = vec![true; n];
+        let mut work: Vec<usize> = (0..n).collect(); // popped from the end: last block first
+        while let Some(b) = work.pop() {
+            queued[b] = false;
+            out.fill(0);
+            for &s in &succs[b] {
+                union_into(&mut out, &live_in_flat[s * w..(s + 1) * w]);
+            }
+            live_out_flat[b * w..(b + 1) * w].copy_from_slice(&out);
+            let mut grew = false;
+            for i in 0..w {
+                let v = gen_[b * w + i] | (out[i] & !kill[b * w + i]);
+                if live_in_flat[b * w + i] != v {
+                    live_in_flat[b * w + i] = v;
+                    grew = true;
+                }
+            }
+            if grew {
+                for &p in &preds[b] {
+                    if !queued[p] {
+                        queued[p] = true;
+                        work.push(p);
                     }
-                }
-                let mut cur = out.clone();
-                if let Some(l) = term_local(&f.blocks[b].term) {
-                    set_bit(&mut cur, l);
-                }
-                for s in f.blocks[b].stmts.iter().rev() {
-                    if let Stmt::Assign(l, _) = s {
-                        clear_bit(&mut cur, *l);
-                    }
-                    for_each_use(s, &mut |l| set_bit(&mut cur, l));
-                }
-                if out != live_out[b] || cur != live_in[b] {
-                    live_out[b] = out;
-                    live_in[b] = cur;
-                    changed = true;
                 }
             }
         }
+        let live_out: Vec<Vec<u64>> = (0..n).map(|b| live_out_flat[b * w..(b + 1) * w].to_vec()).collect();
         let mut round = 0;
         for (b, out) in live_out.iter().enumerate().take(n) {
             let mut cur = out.clone();
