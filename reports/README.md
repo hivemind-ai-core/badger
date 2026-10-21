@@ -7,6 +7,7 @@ states the revision it measured; newer work can change its numbers.
 
 | Report | What it covers |
 |---|---|
+| [2026-10-20-egg-straight-line-regions.md](2026-10-20-egg-straight-line-regions.md) | Why egg over straight-line MIR regions (§4.2) is not adopted: with the §4.1 rule set it finds 2 rewrites `superopt` does not; the implementation is in [egg-survey/](egg-survey/) |
 | [2026-10-20-mir-escape-analysis.md](2026-10-20-mir-escape-analysis.md) | Why MIR escape analysis with stack allocation (§3.2) is not adopted: the remaining allocations escape; survey script in [escape-analysis-survey/](escape-analysis-survey/) |
 | [2026-10-19-language-and-compiler-changes.md](2026-10-19-language-and-compiler-changes.md) | Ergonomics backlog for the compiler team: syntax, type system, diagnostics, runtime semantics, incremental build — merge of the ergonomics investigation and the experience report |
 | [2026-10-19-library-and-framework-changes.md](2026-10-19-library-and-framework-changes.md) | Ergonomics backlog for the library team: standard library, extended library, application services framework (amendments, improvements, additions), CLI and docs — same merge, other half |

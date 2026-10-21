@@ -878,6 +878,29 @@ cannot pass the check.
 
 ### 4.2 egg for straight-line MIR regions
 
+**Status:** **not adopted** (2026-10-20): with the §4.1 rule set, equality
+saturation finds almost nothing the hand-written pass does not
+([`reports/2026-10-20-egg-straight-line-regions.md`](reports/2026-10-20-egg-straight-line-regions.md)).
+The pass was built ([`egg-survey/egg.patch`](reports/egg-survey/egg.patch)).
+It lifts the non-trapping integer operations of each run between effects into
+egg, compiles its 141 rewrites from `opt::smt`'s rows, and writes the cheapest
+member of each class back in place. It meets the gates: a 50 ms budget per
+function (release build: p50 51 µs, p99 1.4 ms, max 4.7 ms, none over), a
+64-statement region bound (the corpus's largest region has 7), and the §4.1
+rule set as the only source of rewrites. That rule set gained a Z3-proved
+commutativity rule, which an e-graph pattern needs to match `superopt`'s
+canonical operand order. The corpus is identical with the pass on and off,
+with 1 and 4 workers. After `superopt` it finds **2** rewrites over the 263
+programs of `tests/run` (2 483 functions, 36 798 lifted statements), +0.15 %
+on `superopt`'s 1 323, and **0** on every `bench/*.bdg` program, against an
+expected 3–5 %. Run before `superopt`, it finds 1 318 of those 1 323, so the
+search works. The §4.1 rules are independent strength reductions that one
+pass already applies at their fixpoint, and none feeds another, so the
+e-graph has nothing to compose. The pass would add egg and 13 transitive
+crates, and +3–4 % to the MIR optimisation phase of the large programs. What
+would pay is a larger proved rule set with rules that interfere
+(reassociation, distribution), not the search over this one.
+
 - **Goal**: lift straight-line MIR regions (only `Rvalue::Bin`
   / `Cmp` / `Not` / `Convert` / `Neg` per `mir.rs:218-294`, with
   effects as break points) into the egg equality-saturation
@@ -1008,6 +1031,7 @@ listed.
 | Scheduler Activations | not in mainline Linux; badger cannot adopt them on stock Linux | `research/12-runtime-scaling-extra.md` §14.1 |
 | HotSpot-style safepoint polling page (§0.1) | the race it removes is gone (the `STOP` + `IN_COMPILED` handshake is race-free under sequentially consistent ordering), and the mechanism only pays off when the *generated code* polls: with the poll in the runtime the collector still waits for the counter to drain, so a page fault would replace the load on a hot path | `research/12-runtime-scaling-extra.md` §16.3 |
 | MIR escape analysis with stack allocation (§3.2) | after `sra`/`enums`/`niche` the hot allocations on every benchmark escape for real (the one in `bench/records` is stored with `Atom.set`); the leftovers run once or cross into the runtime | `reports/2026-10-20-mir-escape-analysis.md` |
+| egg for straight-line MIR regions (§4.2) | with the §4.1 rule set the e-graph finds 2 rewrites `superopt` does not over the corpus (+0.15 %) and none on the benchmarks; the rules are independent strength reductions one pass already applies to their fixpoint | `reports/2026-10-20-egg-straight-line-regions.md` |
 | Lifetime-driven inlining and dead-assignment elimination (§4.4) | the type checker's ownership facts are subsumed by MIR liveness (borrows are erased in the MIR): an oracle of them changes 0 inlining decisions and removes 0 assignments over the corpus; every remaining dead assignment is kept for its effect | `reports/2026-10-20-lifetime-driven-optimisation.md` |
 | Full Tofte-Talpin region inference | whole-program analysis; badger compiles per function | `research/13-type-system-memory-management.md` §9.5 |
 | Hazard Eras | hardware support (TSX-NI) is deprecated on desktop Intel | `research/12-runtime-scaling-extra.md` §13.6 |
