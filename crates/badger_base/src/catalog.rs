@@ -537,6 +537,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "A `List` variable declared outside a loop is concatenated with a list literal on every iteration (`xs = list.concat(xs, [x])`, `xs = xs.concat([x])`). Each step copies the whole list, so the loop takes time quadratic in its length (warning). Use `list.append`, or collect with `list.builder()`.",
     ),
     (
+        "E0455",
+        "spawn and join in one iteration",
+        "A task spawned in a loop is joined in the same iteration before anything else runs, so the loop waits for each task before starting the next and they never run at the same time (warning). Spawn every task first, then join them after the loop.",
+    ),
+    (
         "E0401",
         "region escape",
         "A value carrying a scope brand (transaction, task handle, running system, or a closure capturing one) would outlive the callback that introduced the scope.",

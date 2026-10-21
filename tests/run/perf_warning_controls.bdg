@@ -1,0 +1,57 @@
+// Valid neighbours of the E0453/E0454/E0455 patterns: no warning.
+import std.io
+import std.list
+import std.task
+import std.text
+
+pub fn main() -> Result<Unit, io.Error> {
+    // the parts collected, then joined once
+    var parts: List<String> = []
+    for i in 0..5 {
+        parts = list.append(parts, $"{i}")
+    }
+    let joined = text.join(parts, ",")
+    // a string started over in each iteration
+    var lines = 0
+    for i in 0..3 {
+        var line = ""
+        line = $"{line}{i}"
+        lines = lines + line.len()
+    }
+    // a string rebuilt from another, or built in a closure the loop makes
+    let base = "ab"
+    var copy = ""
+    var fs: List<fn() -> String> = []
+    for i in 0..3 {
+        copy = $"{base}{i}"
+        fs = list.append(fs, fn() { var s = "x"; s = $"{s}{i}"; s })
+    }
+    // a list grown by appending
+    var xs: List<Int> = []
+    for i in 0..3 {
+        xs = list.append(xs, i)
+    }
+    // every task spawned first, then joined; or joined after other work
+    let total = task.scope(fn(s) -> Result<Int, io.Error> {
+        var ts: List<task.Task<_, Int>> = []
+        for i in 0..4 {
+            ts = list.append(ts, s.spawn(fn() { i * 10 }))
+        }
+        var acc = 0
+        for t in ts {
+            acc = acc + t.join()
+        }
+        let early = s.spawn(fn() { 1 })
+        for _ in 0..2 {
+            acc = acc + early.join()
+        }
+        for i in 0..2 {
+            let t = s.spawn(fn() { i })
+            let local = i * 3
+            acc = acc + local + t.join()
+        }
+        ok(acc)
+    })?
+    io.println($"{joined} {lines} {copy} {fs.len()} {xs} {total}")?
+    ok(())
+}

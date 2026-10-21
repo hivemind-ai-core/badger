@@ -7,7 +7,8 @@
 //!   updates, iteration, `?` conversions)
 //! - [`program`]: binding groups, generalization, and per-instance re-checking
 //! - [`exhaust`], [`ownership`]: match exhaustiveness and affine use checks
-//! - [`concurrency`]: task/channel patterns that always deadlock
+//! - [`concurrency`]: task/channel patterns that always deadlock, or that
+//!   run spawned tasks one at a time
 //! - [`perf`]: loops that rebuild a string or list from itself (quadratic)
 #![allow(clippy::type_complexity)]
 

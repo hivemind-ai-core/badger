@@ -1,0 +1,21 @@
+// A task spawned in a loop and joined in the same iteration: the loop
+// waits for each task before it spawns the next, so none run together.
+// expect-warning: E0455
+import std.io
+import std.task
+
+pub fn main() -> Result<Unit, io.Error> {
+    let total = task.scope(fn(s) -> Result<Int, io.Error> {
+        var acc = 0
+        for i in 0..100 {
+            let t = s.spawn(fn() { i * 2 })
+            acc = acc + t.join()
+        }
+        for i in 0..100 {
+            acc = acc + s.spawn(fn() { i }).join()
+        }
+        ok(acc)
+    })?
+    io.println($"{total}")?
+    ok(())
+}
