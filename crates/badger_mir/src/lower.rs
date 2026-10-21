@@ -2468,6 +2468,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.switch(join);
                 Some(unit_op())
             }
+            // a finished list's length is its first payload word (the
+            // runtime's `list::len` adds only the consumed-builder check,
+            // which a `List` never fails)
+            "list_len" => Some(self.assign(
+                Repr::I64,
+                Rvalue::Load { base: args[0], offset: badger_runtime::list::LEN_OFFSET, repr: Repr::I64 },
+            )),
             "cell_get" => {
                 let r = self.repr(ret_ty);
                 Some(self.assign(r, Rvalue::Load { base: args[0], offset: 0, repr: r }))

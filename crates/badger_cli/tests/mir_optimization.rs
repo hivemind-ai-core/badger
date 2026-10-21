@@ -235,3 +235,29 @@ fn constant_module_values_fold_and_fallible_ones_stay_lazy() {
     assert_eq!(ctrl_out, expected);
     assert!(ctrl.contains("limit#global"), "control lost its getter:\n{ctrl}");
 }
+
+/// Run a program with `--release`, keeping its functions apart (no
+/// inlining) so each can be inspected on its own.
+fn release_mir(name: &str, source: &str) -> (String, String) {
+    let dir = temp(name);
+    let src = dir.join(format!("{name}.bdg"));
+    std::fs::write(&src, source).unwrap();
+    let r = ok(lang()
+        .env("BADGER_NO_PASS", "inline")
+        .args(["run", "--release", "--dump-mir"])
+        .arg(&src)
+        .output()
+        .unwrap());
+    let _ = std::fs::remove_dir_all(dir);
+    r
+}
+
+#[test]
+fn a_list_length_is_a_load() {
+    let (out, mir) = release_mir(
+        "list-len",
+        "import std.io\nimport std.list\nfn wsum(xs: List<Int>) -> Int {\n    var s = 0\n    var i = 0\n    while i < xs.len() {\n        s = s + xs[i]\n        i = i + 1\n    }\n    s\n}\npub fn main() -> Unit {\n    let _ = io.println($\"{wsum(list.range(0, 100))} {[1, 2].len()}\")\n}\n",
+    );
+    assert_eq!(out, "4950 2\n");
+    assert!(!mir.contains("badger_rt_i_list_len"), "a list length still calls the runtime:\n{mir}");
+}
