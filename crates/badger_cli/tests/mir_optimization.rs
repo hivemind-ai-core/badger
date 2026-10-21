@@ -285,3 +285,15 @@ fn a_match_over_many_variants_is_one_switch() {
     let step = function(&mir, "big-match.step#");
     assert_eq!(step.matches("Switch(").count(), 1, "the match is still a chain of tests:\n{step}");
 }
+
+#[test]
+fn an_exclusive_range_step_does_not_test_the_end() {
+    let (out, mir) = release_mir(
+        "range-step",
+        "import std.io\nfn sum(n: Int) -> Int {\n    var s = 0\n    for i in 0..n { s = s + i }\n    s\n}\nfn sum_to(n: Int) -> Int {\n    var s = 0\n    for i in 0..=n { s = s + i }\n    s\n}\npub fn main(args: List<String>) -> Unit {\n    let n = args.len() + 9\n    let _ = io.println($\"{sum(n)} {sum_to(n)}\")\n}\n",
+    );
+    assert_eq!(out, "36 45\n");
+    let eqs = |f: &str| function(&mir, f).matches("op: Eq").count();
+    assert_eq!(eqs("range-step.sum#"), 0, "the exclusive loop tests its end twice:\n{mir}");
+    assert!(eqs("range-step.sum_to#") >= 1, "the inclusive loop lost its endpoint test:\n{mir}");
+}

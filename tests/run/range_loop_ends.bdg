@@ -1,0 +1,44 @@
+// Range loops stop at their end: an exclusive range's step does not test
+// for the endpoint, an inclusive one stops at it without stepping past
+// (including at the largest Int).
+import std.io
+pub fn main() -> Result<Unit, io.Error> {
+    var a = 0
+    for i in 0..10 { a = a + i }
+    var b = 0
+    for i in 0..=10 { b = b + i }
+    var c = 0
+    var top = 0
+    for i in 9223372036854775805..=9223372036854775807 {
+        c = c + 1
+        top = i
+    }
+    var d = 0
+    for i in 9223372036854775805..9223372036854775807 {
+        d = d + 1
+        top = top - i + i
+    }
+    var e = 0
+    for i in 3..3 { e = e + 1 }
+    for i in 3..=3 { e = e + 10 }
+    for i in 5..=2 { e = e + 100 }
+    var f = 0
+    for i in 0..100 {
+        if i % 2 == 0 { continue }
+        if i > 20 { break }
+        f = f + i
+    }
+    // a range held in a variable, and a dynamic bound
+    let r = 2..=4
+    var g = 0
+    for i in r { g = g + i }
+    let n = [1, 2, 3].len()
+    for i in 0..n { g = g + 100 }
+    for i in 0..=n { g = g + 1000 }
+    // fused sequences over ranges
+    let h = (0..5).map(fn(x) { x * 2 }).fold(0, fn(acc, x) { acc + x })
+    let k = (1..=5).filter(fn(x) { x % 2 == 1 }).count()
+    let m = (9223372036854775806..=9223372036854775807).map(fn(x: Int) { x - 9223372036854775800 }).fold(0, fn(acc, x) { acc + x })
+    io.println($"{a} {b} {c} {top} {d} {e} {f} {g} {h} {k} {m}")?
+    ok(())
+}
