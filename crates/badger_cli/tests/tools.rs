@@ -193,6 +193,42 @@ fn tools_report_the_diagnostics_of_a_broken_program() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// `badger query --source`: the text is named `<source>`, and its private
+/// directory is removed.
+#[test]
+fn query_source_is_named_and_removed() {
+    let before = temp_dirs("badger-check");
+    let mut child = lang()
+        .args(["query", "diagnostics", "--source", "-"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    {
+        use std::io::Write;
+        child.stdin.take().unwrap().write_all(b"pub fn main() -> Unit { let x: Int = \"no\" }\n").unwrap();
+    }
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(text.contains("<source>"), "{text}");
+    assert!(!text.contains("badger-check"), "{text}");
+    let after = temp_dirs("badger-check");
+    assert!(after.iter().all(|d| before.contains(d)), "{after:?}");
+}
+
+/// The directories of the system's temporary directory whose name starts
+/// with `prefix`.
+fn temp_dirs(prefix: &str) -> Vec<PathBuf> {
+    std::fs::read_dir(std::env::temp_dir())
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with(prefix)))
+        .collect()
+}
+
 /// `badger test --filter` that matches no test fails, with `--list` and
 /// `--json` too (the JSON object names the error).
 #[test]

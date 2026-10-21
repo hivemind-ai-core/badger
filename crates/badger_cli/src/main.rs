@@ -1014,38 +1014,18 @@ fn command(cli: Cli) -> ExitCode {
                 }
             }
         }
-        Command::Query { kind, path, line, col, source, name, overlays } => match source
-            .map(|src| {
-                let src = if src == "-" {
-                    let mut t = String::new();
-                    std::io::Read::read_to_string(&mut std::io::stdin(), &mut t)
-                        .map_err(|e| format!("standard input: {e}"))?;
-                    t
-                } else {
-                    src
-                };
-                let dir = badger_driver::private_temp_dir("badger-check").map_err(|e| e.to_string())?;
-                let f = dir.join("source.bdg");
-                std::fs::write(&f, src).map_err(|e| e.to_string())?;
-                Ok(f)
-            })
-            .unwrap_or_else(|| path.ok_or_else(|| "give a PATH or --source".to_string()))
-            .and_then(|p| {
-                let o = match &overlays {
-                    Some(spec) => lsp::read_overlays(spec, &p)?,
-                    None => Default::default(),
-                };
-                lsp::query(&kind, &p, line, col, name.as_deref(), o)
-            }) {
-            Ok(v) => {
-                println!("{v}");
-                ExitCode::SUCCESS
+        Command::Query { kind, path, line, col, source, name, overlays } => {
+            match query(&kind, path, line, col, source, name.as_deref(), overlays.as_deref()) {
+                Ok(v) => {
+                    println!("{v}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
             }
-            Err(e) => {
-                eprintln!("error: {e}");
-                ExitCode::FAILURE
-            }
-        },
+        }
         Command::Doc { target, out, open, .. } if open => match doc::open(&target, out.as_deref()) {
             Ok(written) => {
                 println!("wrote {written}");
@@ -1542,6 +1522,51 @@ fn command(cli: Cli) -> ExitCode {
             ExitCode::SUCCESS
         }
     }
+}
+
+/// `badger query`: of the program at `path`, or of `--source` text (`-`
+/// for standard input), checked on its own in a private directory that is
+/// removed afterwards; the answer names its file `<source>`.
+fn query(
+    kind: &str,
+    path: Option<PathBuf>,
+    line: Option<usize>,
+    col: Option<usize>,
+    source: Option<String>,
+    name: Option<&str>,
+    overlays: Option<&str>,
+) -> Result<serde_json::Value, String> {
+    let ask = |p: &Path| {
+        let o = match overlays {
+            Some(spec) => lsp::read_overlays(spec, p)?,
+            None => Default::default(),
+        };
+        lsp::query(kind, p, line, col, name, o)
+    };
+    let Some(src) = source else {
+        return ask(&path.ok_or_else(|| "give a PATH or --source".to_string())?);
+    };
+    let src = if src == "-" {
+        let mut t = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut t)
+            .map_err(|e| format!("standard input: {e}"))?;
+        t
+    } else {
+        src
+    };
+    let dir = badger_driver::private_temp_dir("badger-check").map_err(|e| e.to_string())?;
+    let f = dir.join("source.bdg");
+    let answer = std::fs::write(&f, src).map_err(|e| e.to_string()).and_then(|_| ask(&f));
+    let canonical = std::fs::canonicalize(&f).unwrap_or_else(|_| f.clone());
+    let _ = std::fs::remove_dir_all(&dir);
+    // the private file's path (as given, and as the checker resolved it)
+    // is the text's: `<source>`
+    let mut text = answer?.to_string();
+    for p in [canonical, f] {
+        let p = serde_json::Value::String(p.display().to_string()).to_string();
+        text = text.replace(&p[1..p.len() - 1], "<source>");
+    }
+    serde_json::from_str(&text).map_err(|e| e.to_string())
 }
 
 /// The `.bdg` files under `p` (recursively).
