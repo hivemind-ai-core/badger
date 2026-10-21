@@ -130,6 +130,9 @@ reference](../api/list.md).
 ### Building lists
 
 To build a list item by item, use a builder instead of repeated `append`.
+Never grow a list with `xs = list.concat(xs, [x])` in a loop: each
+concatenation copies the whole list, so the loop is quadratic (the
+compiler warns, E0454).
 
 ```badger
 import std.io
@@ -516,7 +519,9 @@ exist for it: `s.chars()` (`List<Char>`), `s.lines()` and `s.words()`
 (`List<String>`), `text.lines(s)` (the same lines as a `Seq<String>`, for
 pipelines), `s.split(sep)`, and `text.join(parts, sep)`. See the [`std.text`
 reference](../api/text.md). To build a long string, collect the pieces
-and `text.join` them once.
+and `text.join` them once: a loop that rebuilds a string from itself
+(`s = $"{s}{piece}"`) copies it every time, and the compiler warns about
+it (E0453).
 
 ## Ordering, equality, costs
 

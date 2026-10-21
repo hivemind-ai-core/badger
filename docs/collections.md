@@ -47,7 +47,9 @@ Rules of thumb:
 
 - Build with a builder (or `list.build`, `map.build`, `set.build`), not by
   repeated `append`/`insert` on snapshots. A loop of `xs = xs.append(x)`
-  is correct but may copy a partial page each time.
+  is correct but may copy a partial page each time; a loop of
+  `xs = list.concat(xs, [x])` copies the whole list each time (quadratic;
+  the compiler warns, E0454).
 - Keep pipelines lazy (`Seq`) until you need a list, then `collect()`
   once. A `Seq` over a scoped resource must be consumed inside the
   resource's scope.
@@ -65,7 +67,8 @@ Rules of thumb:
 | Operation | Cost | Notes |
 |---|---|---|
 | `list.get(i)`, `len`, `first`, `last` | O(1) | A page lookup plus an offset |
-| `append`, `concat` (snapshots) | O(page) amortized | Shares complete pages; copies a partial tail page |
+| `append` (snapshots) | O(page) amortized | Shares complete pages; copies a partial tail page |
+| `concat` | O(n + k) | Copies both lists into a new one |
 | builder `append` | O(1) amortized | Pages never move; the directory may grow |
 | `map`, `filter`, `filter_map`, `flat_map`, `enumerate`, `scan`, `zip` (lists) | O(n) | One pass into a builder |
 | `take`, `skip`, `slice`, `take_while`, `skip_while` (lists) | O(result) | A new list of the kept items |
@@ -102,8 +105,8 @@ only the work differs.
 `index_of`, `char_at`, `pad_start`) walk the text: O(n). Byte operations
 (`byte_len`, `bytes.slice`, `bytes.index_of`) are O(1) or O(n) in bytes
 without decoding. `split`, `lines`, `words`, `replace`, and `join` are one
-pass. Repeated `$"{acc}{piece}"` concatenation in a loop is quadratic:
-collect the pieces and `text.join` them once.
+pass. Repeated `$"{acc}{piece}"` concatenation in a loop is quadratic
+(the compiler warns, E0453): collect the pieces and `text.join` them once.
 
 ## Ordering and equality
 

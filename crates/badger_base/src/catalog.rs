@@ -527,6 +527,16 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "More messages were sent on a channel created in this function than it holds, before any other task could receive from it, so the send past its capacity waits forever (warning). Start the receiving task first, or use `try_send`.",
     ),
     (
+        "E0453",
+        "string rebuilt in a loop",
+        "A `String` variable declared outside a loop is rebuilt from itself on every iteration (`s = $\"{s}...\"`, `s = text.concat(s, ...)`). Each step copies everything built so far, so the loop takes time quadratic in the string's length (warning). Collect the parts in a list and `text.join` them once after the loop.",
+    ),
+    (
+        "E0454",
+        "list concatenated in a loop",
+        "A `List` variable declared outside a loop is concatenated with a list literal on every iteration (`xs = list.concat(xs, [x])`, `xs = xs.concat([x])`). Each step copies the whole list, so the loop takes time quadratic in its length (warning). Use `list.append`, or collect with `list.builder()`.",
+    ),
+    (
         "E0401",
         "region escape",
         "A value carrying a scope brand (transaction, task handle, running system, or a closure capturing one) would outlive the callback that introduced the scope.",
