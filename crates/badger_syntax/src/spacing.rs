@@ -274,7 +274,7 @@ fn lex(line: &str) -> Option<Vec<Tok>> {
 /// Mark `<`/`>` pairs that delimit generic arguments: `<` written directly
 /// after a name (or `impl`/`for`), with a matching `>` on the line and only
 /// type syntax between.
-fn mark_generics(ts: &mut [Tok]) {
+fn mark_generics(ts: &mut Vec<Tok>) {
     let mut i = 0;
     while i < ts.len() {
         let t = &ts[i];
@@ -290,7 +290,15 @@ fn mark_generics(ts: &mut [Tok]) {
         }
         let mut depth = 0;
         let mut close = None;
+        // the arguments end in `>=` (`List<Int>= [1]`): one token to the
+        // lexer, a closing `>` and an `=` here
+        let mut split = false;
         for (j, u) in ts.iter().enumerate().skip(i) {
+            if u.text == ">=" && depth == 1 {
+                close = Some(j);
+                split = true;
+                break;
+            }
             let typeish = match u.k {
                 K::Ident | K::Comma | K::Colon | K::Dot | K::DotDot | K::Open | K::Close | K::Symbol => true,
                 K::Keyword => !CONTROL.contains(&u.text.as_str()) || u.text == "for",
@@ -311,6 +319,10 @@ fn mark_generics(ts: &mut [Tok]) {
             }
         }
         if let Some(j) = close {
+            if split {
+                ts[j].text = ">".into();
+                ts.insert(j + 1, Tok { k: K::Op, text: "=".into(), spaced: false, generic: false });
+            }
             // mark every angle pair inside as generic
             for u in ts[i..=j].iter_mut() {
                 if u.text == "<" || u.text == ">" {
@@ -538,6 +550,10 @@ mod tests {
                 "pub fn main() -> Result<Unit, io.Error> !{Io, Wait} {",
             ),
             ("let m: Map<String, List<Int>> = map {}", "let m: Map<String, List<Int>> = map {}"),
+            // `>=` after type arguments is their `>` and an `=`
+            ("let xs: List<Int>= [1]", "let xs: List<Int> = [1]"),
+            ("let m: Map<K, List<V>>= map {}", "let m: Map<K, List<V>> = map {}"),
+            ("if a>=b { f() }", "if a >= b { f() }"),
             ("for i in 0..n { s = s + -i }", "for i in 0..n { s = s + -i }"),
             ("let p2 = {..p,x:1}", "let p2 = { ..p, x: 1 }"),
             (
