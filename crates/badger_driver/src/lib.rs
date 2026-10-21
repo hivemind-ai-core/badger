@@ -1571,7 +1571,9 @@ fn optimize_mir(
 
 /// Run the MIR pipeline with the translation validator
 /// (`badger_mir::opt::tv`) checking every function each pass changes, and
-/// print its summary to stderr when a function is not proven. A function the solver refutes in a pass the
+/// print its summary to stderr when a function is not proven. The
+/// validator is held to `tv::PROGRAM_BUDGET` of its own time in all; a
+/// function left when it runs out is not proven. A function the solver refutes in a pass the
 /// model covers fails the compilation; one it does not prove is reported
 /// and kept. The validator only reads the passes' input and output, so the
 /// program is the one the pipeline produces without it.
@@ -1584,11 +1586,16 @@ fn translation_validate(
     let bytes = badger_mir::mir::dump(prog).len();
     let mut records = Vec::new();
     let mut checking = std::time::Duration::ZERO;
+    // the survey mode measures what the model decides, so only the check
+    // that guards a compilation is held to a budget
+    let mut budget = tv::PROGRAM_BUDGET;
     let report = badger_mir::opt::optimize_checked(prog, level, &mut |pass, before, after| {
         let start = std::time::Instant::now();
-        records.extend(tv::check_pass(pass, before, after, mode.validates(pass)));
+        let left = (mode == tv::Mode::InReach).then_some(&mut budget);
+        records.extend(tv::check_pass(pass, before, after, mode.validates(pass), left));
         checking += start.elapsed();
     });
+    tv::log(&records);
     // the summary is printed when the check has something to report: a
     // function it did not prove (always in the survey mode)
     let validated = |r: &&tv::Record| mode.validates(r.pass) && r.verdict != tv::Verdict::Equivalent;

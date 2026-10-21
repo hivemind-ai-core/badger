@@ -95,6 +95,13 @@ const QUERY_TIMEOUT: Duration = Duration::from_secs(2);
 /// Budget for one function; past it the function is [`Verdict::NotProven`].
 pub const FUNCTION_BUDGET: Duration = Duration::from_secs(10);
 
+/// Budget for the validator over a whole compilation under
+/// `BADGER_MIR_TV=1` (its own time, not the passes'): past it every function
+/// left is [`Verdict::NotProven`], so the check answers within the 10 s of
+/// §4.3's gate whatever the program's size (the second left is for copying
+/// and comparing the passes' programs).
+pub const PROGRAM_BUDGET: Duration = Duration::from_secs(9);
+
 /// Whether two functions are the same program: equal signature, locals'
 /// representations, blocks and terminators. A pass that leaves a function
 /// so is not asked about it.
@@ -1498,21 +1505,48 @@ pub struct Record {
 /// function the pass appended to the table, and every function of a table
 /// the pass renumbered, is reported as not proven: its meaning is the call
 /// sites', which a per-function check does not relate.
-pub fn check_pass(pass: &'static str, before: &Program, after: &Program, validate: bool) -> Vec<Record> {
+///
+/// `budget`, when given, is the validator time left for the whole check: a
+/// function is validated within it (and [`FUNCTION_BUDGET`]) and draws it
+/// down, and once it is spent the functions left are not proven.
+pub fn check_pass(
+    pass: &'static str,
+    before: &Program,
+    after: &Program,
+    validate: bool,
+    mut budget: Option<&mut Duration>,
+) -> Vec<Record> {
     let kept = after.funcs.len() >= before.funcs.len()
         && before.funcs.iter().zip(&after.funcs).all(|(a, b)| a.name == b.name);
+    // the smallest first, so a budget that runs out leaves the fewest
+    // functions unproven
+    let size = |f: &Func| f.blocks.iter().map(|b| b.stmts.len()).sum::<usize>();
+    let mut changed: Vec<(FuncId, &Func)> = after
+        .funcs
+        .iter_enumerated()
+        .filter(|(id, f)| !(kept && before.funcs.get(*id).is_some_and(|old| same_func(old, f))))
+        .collect();
+    changed.sort_by_key(|(id, f)| (before.funcs.get(*id).map_or(size(f), size), *id));
     let mut out = Vec::new();
-    for (id, f) in after.funcs.iter_enumerated() {
+    for (id, f) in changed {
         let old = before.funcs.get(id);
-        if kept && old.is_some_and(|old| same_func(old, f)) {
-            continue;
-        }
-        let statements = old.map_or(0, |old| old.blocks.iter().map(|b| b.stmts.len()).sum());
+        let statements = old.map_or(0, size);
         let start = Instant::now();
         let verdict = match old {
             Some(old) if old.name == f.name && same_func(old, f) => continue,
             _ if !validate => Verdict::NotProven(OUTSIDE.into()),
-            Some(old) if kept => self::validate(old, f),
+            Some(old) if kept => {
+                let left = budget.as_deref().map_or(FUNCTION_BUDGET, |b| (*b).min(FUNCTION_BUDGET));
+                let verdict = if left.is_zero() {
+                    Verdict::NotProven("the compilation's budget ran out".into())
+                } else {
+                    validate_within(old, f, left)
+                };
+                if let Some(b) = budget.as_deref_mut() {
+                    *b = b.saturating_sub(start.elapsed());
+                }
+                verdict
+            }
             Some(_) => Verdict::NotProven("the pass renumbered the function table".into()),
             None if kept => Verdict::NotProven("the pass added the function".into()),
             None => Verdict::NotProven("the pass renumbered the function table".into()),
@@ -1525,9 +1559,7 @@ pub fn check_pass(pass: &'static str, before: &Program, after: &Program, validat
 /// The reason given for a function a pass outside the model changed.
 const OUTSIDE: &str = "the pass is outside the model";
 
-/// Print a summary per pass to stderr, and append one line per record to
-/// the file `BADGER_MIR_TV_LOG` names (tab-separated: pass, function,
-/// verdict, microseconds, statements, reason).
+/// Print a summary per pass to stderr.
 pub fn report(records: &[Record], mir_bytes: usize, elapsed: Duration) {
     let mut passes: Vec<&'static str> = records.iter().map(|r| r.pass).collect();
     passes.dedup();
@@ -1562,25 +1594,30 @@ pub fn report(records: &[Record], mir_bytes: usize, elapsed: Duration) {
             }
         }
     }
-    if let Some(path) = std::env::var_os("BADGER_MIR_TV_LOG") {
-        use std::io::Write;
-        let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) else { return };
-        for r in records {
-            let reason = match &r.verdict {
-                Verdict::Equivalent => String::new(),
-                Verdict::Refuted(s) | Verdict::NotProven(s) => s.replace(['\t', '\n'], " "),
-            };
-            let _ = writeln!(
-                file,
-                "{}\t{}\t{}\t{}\t{}\t{}",
-                r.pass,
-                r.function.replace(['\t', '\n'], " "),
-                r.verdict.word(),
-                r.elapsed.as_micros(),
-                r.statements,
-                reason,
-            );
-        }
+}
+
+/// Append one line per record to the file `BADGER_MIR_TV_LOG` names, when it
+/// is set (tab-separated: pass, function, verdict, microseconds, statements,
+/// reason).
+pub fn log(records: &[Record]) {
+    use std::io::Write;
+    let Some(path) = std::env::var_os("BADGER_MIR_TV_LOG") else { return };
+    let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) else { return };
+    for r in records {
+        let reason = match &r.verdict {
+            Verdict::Equivalent => String::new(),
+            Verdict::Refuted(s) | Verdict::NotProven(s) => s.replace(['\t', '\n'], " "),
+        };
+        let _ = writeln!(
+            file,
+            "{}\t{}\t{}\t{}\t{}\t{}",
+            r.pass,
+            r.function.replace(['\t', '\n'], " "),
+            r.verdict.word(),
+            r.elapsed.as_micros(),
+            r.statements,
+            reason,
+        );
     }
 }
 
