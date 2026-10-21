@@ -168,3 +168,155 @@ target/release/badger run --dump-mir /tmp/mv.bdg 2>&1 >/dev/null | sed -n '/fn 0
 - `OPTIMIZATION_BACKLOG.md` §3.3 (region brand), §3.4 (linear), §3.5
   (`@move_only`) — all landed as static guarantees with the MIR, codegen
   and runtime unchanged.
+
+---
+
+# Part 2 — can the facts side-step the collector, and do they pick an arena?
+
+Added 2026-10-21. The collector is a precise, non-moving, generational
+mark-sweep heap (`crates/badger_runtime/src/gc.rs:1-20`), one global heap
+(`static HEAP`, `gc.rs:111`) with per-**worker** pools and object lists.
+Worker is a thread-local (`task.rs:528`), and tasks migrate between
+workers, so the pools are per-thread, not per-task.
+
+## 2.1 Immediate free of known-dead objects — not available, and not the shape to build
+
+There is no path that frees one managed object outside a sweep
+(`grep -rn 'free_now\|fn free_object' crates/badger_runtime/src` is empty;
+`free_cell`, `gc.rs:559-564`, is called only from the sweep closures and
+`dealloc`s only cells with payload > 512 bytes). A small cell's space is
+reclaimed by its lines staying clear at the next collection; `mark_lines`
+(`gc.rs:269-290`) ORs bits and has **no inverse**, and only
+`Pool::clear_lines` (`gc.rs:484`) clears a bitmap, wholesale, at a full
+collection. So a small object cannot be individually returned to the
+allocator between collections at all.
+
+An immediate free would additionally have to:
+
+- remove the object from its owning worker's list, `OBJECTS` (`gc.rs:136`)
+  — there is no back-pointer from an object to its worker, and removing an
+  element from the middle invalidates `YOUNG_START[w]` (`gc.rs:887`) and
+  the `gc-profile` census, which walks list and side table in lockstep
+  (`gc/sweep.rs:167-169`, `allocations.rs:243,265`);
+- drop it from the remembered set (`REMEMBER`, `gc.rs:883`), `globals`
+  (`gc.rs:719`), `pinned` (`gc.rs:747`), the task temp roots and the
+  shadow stack (`task::for_each_root`, `task.rs:970-1040`);
+- poison the payload and quarantine it under `BADGER_GC_VERIFY`
+  (`gc.rs:1200-1215`, `obj` at `gc.rs:83`);
+- run its finalizer exactly once (`FINALIZING`, `gc.rs:1534`);
+- correct `live` / `OLD_BYTES`, which are snapshots taken at the end of a
+  collection (`gc.rs:1280,1289`), not per-allocation counters.
+
+That is a lot of invariants for a mechanism the immix pool already
+replaces: reuse is by line bitmap and hole size class, and it is cheap.
+
+## 2.2 Allocating the region's objects outside the heap — the implementable shape
+
+The design that fits the runtime is not "free now inside the heap" but
+"allocate the region's objects outside it, and release them in one action
+at the end of the block". Both halves already exist:
+
+- **Allocation outside the heap.** `alloc_immortal` (`gc.rs:706-716`)
+  takes system `alloc_zeroed`, sets `IMMORTAL`, and puts the object in no
+  worker list, so the sweep never sees it. `Buffer` element storage
+  (`buffer.rs:79-93`) is native `malloc`, charged to the collector with
+  `external_alloc` (`gc.rs:682`) and released by the object's finalizer
+  (`buffer.rs:166-175, 212-221`).
+- **Bulk release.** `Pool::rebuild(trim)` already `dealloc`s whole chunks
+  whose lines are all clear (`gc.rs:447-455`), which is exactly the
+  "release the region's storage at once" step.
+
+**Soundness.** The property a region needs is "no pointer from outside the
+region reaches a region object", and the region brand is precisely that
+guarantee (`TypeDesc::region`, `desc.rs:173-177`, is documented as "the
+type checker proved that none of its values outlives the region" — the
+flag is wired but has no setter yet, see Part 1). Two obligations remain:
+
+1. A region object may point *into* the heap (and does: a region-scoped
+   record holds heap strings, atoms, buffers). The collector must trace
+   those children while the region is live, so region objects need a real
+   `Header` + descriptor and must be **rooted** while live. They already
+   are: their locals sit in the shadow stack
+   (`codegen/src/lib.rs:723-785` builds and links the frame), so the
+   `header`-based `trace` (`gc.rs:1570`) will follow them.
+2. They must be **excluded from the sweep lists** so the collector never
+   claims them, and released only by the region's exit — i.e. an
+   `alloc_immortal`-shaped allocation plus an explicit release, not the
+   `alloc` path.
+
+This is `MEMORY_MAN_TODO.md` R1–R6 and L1–L2 verbatim, and the doc's own
+first constraint is the reason ownership modes alone do not buy it:
+**"R0: Transfer is not proof of graph uniqueness."** A move or a transfer
+says a value has one owner at the source level, not that the object graph
+is uniquely reachable in the MIR (every copy in Part 1 is an alias). Only
+the *region brand* carries non-escape, and it is erased before the MIR
+(`ground_resolved`, `program.rs:2648`).
+
+## 2.3 Stack allocation — blocked on the root/tracing model
+
+A stack object that holds managed pointers must be traced like any other,
+and the collector's verification requires every address it traces to be a
+heap object or a registered immortal (`gc.rs:1036`; `freed_use`,
+`gc.rs:592`, aborts otherwise). `MEMORY_MAN_TODO.md` L2 states the
+prerequisite exactly: "Support stack/region objects containing pointers in
+the root/tracing model before redirecting existing heap-object allocations
+there." Pointer-free (leaf) stack objects are not blocked by that, but the
+escape survey found no candidate in a measured hot loop
+(`reports/2026-10-20-mir-escape-analysis.md`), so there is nothing to
+stack-allocate that pays.
+
+## 2.4 Choosing an arena (task-local vs shared vs handoff buffer)
+
+There is no arena to choose between today: one global heap, and the only
+split is by **size class** (payload ≤ 512 → the calling worker's immix
+pool; else system `alloc_zeroed`, `gc.rs:501-505`). "Task-local" is not
+expressible: the pool, the object list and the young boundary all follow
+the **thread** (`worker_index()`, `task.rs:528`, reads a `Cell`), and
+tasks migrate. `MEMORY_MAN_TODO.md` H1 names the prerequisite ("ownership
+follows migrating tasks, and task completion cannot invalidate pending
+join results").
+
+Shared-versus-task-local is decided today by *type capability*, not by a
+heap arena: `Share` / `Transfer` / affine in `solve.rs` / `env.rs`. A
+`Buffer` is affine and movable, and its native element block is owned by
+the managed object, so handing the buffer to another task transfers the
+malloc block with the pointer and it is freed once by the finalizer
+(`buffer.rs:166, 212`) — the "buffer with several objects, handed to
+another task" pattern **already exists for buffer element storage**. To
+generalize it to arbitrary objects is R1–R6; the doc's R3 is explicit that
+reclamation must follow *completed processing*, not dequeue, and that a
+borrowed message must not escape its lease.
+
+What the checker's facts would supply is exactly an arena chooser's two
+inputs — the region brand says "dies at the end of this block" (scratch /
+region arena), `@move_only` and affinity say "one owner, movable across a
+task boundary" (transfer arena). `MEMORY_MAN_TODO.md` L1 states the same
+goal ("choose register, stack, region or GC allocation"). Both inputs are
+available at the type level and neither reaches the MIR.
+
+## 2.5 Can the backlog items be done now?
+
+| Item | Status | Blocked on |
+|---|---|---|
+| §3.2 escape / stack alloc | built, measured, not adopted | 0 % on the gate benchmark; the ~220 read-only runtime-call args need the runtime to accept non-heap objects (L2) |
+| §3.3 region brand / arena | landed as a static guarantee; perf half did not land | a runtime arena (R1–R6, unimplemented) + the brand erased by `ground_resolved` + `TypeDesc::region` never set |
+| §3.4 linear resources | landed (E0413) | nothing; the `~3–5 %` on I3/I5 was **never measured**, and finalizer elision is unsound while error exits are unchecked |
+| §3.5 `@move_only` | marker landed; `sra` half not adopted | §3.2, not adopted |
+| §4.3 translation validation | cheap form landed | a full SMT model of MIR is open |
+| §4.4 lifetime → inliner / DAE | measured, not adopted | nothing missing but the *value*: an oracle of the facts changes 0 decisions; what would pay is effect info, not lifetimes |
+
+The region/arena items are not blocked on the type checker — the brand is
+already computed and is the right fact. They are blocked on **runtime
+mechanisms that do not exist** (a non-heap, traced-while-live object
+domain; a root/tracing model for pointer-bearing non-heap objects) and on
+**measurement**: `MEMORY_MAN_TODO.md` G1b ("measure allocation counts by
+source/type and survival/escape class") is stated as needed before any
+arena claim, and the one arena-shaped benchmark, `bench/parallel_alloc`,
+measured 0 % for the escape half.
+
+If arena work is wanted, the first slice the doc itself defines is **R1**:
+a bounded FIFO for *pointer-free* message data between one producer and
+one consumer, with wraparound, oversize, and full/empty tests. It is the
+only arena slice that does not need the cross-heap rooting model (R6) and
+it has a stated benchmark; everything with pointers depends on R6/L2
+first.
