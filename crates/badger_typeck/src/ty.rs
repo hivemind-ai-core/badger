@@ -770,6 +770,35 @@ pub fn expand(seen: &mut Vec<Ty>, t: &Ty) -> Expand {
     Expand::Go
 }
 
+/// Whether `t`, written out as a tree, has more than `limit` nodes. A type
+/// shares its repeated parts, so one built by polymorphic recursion
+/// (`Nest<(T, T)>` inside `Nest<T>`) is small in memory yet doubles as a
+/// tree at each level: walks that rebuild, compare, or hash it check this
+/// first (it stops counting at `limit`).
+pub fn ty_larger_than(t: &Ty, limit: usize) -> bool {
+    fn count(t: &Ty, left: &mut usize) -> bool {
+        if *left == 0 {
+            return true;
+        }
+        *left -= 1;
+        match &**t {
+            TyKind::Con(_, args) | TyKind::Tuple(args) | TyKind::Dyn(_, args) => {
+                args.iter().any(|a| count(a, left))
+            }
+            TyKind::Fn(ft) => {
+                ft.params.iter().any(|a| count(a, left)) || count(&ft.ret, left) || count(&ft.eff, left)
+            }
+            TyKind::Record(r) | TyKind::Ref(_, r) | TyKind::Forall(_, r) | TyKind::Proj(r, _) => {
+                count(r, left)
+            }
+            TyKind::RowExt(_, a, rest) => count(a, left) || count(rest, left),
+            _ => false,
+        }
+    }
+    let mut left = limit;
+    count(t, &mut left)
+}
+
 /// Does any node of `t` satisfy `f`?
 pub fn ty_any(t: &Ty, f: &mut impl FnMut(&TyKind) -> bool) -> bool {
     if f(t) {

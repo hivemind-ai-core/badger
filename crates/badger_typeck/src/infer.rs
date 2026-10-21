@@ -2638,11 +2638,16 @@ impl<'g, 'a> Infer<'g, 'a> {
         let mut stack = vec![p];
         // each distinct type once; polymorphic recursion (a struct holding
         // itself at a bigger type) has no end, so past a bound on how often
-        // one type constructor is expanded every modeled effect is charged
-        // (sound, never silently dropped)
-        let mut seen: Vec<Ty> = vec![];
+        // one type constructor is expanded, on how many types are visited,
+        // or on how big one grows (`Nest<(T, T)>` doubles at each level)
+        // every modeled effect is charged (sound, never silently dropped)
+        let mut seen: rustc_hash::FxHashSet<Ty> = Default::default();
         let mut expanded: rustc_hash::FxHashMap<DefId, u32> = Default::default();
         while let Some(t) = stack.pop() {
+            if ty_larger_than(&t, 4096) {
+                labels = self.g.env.all_effects.clone();
+                break;
+            }
             if seen.contains(&t) {
                 continue;
             }
@@ -2654,7 +2659,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                     break;
                 }
             }
-            seen.push(t.clone());
+            seen.insert(t.clone());
             match &*t {
                 TyKind::Fn(f) => {
                     for (l, _) in row_fields(&f.eff).0 {

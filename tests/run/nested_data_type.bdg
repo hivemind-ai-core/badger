@@ -1,0 +1,15 @@
+// A nested data type (each level holds pairs of the one above) doubles in
+// size at every level of its definition: the checker's walks over it stop
+// at a bound instead of expanding it without end.
+import std.io
+enum Nest<T> { leaf(v: T), nest(inner: Box<Nest<(T, T)>>) }
+fn depth<T>(n: Nest<T>) -> Int {
+    match n { .leaf(_) => 0, .nest(b) => 1 + depth(b.get()) }
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let n: Nest<Int> = Nest.nest(Box.new(Nest.nest(Box.new(Nest.leaf(((1, 2), (3, 4)))))))
+    let wrapped = some(n)
+    let all = [wrapped, wrapped]
+    io.println($"depth {depth(n)}, {all.len()} wrapped")?
+    ok(())
+}

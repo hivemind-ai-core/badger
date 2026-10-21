@@ -1,0 +1,9 @@
+// expect-error: E0213
+// A nested data type without indirection has infinite size; checking a
+// use of it (wrapping it in an `Option`) still finishes at once rather
+// than expanding the doubling type level by level.
+enum Nest<T> { leaf(v: T), nest(inner: Option<Nest<(T, T)>>) }
+pub fn main() -> Unit {
+    let x: Nest<Int> = Nest.leaf(1)
+    let _ = some(x)
+}
