@@ -315,8 +315,10 @@ error. `badger_cli` is the `badger` binary.
   match's chain of switches on one tag merges into one switch (a jump
   table).
 - CSE (`badger_mir::opt::cse`): within a block, identical pure computations
-  with unchanged operands read the earlier result. Checked operations keep
-  their source location in the key; stores, calls, polls, and reassigned
+  with unchanged operands read the earlier result. A checked operation
+  shares an identical earlier checked one's result whatever its source
+  location (the earlier one fails first); stores, calls, and polls
+  invalidate the entries that read memory (loads and tags), and reassigned
   operands invalidate affected entries.
 - Superoptimization (`badger_mir::opt::superopt`, `--opt superopt`):
   straight-line integer and boolean regions are rewritten by exactly

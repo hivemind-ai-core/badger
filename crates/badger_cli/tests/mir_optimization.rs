@@ -297,3 +297,31 @@ fn an_exclusive_range_step_does_not_test_the_end() {
     assert_eq!(eqs("range-step.sum#"), 0, "the exclusive loop tests its end twice:\n{mir}");
     assert!(eqs("range-step.sum_to#") >= 1, "the inclusive loop lost its endpoint test:\n{mir}");
 }
+
+#[test]
+fn a_repeated_checked_computation_is_computed_once() {
+    let (out, mir) = release_mir(
+        "dup",
+        "import std.io\nfn dup(a: Int, b: Int) -> Int {\n    let u = a * b + 1\n    let v = a * b + 1\n    u + v\n}\npub fn main(args: List<String>) -> Unit {\n    let n = args.len() + 5\n    let _ = io.println($\"{dup(n, n + 1)}\")\n}\n",
+    );
+    assert_eq!(out, "62\n");
+    let dup = function(&mir, "dup.dup#");
+    assert_eq!(dup.matches("op: Mul").count(), 1, "the second product is recomputed:\n{dup}");
+    // when the shared check fails, the first product's location reports it
+    let dir = temp("dup-overflow");
+    let src = dir.join("overflow.bdg");
+    std::fs::write(
+        &src,
+        "import std.io\nfn dup(a: Int, b: Int) -> Int {\n    let u = a * b + 1\n    let v = a * b + 1\n    u + v\n}\npub fn main(args: List<String>) -> Unit {\n    let n = 4611686018427387904 + args.len()\n    let _ = io.println($\"{dup(n, 4)}\")\n}\n",
+    )
+    .unwrap();
+    for flags in [&[][..], &["--release"][..]] {
+        let out = lang().env("BADGER_NO_PASS", "inline").arg("run").args(flags).arg(&src).output().unwrap();
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            err.contains("integer overflow at ") && err.contains("overflow.bdg:3:13"),
+            "{flags:?}: {err}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
