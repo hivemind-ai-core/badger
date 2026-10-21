@@ -437,12 +437,12 @@ define_intrinsics! {
     fn text_to_upper(ctx, targs, ret, s) { new_string(&str_of(s).to_uppercase()) }
     fn text_to_lower(ctx, targs, ret, s) { new_string(&str_of(s).to_lowercase()) }
     fn text_replace(ctx, targs, ret, s, a, b) { new_string(&str_of(s).replace(str_of(a), str_of(b))) }
-    fn text_concat(ctx, targs, ret, a, b) { new_string(&format!("{}{}", str_of(a), str_of(b))) }
+    fn text_concat(ctx, targs, ret, a, b) { crate::string::alloc_joined(crate::desc::builtin::string(), &[a, b], &[]) }
     // a count of zero or less repeats nothing
     fn text_repeat(ctx, targs, ret, s, n) { new_string(&str_of(s).repeat((n as i64).max(0) as usize)) }
     fn text_join(ctx, targs, ret, l, sep) {
-        let parts: Vec<&str> = list::to_vec(l).into_iter().map(str_of).collect();
-        new_string(&parts.join(str_of(sep)))
+        // the list keeps its parts alive across the one allocation
+        crate::string::alloc_joined(crate::desc::builtin::string(), &list::to_vec(l), crate::string::bytes_of(sep))
     }
     fn text_chars(ctx, targs, ret, s) {
         // The count is a cheap second pass over the text; knowing it fills
@@ -450,6 +450,13 @@ define_intrinsics! {
         let st = str_of(s);
         let mut chars = st.chars();
         list::fill(rdesc(ret), st.chars().count(), |_| chars.next().unwrap_or('\0') as u64)
+    }
+    // The character at a character index (without the list of them all).
+    fn text_char_at(ctx, targs, ret, s, i) {
+        match usize::try_from(i as i64).ok().and_then(|i| str_of(s).chars().nth(i)) {
+            Some(c) => some(rdesc(ret), c as u64),
+            None => none(rdesc(ret)),
+        }
     }
     // The character index of the first occurrence of `p`.
     fn text_find(ctx, targs, ret, s, p) {

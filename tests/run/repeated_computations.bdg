@@ -1,0 +1,28 @@
+// A computation repeated in a block, across calls and stores, gives the
+// same value each time; a read after a store sees the stored value.
+import std.io
+
+fn noisy(x: Int) -> Int {
+    x + 1
+}
+
+fn repeated(a: Int, b: Int, c: Cell<Int>) -> Int {
+    let u = a * b + 1
+    let first = c.get()
+    let w = noisy(u)
+    let v = a * b + 1
+    c.set(c.get() + w)
+    let second = c.get()
+    let x = a * b + 1
+    u + v + x + first + second
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    var total = 0
+    let c = Cell.new(3)
+    for i in 0..100 {
+        total = total + repeated(i, i + 1, c)
+    }
+    io.println($"{total} {c.get()}")?
+    ok(())
+}

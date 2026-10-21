@@ -351,7 +351,12 @@ where
             .then(ty.clone())
             .map(|(m, inner)| Ty::Ref { mutable: m.is_some(), inner: Box::new(inner) });
         let dyn_ty = kw("dyn").ignore_then(path_type.clone()).map(|p| Ty::Dyn(Box::new(p)));
-        let field = label.clone().then_ignore(just(Tok::Colon)).then(ty.clone());
+        let field = attributes
+            .clone()
+            .then(label.clone())
+            .then_ignore(just(Tok::Colon))
+            .then(ty.clone())
+            .map(|((attrs, l), t)| (attrs, l, t));
         let row_rest = just(Tok::DotDot).ignore_then(type_ident.clone());
         let record = just(Tok::LBrace)
             .ignore_then(nls.clone())
@@ -1334,7 +1339,7 @@ where
     // `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`
     let attr_position = choice((
         kw("type").ignore_then(just(Tok::Colon).ignore_then(ty.clone()).or_not()).map(AttrPosition::Type),
-        kw("field").to(AttrPosition::Field),
+        kw("field").ignore_then(just(Tok::Colon).ignore_then(ty.clone()).or_not()).map(AttrPosition::Field),
         kw("variant").to(AttrPosition::Variant),
         kw("value").to(AttrPosition::Value),
         // a function position names the signature the functions have

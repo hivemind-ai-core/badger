@@ -59,7 +59,7 @@ fn display(self: &Self) -> String
 ### `LineReader`
 
 ```badger
-struct LineReader<R> { source: R, pending: Cell<Bytes>, done: Cell<Bool> }
+struct LineReader<R> { source: R, pending: Cell<Bytes>, start: Cell<Int>, done: Cell<Bool> }
 ```
 
 Lines of text read from a `Reader`, buffered.

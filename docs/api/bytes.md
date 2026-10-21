@@ -68,7 +68,7 @@ The index of the first `needle` at or after `from`.
 fn join(parts: List<Bytes>, sep: Bytes) -> Bytes
 ```
 
-The parts with `sep` between them.
+The parts with `sep` between them (one copy of each).
 
 ### `len`
 

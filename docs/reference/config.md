@@ -402,6 +402,7 @@ For working on Badger itself. Output goes to stderr unless noted.
 | `BADGER_DEBUG_INFO` | Set: register debug information, as `badger run --debug`. |
 | `BADGER_DEBUG_IMAGE=DIR` | Also write each debug-information image to `DIR/badger-jit-PID.elf`. |
 | `BADGER_DUMP_CLIF` | Set: print the Cranelift IR of every generated function. |
+| `BADGER_CLIF_VERIFY` | Set: run Cranelift's IR verifier on every generated function (always on in debug builds of `badger` and under `BADGER_MIR_VALIDATE`). |
 | `BADGER_DUMP_ASM=PATTERNS` | Print machine code of generated functions whose names contain one of the comma-separated patterns; `1` or empty for all. |
 | `BADGER_DEBUG_INSTANCE` | Set: print each instance as it is lowered, and report diagnostics from instance re-checks (normally suppressed). |
 | `BADGER_DEBUG_LIVE` | Set: print the entries compared on each live reload. |

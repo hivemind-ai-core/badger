@@ -105,13 +105,17 @@ program, in `crates/badger_driver/src/`:
   callback is pure and infallible (`BADGER_NO_LIST_FUSION=1` disables), and
   `Map.entries().map/filter/fold` (`BADGER_NO_MAP_FUSION=1` disables).
 - Optimized builds (`--release`, not under `--watch` or `--inspect`, not
-  with `BADGER_NO_INLINE`) run the pipeline in `opt/`: `inline.rs` (small
-  direct callees and known closures, then scalar replacement again),
+  with `BADGER_NO_INLINE`) run the pipeline in `opt/`: `opt/globals.rs`
+  (module values with constant initializers become constants),
+  `inline.rs` (small direct callees and known closures, then scalar
+  replacement again),
   `opt/specialize.rs` (clone a helper called with a known closure, then
   call the lambda directly), `opt/simplify.rs` (constant/copy propagation,
-  folding, dead definitions, branch folding, CFG cleanup), map/snapshot
+  folding, dead definitions, branch folding, switch-chain merging, CFG
+  cleanup), map/snapshot
   reuse, `split.rs` (channel receives whose result is only examined),
-  `niche.rs` (local options as nullable pointers), `enums.rs` (local enums
+  `niche.rs` (local options as nullable pointers), jump threading
+  (`opt/cfg.rs`, the `thread` pass), `enums.rs` (local enums
   as scalars), `opt/cse.rs` (common subexpressions), and `reach.rs` (drop
   unreferenced functions). `--opt aggressive` adds another
   inlining/simplification round; `--opt superopt` adds the verified

@@ -1,0 +1,31 @@
+// A list's length reads the list directly: empty and literal lists, built,
+// appended, concatenated, sliced, and ranged lists, and lists of every
+// element size.
+import std.io
+import std.list
+
+fn count<T>(xs: List<T>) -> Int {
+    var n = 0
+    var i = 0
+    while i < xs.len() {
+        n = n + 1
+        i = i + 1
+    }
+    n
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let empty: List<Int> = []
+    let small = [1, 2, 3]
+    let big = list.range(0, 5000)
+    let grown = small.append(4).append(5)
+    let joined = list.concat(big, small)
+    let part = list.slice(big, 10, 4010)
+    let bytes = [1U8, 2U8, 3U8, 4U8]
+    let words = ["a", "bb", "ccc"]
+    let mapped = big.map(fn(x) { x * 2 }).filter(fn(x) { x % 3 == 0 })
+    io.println($"{empty.len()} {small.len()} {big.len()} {grown.len()} {joined.len()} {part.len()}")?
+    io.println($"{bytes.len()} {words.len()} {mapped.len()} {empty.is_empty()} {small.is_empty()}")?
+    io.println($"{count(big)} {count(words)} {count(bytes)} {count(empty)}")?
+    ok(())
+}

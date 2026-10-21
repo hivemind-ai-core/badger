@@ -1,0 +1,3 @@
+join ab--cd 0 xy
+lines [5, 70000, 6, 0, 4]
+streamed 200 abcdef

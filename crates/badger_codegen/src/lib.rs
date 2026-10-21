@@ -80,6 +80,13 @@ impl Jit {
         flags.set("opt_level", if optimize { "speed" } else { "none" })?;
         // frame-pointer chains for profilers and debuggers
         flags.set("preserve_frame_pointers", "true")?;
+        // Cranelift's IR verifier is a quarter of code generation: on in
+        // debug builds, with `BADGER_CLIF_VERIFY`, and under
+        // `BADGER_MIR_VALIDATE` (the corpus check), off otherwise
+        let verify = cfg!(debug_assertions)
+            || std::env::var_os("BADGER_CLIF_VERIFY").is_some()
+            || std::env::var_os("BADGER_MIR_VALIDATE").is_some();
+        flags.set("enable_verifier", if verify { "true" } else { "false" })?;
         cranelift_native::builder()
             .map_err(|e| CodegenError::Host(e.to_string()))?
             .finish(settings::Flags::new(flags))
@@ -735,8 +742,10 @@ impl FnCx<'_> {
             for (_, d) in f.locals.iter_enumerated() {
                 vars.push(b.declare_var(cty(d.repr)));
             }
-            let blocks: IndexVec<BlockId, CBlock> = f.blocks.iter().map(|_| b.create_block()).collect();
+            // the entry first: every variable is defined there, and each
+            // variable's definitions are a map sized by the highest block
             let entry = b.create_block();
+            let blocks: IndexVec<BlockId, CBlock> = f.blocks.iter().map(|_| b.create_block()).collect();
             b.append_block_params_for_function_params(entry);
             b.switch_to_block(entry);
             let ps = b.block_params(entry).to_vec();
@@ -1807,6 +1816,55 @@ pub const UNLOCKED: &[&str] = &[
     "badger_rt_i_batch_try_append",
     "badger_rt_i_batch_recv_one",
     "badger_rt_i_batch_try_recv",
+    // text, display, and codec work on values the caller holds: immutable
+    // strings read in place, fresh results, per-thread codec state (depth,
+    // a secret's reveal); a decoded symbol is interned under its own lock
+    "badger_rt_i_text_lines",
+    "badger_rt_i_text_split",
+    "badger_rt_i_text_trim",
+    "badger_rt_i_text_len",
+    "badger_rt_i_text_byte_len",
+    "badger_rt_i_text_is_empty",
+    "badger_rt_i_text_contains",
+    "badger_rt_i_text_starts_with",
+    "badger_rt_i_text_ends_with",
+    "badger_rt_i_text_to_upper",
+    "badger_rt_i_text_to_lower",
+    "badger_rt_i_text_replace",
+    "badger_rt_i_text_concat",
+    "badger_rt_i_text_repeat",
+    "badger_rt_i_text_join",
+    "badger_rt_i_text_chars",
+    "badger_rt_i_text_char_at",
+    "badger_rt_i_text_find",
+    "badger_rt_i_text_rfind",
+    "badger_rt_i_text_count",
+    "badger_rt_i_text_replace_first",
+    "badger_rt_i_text_trim_start",
+    "badger_rt_i_text_trim_end",
+    "badger_rt_i_text_split_whitespace",
+    "badger_rt_i_text_dedent",
+    "badger_rt_i_text_slice",
+    "badger_rt_i_text_parse_int",
+    "badger_rt_i_text_parse_float",
+    "badger_rt_i_text_from_bytes",
+    "badger_rt_i_text_to_bytes",
+    "badger_rt_i_int_to_string",
+    "badger_rt_i_float_to_string",
+    "badger_rt_i_char_to_string",
+    "badger_rt_i_symbol_to_string",
+    "badger_rt_i_duration_to_string",
+    "badger_rt_i_codec_encode",
+    "badger_rt_i_codec_encode_bytes",
+    "badger_rt_i_codec_decode_text",
+    "badger_rt_i_codec_decode_bytes",
+    // byte strings: immutable, read in place; fresh results
+    "badger_rt_i_bytes_len",
+    "badger_rt_i_bytes_find",
+    "badger_rt_i_bytes_at",
+    "badger_rt_i_bytes_slice",
+    "badger_rt_i_bytes_concat",
+    "badger_rt_i_bytes_join",
 ];
 
 /// Run the compiled program's `main` on the runtime scheduler.

@@ -1,0 +1,49 @@
+// `?` on results built just before it: the `ok` path continues with the
+// value, the `err` path returns the error (with its origin), in loops,
+// nested helpers, and on options turned into results.
+import std.io
+
+fn check(x: Int) -> Result<Int, String> {
+    if x >= 0 { ok(x) } else { err($"negative {x}") }
+}
+
+fn half(x: Int) -> Option<Int> {
+    if x % 2 == 0 { some(x / 2) } else { none }
+}
+
+fn sum_checked(n: Int, k: Int) -> Result<Int, String> {
+    var s = 0
+    for i in 0..n {
+        let v = check(i - k)?
+        s = s + v
+    }
+    ok(s)
+}
+
+fn nested(x: Int) -> Result<Int, String> {
+    let a = check(x)?
+    let b = check(a - 5)?
+    ok(a * 10 + b)
+}
+
+fn halves(x: Int) -> Result<Int, String> {
+    let a = half(x).ok_or("odd")?
+    let b = half(a).ok_or("odd half")?
+    ok(b + 1)
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{sum_checked(100, 0).unwrap_or(-1)} {sum_checked(100, 50).unwrap_or(-1)}")?
+    match sum_checked(10, 3) {
+        .ok(v) => io.println($"ok {v}")?,
+        .err(e) => io.println($"err {e}")?,
+    }
+    io.println($"{nested(7).unwrap_or(-1)} {nested(3).unwrap_or(-1)} {nested(-1).unwrap_or(-1)}")?
+    io.println($"{halves(8).unwrap_or(-1)} {halves(6).unwrap_or(-1)} {halves(5).unwrap_or(-1)}")?
+    var total = 0
+    for i in 0..1000 {
+        total = total + nested(i % 12).unwrap_or(0) + halves(i).unwrap_or(0)
+    }
+    io.println($"{total}")?
+    ok(())
+}

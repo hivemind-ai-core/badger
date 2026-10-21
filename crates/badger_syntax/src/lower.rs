@@ -34,6 +34,9 @@ pub struct Lower<'a, 'i> {
     /// Items a declaration generates besides itself (a provider's
     /// initializer when it has contracts).
     extra_items: Vec<Item>,
+    /// The field attributes of record types not yet claimed by the `type`
+    /// declaration they are the body of (any left over are misplaced).
+    record_attrs: Vec<(TypeId, Vec<(Label, Vec<Attribute>)>)>,
     /// Local functions in scope, innermost block last: the name written,
     /// and the module-level function it was lifted to.
     local_fns: Vec<HashMap<Symbol, Symbol>>,
@@ -68,6 +71,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             depth: Vec::new(),
             too_deep: None,
             extra_items: vec![],
+            record_attrs: vec![],
             local_fns: vec![],
             fn_path: vec![],
             lifted: HashSet::new(),
@@ -138,6 +142,17 @@ impl<'a, 'i> Lower<'a, 'i> {
             }
             for extra in std::mem::take(&mut self.extra_items) {
                 self.push_item(extra);
+            }
+            // a record's field attributes are a `type` declaration's
+            for (_, fields) in std::mem::take(&mut self.record_attrs) {
+                for a in fields.iter().flat_map(|(_, attrs)| attrs) {
+                    self.diags.push(
+                        Diagnostic::error("an attribute here is on a field of a record type that no `type` declaration names")
+                            .with_code("E0199")
+                            .with_label(a.span, "a record's fields take attributes only as the body of a `type` declaration")
+                            .with_note("`pub type Settings = { @config.env(\"DB_URL\") database: String }`; or declare a struct"),
+                    );
+                }
             }
         }
     }
@@ -494,7 +509,11 @@ impl<'a, 'i> Lower<'a, 'i> {
                 let name = self.type_name(name);
                 let generics = self.generics(generics);
                 let ty = self.ty(ty);
-                ItemKind::TypeAlias { name, generics, ty }
+                let field_attributes = match self.record_attrs.iter().position(|(t, _)| *t == ty) {
+                    Some(i) => self.record_attrs.remove(i).1,
+                    None => vec![],
+                };
+                ItemKind::TypeAlias { name, generics, ty, field_attributes }
             }
             cst::ItemKind::Attribute { name, positions, fields } => {
                 let name = self.value_name(name);
@@ -504,7 +523,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                         let span = self.span(sp);
                         let p = match p {
                             cst::AttrPosition::Type(p) => AttrPosition::Type(p.map(|t| self.ty(t))),
-                            cst::AttrPosition::Field => AttrPosition::Field,
+                            cst::AttrPosition::Field(p) => AttrPosition::Field(p.map(|t| self.ty(t))),
                             cst::AttrPosition::Variant => AttrPosition::Variant,
                             cst::AttrPosition::Value => AttrPosition::Value,
                             cst::AttrPosition::Fn(t) => {
@@ -1129,16 +1148,25 @@ impl<'a, 'i> Lower<'a, 'i> {
                 self.alloc_ty(TypeKind::Dyn { module, name, args }, span)
             }
             cst::Ty::Record { fields, rest } => {
+                let mut attributed = vec![];
                 let fields: Vec<(Label, TypeId)> = fields
                     .into_iter()
-                    .map(|(l, t)| {
+                    .map(|(attrs, l, t)| {
                         let l = self.label(l);
+                        if !attrs.is_empty() {
+                            let attrs = self.attributes(attrs);
+                            attributed.push((l, attrs));
+                        }
                         (l, self.ty(t))
                     })
                     .collect();
                 let rest = rest.map(|r| self.name(r));
                 self.check_dup_labels(fields.iter().map(|f| f.0));
-                self.alloc_ty(TypeKind::Record { fields, rest }, span)
+                let id = self.alloc_ty(TypeKind::Record { fields, rest }, span);
+                if !attributed.is_empty() {
+                    self.record_attrs.push((id, attributed));
+                }
+                id
             }
             cst::Ty::Effect(e) => {
                 let e = self.effect(e);

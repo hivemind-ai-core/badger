@@ -119,6 +119,8 @@ fn open_conn(path: &str) -> rusqlite::Result<Connection> {
         Connection::open(path)?
     };
     c.busy_timeout(Duration::from_secs(5))?;
+    // a service's statements, compiled once each (`run` reuses them)
+    c.set_prepared_statement_cache_capacity(64);
     Ok(c)
 }
 
@@ -159,18 +161,22 @@ fn run(c: &Connection, sql: &str, params: &Params, op: Op) -> Outcome {
                 return Ok(Value::Int(c.changes() as i64));
             }
             Params::Positional(ps) => {
-                let n = c.execute(sql, params_from_iter(ps.iter())).map_err(sql_error)?;
+                let mut st = c.prepare_cached(sql).map_err(sql_error)?;
+                let n = st.execute(params_from_iter(ps.iter())).map_err(sql_error)?;
                 return Ok(Value::Int(n as i64));
             }
             Params::Named(fields) => {
-                let mut st = c.prepare(sql).map_err(sql_error)?;
+                let mut st = c.prepare_cached(sql).map_err(sql_error)?;
                 bind_named(&mut st, fields)?;
                 return Ok(Value::Int(st.raw_execute().map_err(sql_error)? as i64));
             }
         }
     }
-    let mut st = c.prepare(sql).map_err(sql_error)?;
-    let names: Vec<String> = st.column_names().iter().map(|s| s.to_string()).collect();
+    // a statement is compiled once per connection and reused (the cache
+    // keeps the most recent ones); a schema change recompiles it on its
+    // next step, so the column names are read from the first row
+    let mut st = c.prepare_cached(sql).map_err(sql_error)?;
+    let mut names: Option<Vec<String>> = None;
     let mut rows = match params {
         Params::Positional(ps) => st.query(params_from_iter(ps.iter())).map_err(sql_error)?,
         Params::Named(fields) => {
@@ -180,6 +186,7 @@ fn run(c: &Connection, sql: &str, params: &Params, op: Op) -> Outcome {
     };
     let mut out = vec![];
     while let Some(r) = rows.next().map_err(sql_error)? {
+        let names = names.get_or_insert_with(|| r.as_ref().column_names().iter().map(|s| s.to_string()).collect());
         let mut row = vec![];
         for (i, n) in names.iter().enumerate() {
             let v = match r.get::<_, Sql>(i).map_err(sql_error)? {
@@ -533,3 +540,40 @@ pub static DEF: ModuleDef = ModuleDef {
 };
 
 badger_native::export!("badger_sqlite", DEF);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn names(v: &Value) -> Vec<String> {
+        match v {
+            Value::List(rows) => match rows.first() {
+                Some(Value::Map(row)) => row.iter().map(|(k, _)| k.clone()).collect(),
+                _ => vec![],
+            },
+            _ => vec![],
+        }
+    }
+
+    // A cached statement recompiled after a schema change reports the new
+    // columns (they are read from its first row, not when it is fetched).
+    #[test]
+    fn a_cached_query_sees_a_schema_change() {
+        let c = open_conn(":memory:").unwrap();
+        let none = || Params::Positional(vec![]);
+        let one = |sql: &str| run(&c, sql, &none(), Op::Execute).ok().unwrap();
+        one("create table t (a integer)");
+        one("insert into t values (1)");
+        let q = "select * from t";
+        assert_eq!(names(&run(&c, q, &none(), Op::Query).ok().unwrap()), ["a"]);
+        one("alter table t add column b integer");
+        assert_eq!(names(&run(&c, q, &none(), Op::Query).ok().unwrap()), ["a", "b"]);
+        // parameters of a reused statement are bound afresh
+        let p = |x: i64| Params::Positional(vec![Sql::Integer(x)]);
+        let count = |x: i64| match run(&c, "select a from t where a = ?", &p(x), Op::Query).ok().unwrap() {
+            Value::List(rows) => rows.len(),
+            _ => usize::MAX,
+        };
+        assert_eq!((count(1), count(2), count(1)), (1, 0, 1));
+    }
+}

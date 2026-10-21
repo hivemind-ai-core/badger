@@ -3,10 +3,12 @@
 
 pub mod cfg;
 pub mod cse;
+pub mod globals;
 pub mod simplify;
 pub mod smt;
 pub mod specialize;
 pub mod superopt;
+pub mod tv;
 
 use crate::mir::Program;
 
@@ -50,6 +52,7 @@ pub fn passes(level: Level) -> Vec<(&'static str, fn(&mut Program) -> usize)> {
         return out;
     }
     let mut push = |name: &'static str, run: fn(&mut Program) -> usize| out.push((name, run));
+    push("globals", globals::fold_constant_globals);
     push("inline", crate::inline::inline);
     push("specialize", specialize::specialize);
     push("sra", program_scalar_replace);
@@ -58,6 +61,7 @@ pub fn passes(level: Level) -> Vec<(&'static str, fn(&mut Program) -> usize)> {
     push("maps-snapshot", crate::maps::reuse_snapshot_maps);
     push("split", crate::split::split_receives);
     push("niche", crate::niche::elide_local_options);
+    push("thread", thread);
     push("enums", crate::enums::scalarize);
     push("simplify2", simplify::simplify);
     push("cse", cse::cse);
@@ -74,6 +78,29 @@ pub fn passes(level: Level) -> Vec<(&'static str, fn(&mut Program) -> usize)> {
     }
     push("reach", crate::reach::prune);
     out
+}
+
+/// Jump threading, then the block merges, copies, and dead values it
+/// exposes (so a threaded enum object no longer shares a local with the
+/// other paths).
+fn thread(prog: &mut Program) -> usize {
+    if prog.live {
+        return 0;
+    }
+    let mut n = 0;
+    let nullary = &prog.origins.nullary;
+    for f in prog.funcs.iter_mut() {
+        let threaded = cfg::thread_known_branches(f, nullary);
+        if threaded > 0 {
+            // merge the threaded paths first: the copies to forward are
+            // then in one block
+            simplify::simplify_func(f);
+            simplify::local_copies(f);
+            simplify::simplify_func(f);
+            n += threaded;
+        }
+    }
+    n
 }
 
 fn program_scalar_replace(prog: &mut Program) -> usize {
@@ -94,6 +121,26 @@ fn disabled() -> Vec<String> {
 
 /// Run the pipeline for `level` on a program, returning the pass report.
 pub fn optimize(prog: &mut Program, level: Level) -> Vec<(&'static str, usize)> {
+    pipeline(prog, level, None)
+}
+
+/// [`optimize`], handing `check` every pass that ran with the program before
+/// and after it (the translation validator's hook, [`tv`]). The program is
+/// only copied when a check is given, and `check` cannot change it: the
+/// result is the one [`optimize`] produces.
+pub fn optimize_checked(
+    prog: &mut Program,
+    level: Level,
+    check: &mut dyn FnMut(&'static str, &Program, &Program),
+) -> Vec<(&'static str, usize)> {
+    pipeline(prog, level, Some(check))
+}
+
+fn pipeline(
+    prog: &mut Program,
+    level: Level,
+    mut check: Option<&mut dyn FnMut(&'static str, &Program, &Program)>,
+) -> Vec<(&'static str, usize)> {
     if prog.live || level == Level::None {
         return vec![];
     }
@@ -114,7 +161,11 @@ pub fn optimize(prog: &mut Program, level: Level) -> Vec<(&'static str, usize)> 
         if name == "simplify2" && !representation_changed {
             continue;
         }
+        let before = check.is_some().then(|| prog.clone());
         let n = run(prog);
+        if let (Some(check), Some(before)) = (check.as_mut(), before) {
+            check(name, &before, prog);
+        }
         if n > 0 && matches!(name, "maps-private" | "maps-snapshot" | "split" | "niche" | "enums") {
             representation_changed = true;
         }

@@ -71,22 +71,38 @@ fn inlinable(prog: &Program, id: FuncId) -> bool {
 }
 
 /// Locals that certainly hold a closure of a known lambda: a single
-/// allocation whose code word is the lambda's address, and single-definition
-/// copies of it.
-fn known_closures(kinds: &[FuncKind], f: &Func) -> FxHashMap<Local, FuncId> {
-    let mut defs: FxHashMap<Local, (usize, Option<&Rvalue>)> = FxHashMap::default();
+/// allocation whose code word is the lambda's address, a *static* closure (a
+/// function passed by name, whose object the program records), and any local
+/// whose every definition is one of those or a copy of one.
+fn known_closures(
+    kinds: &[FuncKind],
+    f: &Func,
+    statics: &FxHashMap<u64, (u64, u32, FuncId)>,
+) -> FxHashMap<Local, FuncId> {
+    // every known closure starts from a lambda's address or a static closure
+    let seeded = f.blocks.iter().any(|b| {
+        b.stmts.iter().any(|s| match s {
+            Stmt::Assign(_, Rvalue::FuncAddr(l)) => kinds[l.index()] == FuncKind::Lambda,
+            Stmt::Assign(_, Rvalue::Use(Operand::Const(Const::Addr(w)))) => statics.contains_key(w),
+            _ => false,
+        })
+    });
+    if !seeded {
+        return FxHashMap::default();
+    }
+    // every definition of every local, so a local set in more than one branch
+    // is seen as a whole
+    let mut defs: FxHashMap<Local, Vec<&Rvalue>> = FxHashMap::default();
     for b in f.blocks.iter() {
         for s in &b.stmts {
             if let Stmt::Assign(l, rv) = s {
-                let e = defs.entry(*l).or_insert((0, None));
-                e.0 += 1;
-                e.1 = Some(rv);
+                defs.entry(*l).or_default().push(rv);
             }
         }
     }
     let single = |l: &Local| -> Option<&Rvalue> {
         match defs.get(l) {
-            Some((1, rv)) if !f.params.contains(l) && *l != f.env => *rv,
+            Some(rvs) if rvs.len() == 1 && !f.params.contains(l) && *l != f.env => Some(rvs[0]),
             _ => None,
         }
     };
@@ -107,13 +123,36 @@ fn known_closures(kinds: &[FuncKind], f: &Func) -> FxHashMap<Local, FuncId> {
             }
         }
     }
+    // A local whose *every* definition is the same known callable: a static
+    // closure (a function passed by name, whose object the program records),
+    // or a copy of a local that holds one. A declaration always gives a
+    // value, so a `var` that is only ever set to that callable — through any
+    // branch — holds it at every use.
     loop {
         let mut grew = false;
-        for (l, (_, rv)) in &defs {
-            if let Some(Rvalue::Use(Operand::Local(src))) = rv
-                && !known.contains_key(l)
-                && single(l).is_some()
-                && let Some(t) = known.get(src).copied()
+        for (l, rvs) in &defs {
+            if known.contains_key(l) || f.params.contains(l) || *l == f.env {
+                continue;
+            }
+            let mut target: Option<FuncId> = None;
+            let mut agree = true;
+            for rv in rvs {
+                let t = match rv {
+                    Rvalue::Use(Operand::Const(Const::Addr(w))) => statics.get(w).map(|&(_, _, t)| t),
+                    Rvalue::Use(Operand::Local(src)) => known.get(src).copied(),
+                    _ => None,
+                };
+                match (t, target) {
+                    (Some(t), None) => target = Some(t),
+                    (Some(t), Some(seen)) if t == seen => {}
+                    _ => {
+                        agree = false;
+                        break;
+                    }
+                }
+            }
+            if agree
+                && let Some(t) = target
             {
                 known.insert(*l, t);
                 grew = true;
@@ -300,16 +339,19 @@ pub fn inline(prog: &mut Program) -> usize {
         let bodies: Vec<Option<Func>> =
             prog.funcs.iter_enumerated().map(|(id, f)| ok[id.index()].then(|| clone_func(f))).collect();
         let kinds: Vec<FuncKind> = prog.funcs.iter().map(|f| f.kind).collect();
+        let sizes: Vec<usize> = bodies.iter().map(|b| b.as_ref().map_or(usize::MAX, size)).collect();
         let mut round = 0;
         for id in prog.funcs.indices() {
             let f = &mut prog.funcs[id];
             let mut changed = false;
             let mut bi = 0;
-            let mut known = known_closures(&kinds, f);
-            while bi < f.blocks.len() && size(f) < MAX_CALLER {
+            let mut known = known_closures(&kinds, f, &prog.origins.closures);
+            let mut cur = size(f);
+            while bi < f.blocks.len() && cur < MAX_CALLER {
                 let b = BlockId::from_usize(bi);
                 let body = |t: FuncId, args: &[Operand], dst: Local, limit: usize| {
-                    bodies[t.index()].as_ref().filter(|c| size(c) <= limit && fits(f, args, dst, c)).is_some()
+                    sizes[t.index()] <= limit
+                        && bodies[t.index()].as_ref().is_some_and(|c| fits(f, args, dst, c))
                 };
                 let site = f.blocks[b].stmts.iter().enumerate().find_map(|(i, s)| match s {
                     Stmt::Assign(dst, Rvalue::Call { callee, args, ret }) if *ret == f.locals[*dst].repr => {
@@ -348,7 +390,8 @@ pub fn inline(prog: &mut Program) -> usize {
                 match site {
                     Some((i, t, env)) => {
                         inline_at(f, b, i, bodies[t.index()].as_ref().unwrap(), env);
-                        known = known_closures(&kinds, f);
+                        known = known_closures(&kinds, f, &prog.origins.closures);
+                        cur = size(f);
                         changed = true;
                         round += 1;
                         // the rest of this block moved to a new block: keep

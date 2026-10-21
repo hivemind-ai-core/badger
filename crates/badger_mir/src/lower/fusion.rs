@@ -915,8 +915,13 @@ impl FnLower<'_, '_, '_> {
             }
         }
         self.switch(step);
-        // Inclusive Int::MAX must stop without stepping past the endpoint.
-        let last = cmp(self, CmpOp::Eq, Operand::Local(i), end);
+        // Inclusive Int::MAX must stop without stepping past the endpoint;
+        // an exclusive source's body only runs below its end.
+        let at_last = cmp(self, CmpOp::Eq, Operand::Local(i), end);
+        let last = self.assign(
+            Repr::I8,
+            Rvalue::Bin { op: BinOp::And, a: at_last, b: incl, ty: NumTy::I(8, false), loc: 0 },
+        );
         let advance = self.block();
         self.term(Term::Branch(last, exit, advance));
         self.switch(advance);

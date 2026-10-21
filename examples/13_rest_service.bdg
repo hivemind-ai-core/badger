@@ -2,8 +2,10 @@
 //
 // What it demonstrates:
 //
-//   * Domain modelling: records, a `@flatten` struct for the row id (it is a
-//     plain number in JSON and in SQL rows), and the `Display` protocol.
+//   * Domain modelling: records (a new book's fields carry their rules,
+//     `@validate.not_blank`, checked by `validate.check`), a `@flatten`
+//     struct for the row id (it is a plain number in JSON and in SQL rows),
+//     and the `Display` protocol.
 //
 //   * Errors: one `AppError` enum. `derive(From)` lets `?` convert every
 //     underlying error; `derive(HttpError)` answers each variant with its
@@ -44,7 +46,6 @@
 import std.config
 import std.http
 import std.io
-import std.list
 import std.log
 import std.pipeline
 import std.pipeline.{handle}
@@ -55,6 +56,7 @@ import std.task
 import std.text
 import std.time
 import std.trace
+import std.validate
 import std.worker
 
 // ---- Configuration -------------------------------------------------------
@@ -80,7 +82,11 @@ impl Display for BookId {
 }
 
 pub type Book = { id: BookId, title: String, author: String }
-pub type NewBook = { title: String, author: String }
+/// What a client sends; its fields' rules are checked by `validate.check`.
+pub type NewBook = {
+    @validate.not_blank @validate.max_len(200) title: String,
+    @validate.not_blank author: String,
+}
 
 /// Every way a request can fail. A variant wrapping a library's error
 /// answers with that error's status (a 500 for these, whose details stay in
@@ -112,15 +118,10 @@ pub let migrations: List<sqlite.Migration> = [
 
 // ---- Validation ----------------------------------------------------------
 
-/// Trimmed fields, or every problem at once.
-fn validate(input: NewBook) -> Result<NewBook, AppError> {
-    let book = { title: text.trim(input.title), author: text.trim(input.author) }
-    let problems: ListBuilder<String> = list.builder()
-    if book.title == "" { problems.append("title must not be empty") }
-    if book.author == "" { problems.append("author must not be empty") }
-    if book.title.len() > 200 { problems.append($"title is longer than 200 characters (got {book.title.len()})") }
-    let messages = problems.finish()
-    if messages.is_empty() { ok(book) } else { err(AppError.invalid_input(text.join(messages, "; "))) }
+/// Trimmed fields that keep `NewBook`'s rules, or every problem at once.
+fn cleaned(input: NewBook) -> Result<NewBook, AppError> {
+    let book: NewBook = { title: text.trim(input.title), author: text.trim(input.author) }
+    validate.check(book).map_err(fn(problems) => AppError.invalid_input(validate.summary(problems)))
 }
 
 // ---- The store: typed SQLite queries -------------------------------------
@@ -216,10 +217,10 @@ fn routes(store: Store) -> List<route.Route> {
     [
         route.get_json("/health", #books/health, fn(_: {}) -> Result<{ status: String }, AppError> { ok({ status: "ok" }) }),
         route.get_json("/books", #books/list, fn(_: {}) { store.list() }),
-        route.post_json("/books", #books/create, fn(_: {}, input: NewBook) { store.insert(validate(input)?) }),
+        route.post_json("/books", #books/create, fn(_: {}, input: NewBook) { store.insert(cleaned(input)?) }),
         route.get_json("/books/:id", #books/show, fn(p: ById) { found(p.id, store.find(p.id)?) }),
         route.put_json("/books/:id", #books/update, fn(p: ById, input: NewBook) {
-            found(p.id, store.update(p.id, validate(input)?)?)
+            found(p.id, store.update(p.id, cleaned(input)?)?)
         }),
         route.delete_json("/books/:id", #books/delete, fn(p: ById) -> Result<{ deleted: Bool }, AppError> {
             if !store.remove(p.id)? {
@@ -327,7 +328,7 @@ fn test_validation_errors() -> Result<Unit, AppError> {
     // every problem in one message
     let (status, body) = http.call_text(api, #post, "/books", "{\"title\":\"\",\"author\":\"\"}")
     assert(status == 400)
-    assert(text.contains(body, "title must not be empty; author must not be empty"))
+    assert(text.contains(body, "author must not be blank; title must not be blank"))
     assert(http.call_text(api, #post, "/books", "not json").0 == 400)
     ok(())
 }

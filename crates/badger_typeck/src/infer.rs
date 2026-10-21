@@ -188,6 +188,9 @@ pub struct Infer<'g, 'a> {
     pub method_via: Vec<DefId>,
     /// In-progress monotypes for definitions of the current binding group.
     pub mono: FxHashMap<DefId, Ty>,
+    /// Pending schemes already seen without free variables (a type with
+    /// none never gains one), held so the pointer cannot be reused.
+    pub closed_pending: FxHashMap<DefId, Ty>,
     /// Module of the definition being checked (for privacy).
     pub module: Option<badger_hir::ModuleId>,
     /// Nominal types currently being explored by structural checks
@@ -231,6 +234,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             instance_bounds: vec![],
             method_via: vec![],
             mono: FxHashMap::default(),
+            closed_pending: FxHashMap::default(),
             module: None,
             visiting: vec![],
             unsafe_depth: 0,

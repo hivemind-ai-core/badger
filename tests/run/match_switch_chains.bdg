@@ -1,0 +1,70 @@
+// A match over many variants dispatches through one switch: every arm, a
+// guarded arm, a wildcard, payload-carrying variants, and integer patterns
+// still take their own branch.
+import std.io
+
+enum Op { add, sub, mul, div, neg, dup, pop, swap }
+enum Shape { circle(Int), square(Int), rect(Int, Int), tri(Int, Int, Int), dot }
+
+fn step(op: Op, a: Int) -> Int {
+    match op {
+        .add => a + 1,
+        .sub => a - 1,
+        .mul => a * 3,
+        .div => a / 2,
+        .neg => 0 - a,
+        .dup => a + a,
+        .pop => 0,
+        .swap => a + 7,
+    }
+}
+
+fn partial(op: Op) -> Int {
+    match op {
+        .add => 1,
+        .mul => 3,
+        .pop => 7,
+        _ => 100,
+    }
+}
+
+fn area(s: Shape) -> Int {
+    match s {
+        .circle(r) if r > 10 => 1000,
+        .circle(r) => 3 * r * r,
+        .square(x) => x * x,
+        .rect(w, h) => w * h,
+        .tri(a, b, c) => a + b + c,
+        .dot => 0,
+    }
+}
+
+fn name(n: Int) -> String {
+    match n {
+        0 => "zero",
+        1 => "one",
+        2 => "two",
+        3 => "three",
+        7 => "seven",
+        _ => "many",
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let ops = [Op.add, Op.sub, Op.mul, Op.div, Op.neg, Op.dup, Op.pop, Op.swap, Op.mul, Op.dup, Op.neg]
+    var a = 5
+    var p = 0
+    for o in ops {
+        a = step(o, a)
+        p = p + partial(o)
+        io.println($"{a} {p}")?
+    }
+    let shapes = [Shape.circle(2), Shape.circle(11), Shape.square(4), Shape.rect(2, 5), Shape.tri(1, 2, 3), Shape.dot]
+    var total = 0
+    for s in shapes { total = total + area(s) }
+    io.println($"{total}")?
+    var names = ""
+    for i in 0..9 { names = $"{names}{name(i)} " }
+    io.println(names)?
+    ok(())
+}
