@@ -311,7 +311,9 @@ error. `badger_cli` is the `badger` binary.
   identities; constant and copy propagation into uses dominated by their
   single definition; dead-assignment elimination (never a checked operation
   that can defect); constant-branch and switch folding; unreachable-block
-  clearing; empty-goto threading and single-predecessor block merging.
+  clearing; empty-goto threading and single-predecessor block merging; a
+  match's chain of switches on one tag merges into one switch (a jump
+  table).
 - CSE (`badger_mir::opt::cse`): within a block, identical pure computations
   with unchanged operands read the earlier result. Checked operations keep
   their source location in the key; stores, calls, polls, and reassigned

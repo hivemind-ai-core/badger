@@ -111,7 +111,8 @@ program, in `crates/badger_driver/src/`:
   replacement again),
   `opt/specialize.rs` (clone a helper called with a known closure, then
   call the lambda directly), `opt/simplify.rs` (constant/copy propagation,
-  folding, dead definitions, branch folding, CFG cleanup), map/snapshot
+  folding, dead definitions, branch folding, switch-chain merging, CFG
+  cleanup), map/snapshot
   reuse, `split.rs` (channel receives whose result is only examined),
   `niche.rs` (local options as nullable pointers), `enums.rs` (local enums
   as scalars), `opt/cse.rs` (common subexpressions), and `reach.rs` (drop

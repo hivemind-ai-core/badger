@@ -261,3 +261,27 @@ fn a_list_length_is_a_load() {
     assert_eq!(out, "4950 2\n");
     assert!(!mir.contains("badger_rt_i_list_len"), "a list length still calls the runtime:\n{mir}");
 }
+
+/// One function's text in a MIR dump (the first whose name contains `name`).
+fn function<'a>(mir: &'a str, name: &str) -> &'a str {
+    let start = mir
+        .match_indices("fn ")
+        .map(|(i, _)| i)
+        .find(|i| {
+            (*i == 0 || mir.as_bytes()[i - 1] == b'\n') && mir[*i..].lines().next().unwrap().contains(name)
+        })
+        .unwrap_or_else(|| panic!("no function {name}:\n{mir}"));
+    let end = mir[start + 1..].find("\nfn ").map_or(mir.len(), |e| start + 1 + e);
+    &mir[start..end]
+}
+
+#[test]
+fn a_match_over_many_variants_is_one_switch() {
+    let (out, mir) = release_mir(
+        "big-match",
+        "import std.io\nenum Op { add, sub, mul, div, neg, dup, pop, swap }\nfn step(op: Op, a: Int) -> Int {\n    match op {\n        .add => a + 1,\n        .sub => a - 1,\n        .mul => a * 3,\n        .div => a / 2,\n        .neg => 0 - a,\n        .dup => a + a,\n        .pop => 0,\n        .swap => a + 7,\n    }\n}\npub fn main() -> Unit {\n    var a = 1\n    for o in [Op.add, Op.mul, Op.swap, Op.pop, Op.dup, Op.neg, Op.sub, Op.div] { a = step(o, a) }\n    let _ = io.println($\"{a}\")\n}\n",
+    );
+    assert_eq!(out, "0\n");
+    let step = function(&mir, "big-match.step#");
+    assert_eq!(step.matches("Switch(").count(), 1, "the match is still a chain of tests:\n{step}");
+}

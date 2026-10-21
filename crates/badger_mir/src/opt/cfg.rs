@@ -1,6 +1,7 @@
 //! Control-flow cleanup: guard branches with constant conditions and
-//! duplicated targets, thread empty gotos, merge single-predecessor
-//! successors, and clear unreachable blocks. Block 0 stays the entry.
+//! duplicated targets, merge chains of switches on one value, thread empty
+//! gotos, merge single-predecessor successors, and clear unreachable
+//! blocks. Block 0 stays the entry.
 
 use std::collections::VecDeque;
 
@@ -246,7 +247,122 @@ pub fn thread_and_merge(f: &mut Func) -> usize {
     changed
 }
 
+/// Merge a chain of switches on one value. A `match` lowers each arm's test
+/// to its own switch whose default is the next test; when that default
+/// block is reached only from the switch and holds nothing but a
+/// recomputation of the switched value (a `Tag`, `FromWord`, `ToWord`, or
+/// copy of operands unchanged since) before switching on it again, its
+/// cases join the first switch. One switch lets the backend emit a jump
+/// table instead of a chain of compares.
+pub fn merge_switch_chains(f: &mut Func) -> usize {
+    let mut total = 0;
+    loop {
+        let merged = merge_switch_pairs(f);
+        if merged == 0 {
+            return total;
+        }
+        total += merged;
+    }
+}
+
+/// One round of `merge_switch_chains`: each block takes part in at most one
+/// merge.
+fn merge_switch_pairs(f: &mut Func) -> usize {
+    let n = f.blocks.len();
+    let mut defs: FxHashMap<Local, usize> = FxHashMap::default();
+    for block in &f.blocks {
+        for s in &block.stmts {
+            if let Stmt::Assign(l, _) = s {
+                *defs.entry(*l).or_default() += 1;
+            }
+        }
+    }
+    let single = |l: Local| defs.get(&l) == Some(&1) && !f.params.contains(&l) && l != f.env;
+    let mut preds = vec![0usize; n];
+    for block in &f.blocks {
+        if let Some(t) = &block.term {
+            for s in t.successors() {
+                preds[s.index()] += 1;
+            }
+        }
+    }
+    let mut plans: Vec<(usize, usize)> = vec![];
+    let mut used = vec![false; n];
+    for p in 0..n {
+        let Some(Term::Switch(Operand::Local(t1), _, d)) = &f.blocks[p].term else { continue };
+        let (t1, d) = (*t1, d.index());
+        if d == p || d == 0 || preds[d] != 1 || used[p] || used[d] {
+            continue;
+        }
+        let Some(Term::Switch(o2, _, d2)) = &f.blocks[d].term else { continue };
+        if d2.index() == d {
+            continue;
+        }
+        let body: Vec<&Stmt> = f.blocks[d].stmts.iter().filter(|s| !matches!(s, Stmt::Loc { .. })).collect();
+        let same = match (o2, body.as_slice()) {
+            // the default switches on the very same local
+            (Operand::Local(t2), []) => *t2 == t1,
+            // or recomputes it from the same operands
+            (Operand::Local(t2), [Stmt::Assign(l, rv2)]) if l == t2 && single(*t2) => {
+                recomputes(&f.blocks[p].stmts, t1, rv2) && f.locals[*t2].repr == f.locals[t1].repr
+            }
+            _ => false,
+        };
+        if same {
+            plans.push((p, d));
+            used[p] = true;
+            used[d] = true;
+        }
+    }
+    for &(p, d) in &plans {
+        let stmts = std::mem::take(&mut f.blocks[d].stmts);
+        let Some(Term::Switch(_, cases2, d2)) = f.blocks[d].term.take() else { unreachable!() };
+        f.blocks[d].term = Some(Term::Unreachable);
+        // the recomputation is pure and its operands are those of the
+        // first switch's value, so it can run on every path out of `p`
+        f.blocks[p].stmts.extend(stmts.into_iter().filter(|s| !matches!(s, Stmt::Loc { .. })));
+        let Some(Term::Switch(_, cases, d)) = &mut f.blocks[p].term else { unreachable!() };
+        for (k, t) in cases2 {
+            // a value the first switch already handles never reaches `d`
+            if !cases.iter().any(|(c, _)| *c == k) {
+                cases.push((k, t));
+            }
+        }
+        *d = d2;
+    }
+    plans.len()
+}
+
+/// Whether `rv` recomputes the value `t1` holds at the end of `stmts`:
+/// `t1` is defined there by the same pure rvalue, and neither `t1` nor the
+/// rvalue's operands (nor memory, for a `Tag`) change after that.
+fn recomputes(stmts: &[Stmt], t1: Local, rv: &Rvalue) -> bool {
+    if !matches!(rv, Rvalue::Tag(_) | Rvalue::FromWord { .. } | Rvalue::ToWord(_) | Rvalue::Use(_)) {
+        return false;
+    }
+    let Some(at) = stmts.iter().rposition(|s| matches!(s, Stmt::Assign(l, _) if *l == t1)) else {
+        return false;
+    };
+    let Stmt::Assign(_, rv1) = &stmts[at] else { unreachable!() };
+    if rv1 != rv {
+        return false;
+    }
+    let operands = rv.operands();
+    if operands.contains(&Operand::Local(t1)) {
+        return false;
+    }
+    stmts[at + 1..].iter().all(|s| match s {
+        Stmt::Assign(l, later) => {
+            !operands.contains(&Operand::Local(*l))
+                && !(matches!(rv, Rvalue::Tag(_))
+                    && matches!(later, Rvalue::Call { .. } | Rvalue::Alloc { .. } | Rvalue::Concat(_)))
+        }
+        Stmt::Loc { .. } => true,
+        Stmt::Store { .. } | Stmt::GlobalStore { .. } | Stmt::Poll => !matches!(rv, Rvalue::Tag(_)),
+    })
+}
+
 /// Full CFG cleanup (returns changes).
 pub fn cleanup(f: &mut Func) -> usize {
-    fold_terms(f) + thread_and_merge(f)
+    fold_terms(f) + merge_switch_chains(f) + thread_and_merge(f)
 }
