@@ -4,7 +4,7 @@
 import std.io
 import std.task
 
-fn panic(msg: String) -> Unit { }
+fn panic(msg: String) -> Unit {}
 
 fn scale(x: Int) -> Int {
     if x > 2 || x < 0 { panic("out of range") }
