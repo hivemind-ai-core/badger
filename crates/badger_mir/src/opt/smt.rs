@@ -289,9 +289,8 @@ impl Report {
 /// never touches the solver and the rule table is not even built. Read once:
 /// the optimiser asks per candidate, and the environment does not change.
 pub fn enabled() -> bool {
-    static ENABLED: LazyLock<bool> = LazyLock::new(|| {
-        std::env::var_os("BADGER_MIR_SMT").is_some_and(|v| v == "1")
-    });
+    static ENABLED: LazyLock<bool> =
+        LazyLock::new(|| std::env::var_os("BADGER_MIR_SMT").is_some_and(|v| v == "1"));
     *ENABLED
 }
 
@@ -388,15 +387,7 @@ fn plain(
 /// bit. The match site still proves the domain and still runs the exhaustive
 /// verifier, hence `exhaustive: true`.
 fn bool_claim(rule: Rule, src: Term, dst: Term) -> Row {
-    Row {
-        rule,
-        widths: &[1],
-        vars: &[("x", VWidth::One)],
-        premises: vec![],
-        src,
-        dst,
-        exhaustive: true,
-    }
+    Row { rule, widths: &[1], vars: &[("x", VWidth::One)], premises: vec![], src, dst, exhaustive: true }
 }
 
 /// `k != 0`: the shift pair clears at least one bit, the shift amount the
@@ -438,11 +429,7 @@ fn build_rows() -> Vec<Row> {
         vars: &[("x", VWidth::W), ("k", VWidth::Shift)],
         premises: vec![],
         src: op(Op::Urem, var(0), op(Op::Shl, Term::Const(1), var(1))),
-        dst: op(
-            Op::And,
-            var(0),
-            op(Op::Sub, op(Op::Shl, Term::Const(1), var(1)), Term::Const(1)),
-        ),
+        dst: op(Op::And, var(0), op(Op::Sub, op(Op::Shl, Term::Const(1), var(1)), Term::Const(1))),
         exhaustive: false,
     });
 
@@ -456,11 +443,7 @@ fn build_rows() -> Vec<Row> {
         dst: op(
             Op::And,
             var(0),
-            op(
-                Op::Sub,
-                op(Op::Shl, Term::Const(1), op(Op::Sub, Term::Width, var(1))),
-                Term::Const(1),
-            ),
+            op(Op::Sub, op(Op::Shl, Term::Const(1), op(Op::Sub, Term::Width, var(1))), Term::Const(1)),
         ),
         exhaustive: false,
     });
@@ -507,31 +490,11 @@ fn build_rows() -> Vec<Row> {
     ));
 
     // The boolean rules, at width one: a proven boolean *is* a one-bit value.
-    rows.push(bool_claim(
-        Rule::BoolCmpKeep,
-        op(Op::Eq, var(0), Term::Const(1)),
-        var(0),
-    ));
-    rows.push(bool_claim(
-        Rule::BoolCmpKeep,
-        op(Op::Ne, var(0), Term::Const(0)),
-        var(0),
-    ));
-    rows.push(bool_claim(
-        Rule::BoolCmpFlip,
-        op(Op::Eq, var(0), Term::Const(0)),
-        not(var(0)),
-    ));
-    rows.push(bool_claim(
-        Rule::BoolCmpFlip,
-        op(Op::Ne, var(0), Term::Const(1)),
-        not(var(0)),
-    ));
-    rows.push(bool_claim(
-        Rule::DoubleNeg,
-        not(not(var(0))),
-        var(0),
-    ));
+    rows.push(bool_claim(Rule::BoolCmpKeep, op(Op::Eq, var(0), Term::Const(1)), var(0)));
+    rows.push(bool_claim(Rule::BoolCmpKeep, op(Op::Ne, var(0), Term::Const(0)), var(0)));
+    rows.push(bool_claim(Rule::BoolCmpFlip, op(Op::Eq, var(0), Term::Const(0)), not(var(0))));
+    rows.push(bool_claim(Rule::BoolCmpFlip, op(Op::Ne, var(0), Term::Const(1)), not(var(0))));
+    rows.push(bool_claim(Rule::DoubleNeg, not(not(var(0))), var(0)));
 
     // !(a op b) -> a op' b. Eq and Ne are complements of each other for
     // every type MIR has (`Rvalue::Cmp`'s Ne is `Eq`'s negation by
@@ -633,10 +596,8 @@ fn check_instance(row: &Row, width: u8, fixed: &[(usize, u64)]) -> RowReport {
             detail: Some(format!("did not decide within {:?}", TIMEOUT)),
         },
         SatResult::Sat => {
-            let detail = solver
-                .get_model()
-                .map(|model| counterexample(row, &vars, &model))
-                .unwrap_or_default();
+            let detail =
+                solver.get_model().map(|model| counterexample(row, &vars, &model)).unwrap_or_default();
             RowReport { rule: row.rule, width, verdict: Verdict::Invalid, detail: Some(detail) }
         }
     }
