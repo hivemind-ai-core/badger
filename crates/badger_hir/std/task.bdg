@@ -161,7 +161,10 @@ extern "intrinsic" fn list_finish<T>(builder: ListBuilder<T>) -> List<T>
 
 impl<S, T> Task<S, T> {
     /// Wait for the task and return its value (a captured task yields `Exit`).
-    pub fn join(self: &Self) -> T !{Wait} { task_join(self.id, self.captured) }
+    /// A task whose value is affine (a buffer, a builder, a `@move_only`
+    /// value) is consumed, so only one joiner owns the value; any other task
+    /// is copyable and may be joined again.
+    pub fn join(self: Self) -> T !{Wait} { task_join(self.id, self.captured) }
     /// Request cancellation; observed at the task's next safe point.
     pub fn cancel(self: &Self) -> Unit { task_cancel(self.id) }
 }

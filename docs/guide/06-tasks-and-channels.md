@@ -679,6 +679,12 @@ What the compiler guarantees regardless of warnings:
 - No lock-order deadlocks: there are no locks in the language.
 - No leaked children: every scope waits for or cancels its tasks.
 
+`join` hands the task's value to the caller. A task whose value is affine
+(a buffer, a builder, a `@move_only` value) is consumed by its join, so
+only one caller owns the value; joining it again is E0404 (E0415 for a
+`@move_only` value). A task with a shareable value may be joined any
+number of times.
+
 ## Workers
 
 Tasks run on worker threads. The count comes from `badger run --workers N`,

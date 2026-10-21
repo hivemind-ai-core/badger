@@ -53,10 +53,13 @@ Request cancellation; observed at the task's next safe point.
 #### `Task.join`
 
 ```badger
-fn join(self: &Self) -> T !{Wait}
+fn join(self: Self) -> T !{Wait}
 ```
 
 Wait for the task and return its value (a captured task yields `Exit`).
+A task whose value is affine (a buffer, a builder, a `@move_only`
+value) is consumed, so only one joiner owns the value; any other task
+is copyable and may be joined again.
 
 ### `TaskScope`
 

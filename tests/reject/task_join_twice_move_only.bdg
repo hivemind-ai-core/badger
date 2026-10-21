@@ -1,0 +1,15 @@
+// expect-error: E0415
+// A `@move_only` result is redeemed once: its task cannot be joined twice.
+import std.io
+import std.task
+@move_only
+pub struct Ticket { pub seat: Int }
+fn redeem(t: Ticket) -> Int { t.seat }
+pub fn main() -> Result<Unit, io.Error> {
+    let n = task.scope(fn(s) -> Result<Int, io.Error> {
+        let h = s.spawn(fn() { let t: Ticket = { seat: 7 }; t })
+        ok(redeem(h.join()) + redeem(h.join()))
+    })?
+    io.println($"redeemed: {n}")?
+    ok(())
+}

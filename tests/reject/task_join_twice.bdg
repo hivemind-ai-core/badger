@@ -1,0 +1,19 @@
+// expect-error: E0404
+// Joining a task hands its result to the joiner: a task with an affine
+// result (a buffer) is consumed by its join, so a second join is a use
+// after move rather than a second owner of the buffer.
+import std.io
+import std.task
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let r = task.scope(fn(s) -> Result<Int, io.Error> {
+        let t = s.spawn(fn() { let b = buffer.new<Int>(); b.push(1); b })
+        let a = t.join()
+        let b = t.join()
+        a.push(2)
+        b.push(3)
+        ok(a.len() + b.len())
+    })?
+    io.println($"{r}")?
+    ok(())
+}
