@@ -922,6 +922,28 @@ would pay is a larger proved rule set with rules that interfere
 
 ### 4.3 Alive2-style translation validation across the MIR pipeline
 
+**Status:** **adopted for the passes in reach** (2026-10-21): an SMT model of
+MIR now proves passes equivalent function by function
+([`reports/2026-10-21-mir-translation-validation-smt.md`](reports/2026-10-21-mir-translation-validation-smt.md)).
+`opt::smt` states the MIR operations as code generation compiles them;
+`opt::tv` executes both versions symbolically (memory and effects as an
+uninterpreted world, defects as exits, loops cut at their headers under a
+Houdini-inferred invariant) and asks Z3 for a difference. `BADGER_MIR_TV=1`
+validates every function `simplify`, `cse` and `superopt` change; a
+refutation fails the compilation (E9001), and the saved MIR is byte for byte
+the same with the check on and off. Survey over the 283 `tests/run` programs:
+at the release level 18 666 of the 18 695 changed functions are proven
+(99.84 %), none refuted, 29 not proven (15 by the query budget, 14 by a loop
+invariant too weak); per function p50 0.69 ms, p90 4.1 ms. The check is held
+to 9 s of validator time per compilation, so the 10 s gate holds by
+construction; the 40 programs of 40–60 KB of MIR answer in 55 ms median and
+5.2 s at most. Inlining, specialisation, `sra`, `enums`/`niche`, the map and
+receive passes and `reach` are **not in reach**: they change calls, objects,
+runtime entry points or the function table, which the model leaves
+uninterpreted. The validator found that `superopt` reorders float `+`/`*`
+operands, which changes the NaN payload (observable through hashing and the
+binary codec): 4 refutations at `--opt superopt`, not fixed here.
+
 **Status:** landed in its cheap form 2026-10-20 (`a9618b9`): `BADGER_MIR_VALIDATE=1`
 runs a bit-for-bit whole-program MIR comparator over two optimiser runs
 (so it catches non-determinism) and a behavioural gate (the program runs
@@ -1050,7 +1072,7 @@ is the *correctness gate* for the Phase 2 lock-free work.
 | TLA+ safety | every Phase 1 refactor must pass the TLA+ model checker on the bounded 3-task / 1-channel model | `spec/tla/ChannelBadger.tla`, TLC config |
 | TLA+ liveness | every blocked recv is eventually woken | `spec/tla/ChannelBadger.tla`, TLC config |
 | QSBR invariant | the GC handshake's "every worker observes the new epoch" invariant | `spec/tla/GcHandshake.tla` |
-| IR parity | the post-MIR-optimisation program must be bit-equivalent to the pre-MIR-optimisation program | `BADGER_MIR_VALIDATE=1` (4.3) |
+| IR parity | each pass in reach of the SMT model (`simplify`, `cse`, `superopt`) is proved to preserve every changed function's meaning, with no refutation over `tests/run`; the pipeline is deterministic and the optimised program behaves as the unoptimised one | `BADGER_MIR_TV=1`, `BADGER_MIR_VALIDATE=1` (4.3) |
 | 559-file check | the 559-file `badger check` differential sweep has no output differences | the existing test set |
 | Workload coverage | every Phase 0 / Phase 1 / Phase 2 change is measured on `bench/messages.bdg`, `bench/parallel_alloc`, `bench/collections`, `bench/records`, and the GC profile workloads | the existing test set |
 

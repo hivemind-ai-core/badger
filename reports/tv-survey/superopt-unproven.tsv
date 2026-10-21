@@ -1,0 +1,39 @@
+program	pass	function	verdict	microseconds	statements	reason
+admission_gate	simplify	admission_gate.main	not proven	2075791	1771	a query did not finish within its budget
+basics	superopt	basics.area#7	refuted	2756	15	the source returns 1, the target 0 when _1 = 0
+basics	superopt	basics.main	refuted	175275	251	only one side reaches the return
+buffer_push	simplify	buffer_push.main	not proven	3385922	2050	a query did not finish within its budget
+buffer_push	superopt	buffer_push.main	not proven	2298004	800	a query did not finish within its budget
+ch01_pos	simplify	ch01_pos.main	not proven	132924	1194	the invariant at the loop header bb386 does not prove it: only one side reaches the return
+channel_receive_forms	superopt	channel_receive_forms.main	not proven	455707	611	the invariant at the loop header bb67 does not prove it: the effects differ before bb86
+collections_everyday	simplify	collections_everyday.main	not proven	744954	5320	the invariant at the loop header bb2032 does not prove it: only one side reaches `Unreachable`
+collections_extra	simplify	collections_extra.main	not proven	457476	3330	the invariant at the loop header bb961 does not prove it: only one side reaches bb961
+contracts	simplify	contracts.main	not proven	2037087	1178	a query did not finish within its budget
+contracts	superopt	contracts.main	not proven	2024078	533	a query did not finish within its budget
+data_structures	simplify	data_structures.main	not proven	10032610	5891	a query did not finish within its budget
+data_structures	superopt	data_structures.main	not proven	2671559	3059	a query did not finish within its budget
+decide_orders	simplify	decide_orders.main	not proven	1115230	3760	the invariant at the loop header bb658 does not prove it: the effects differ before the defect 0 at 0x7fbebca2e880
+dyn_protocol	superopt	dyn.Circle.dyn_protocol.Shape.area	refuted	2809	5	the source returns 1, the target 0 when data = 0
+dyn_protocol	superopt	dyn_protocol.area#2	refuted	2107	5	the source returns 1, the target 0 when _1 = 0
+gc_pool_boundaries	simplify	gc_pool_boundaries.main.lambda9472.lambda9474	not proven	72727	140	the invariant at the loop header bb17 does not prove it: the effects differ before bb17
+gc_pool_boundaries	simplify	gc_pool_boundaries.main.lambda9472.lambda9481	not proven	236218	140	the invariant at the loop header bb17 does not prove it: the effects differ before bb17
+jobs_lifecycle	simplify	jobs_lifecycle.main	not proven	2377375	5814	a query did not finish within its budget
+jobs_lifecycle	simplify3	jobs_lifecycle.main	not proven	2716978	3538	a query did not finish within its budget
+list_iteration	superopt	list_iteration.main	not proven	313597	749	the invariant at the loop header bb49 does not prove it: the effects differ before bb152
+map_helpers	simplify	map_helpers.check#2	not proven	557069	2481	the invariant at the loop header bb846 does not prove it: the effects differ before bb852
+polymorphic_recursion_dynamic	simplify	polymorphic_recursion_dynamic.main	not proven	2006918	91	a query did not finish within its budget
+region_records	simplify	region_records.summary#2	not proven	2078862	150	a query did not finish within its budget
+region_records	simplify	region_records.main	not proven	2659086	561	a query did not finish within its budget
+select_keep	simplify	select_keep.main	not proven	2015868	777	a query did not finish within its budget
+seq_dedup_fusion	superopt	seq_dedup_fusion.main	not proven	2056048	208	a query did not finish within its budget
+sequence_fusion	simplify	sequence_fusion.main	not proven	42615	1136	the invariant at the loop header bb28 does not prove it: only one side reaches `Unreachable`
+sequence_stored	simplify	sequence_stored.main	not proven	329620	2972	the invariant at the loop header bb59 does not prove it: only one side reaches `Unreachable`
+sequence_stored	superopt	sequence_stored.main	not proven	129011	1336	the invariant at the loop header bb204 does not prove it: only one side reaches `Unreachable`
+std_contract_edges	simplify	std_contract_edges.main	not proven	2092625	2976	a query did not finish within its budget
+std_contract_edges	simplify2	std_contract_edges.main	not proven	2055725	1488	a query did not finish within its budget
+stdlib_more	simplify	stdlib_more.main	not proven	238285	1288	the invariant at the loop header bb432 does not prove it: only one side reaches bb533
+stdlib_validation	simplify	stdlib_validation.main	not proven	66402	1541	the invariant at the loop header bb528 does not prove it: the effects differ before bb534
+syntax_misc	simplify2	syntax_misc.main	not proven	2011387	90	a query did not finish within its budget
+task_memory	simplify	task_memory.main.lambda9413.lambda9421	not proven	4340	47	the invariant at the loop header bb2 does not prove it: the source returns 18446744073709551615, the target 0
+worker_supervise	simplify2	worker_supervise.main.lambda9656.lambda9658	not proven	31444	135	the invariant at the loop header bb81 does not prove it: the effects differ before bb81
+worker_supervise	simplify2	worker_supervise.main.lambda9608.lambda9610	not proven	31383	151	the invariant at the loop header bb86 does not prove it: the effects differ before bb86
