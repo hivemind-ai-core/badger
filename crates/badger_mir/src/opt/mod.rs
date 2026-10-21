@@ -3,6 +3,7 @@
 
 pub mod cfg;
 pub mod cse;
+pub mod globals;
 pub mod simplify;
 pub mod smt;
 pub mod specialize;
@@ -50,6 +51,7 @@ pub fn passes(level: Level) -> Vec<(&'static str, fn(&mut Program) -> usize)> {
         return out;
     }
     let mut push = |name: &'static str, run: fn(&mut Program) -> usize| out.push((name, run));
+    push("globals", globals::fold_constant_globals);
     push("inline", crate::inline::inline);
     push("specialize", specialize::specialize);
     push("sra", program_scalar_replace);

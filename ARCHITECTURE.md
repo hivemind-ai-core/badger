@@ -238,7 +238,9 @@ error. `badger_cli` is the `badger` binary.
 - Self tail calls become loops. Module-level values are lazily initialized
   getters; function values referenced statically are immortal closures.
 - **Release MIR pipeline** (`badger_mir::opt`): a fixed, inspectable order
-  of named passes — inline, closure specialization, scalar replacement,
+  of named passes — constant module values (`globals`: a getter whose
+  initializer only stores a constant reads as that constant), inline,
+  closure specialization, scalar replacement,
   simplification, map/list/enum representation passes, CSE, a second
   inlining/simplification round (`--opt aggressive`), and verified
   superoptimization (`--opt superopt`) — followed by reachability pruning

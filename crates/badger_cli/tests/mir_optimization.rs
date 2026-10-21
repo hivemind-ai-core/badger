@@ -207,3 +207,31 @@ fn map_entries_chains_do_not_build_entry_lists() {
     assert_eq!(fused.matches("map_entries").count(), 0, "fused MIR still builds entry lists:\n{fused}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn constant_module_values_fold_and_fallible_ones_stay_lazy() {
+    let src = "tests/run/constant_module_values.bdg";
+    let expected = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/run/constant_module_values.out"),
+    )
+    .unwrap();
+    let (out, mir) = ok(lang().args(["run", "--release", "--dump-mir", src]).output().unwrap());
+    assert_eq!(out, expected);
+    // `limit`, the derived `scale`, and the prelude's `none` are constants:
+    // their getters have no callers left
+    for getter in ["limit#global", "scale#global", "prelude.none#global"] {
+        assert!(!mir.contains(getter), "{getter} survived:\n{mir}");
+    }
+    // a division by zero and an overflow keep their lazy initializers
+    assert!(
+        mir.contains("boom#global") && mir.contains("past#global"),
+        "a fallible getter was folded:\n{mir}"
+    );
+    let (ctrl_out, ctrl) = ok(lang()
+        .env("BADGER_NO_PASS", "globals")
+        .args(["run", "--release", "--dump-mir", src])
+        .output()
+        .unwrap());
+    assert_eq!(ctrl_out, expected);
+    assert!(ctrl.contains("limit#global"), "control lost its getter:\n{ctrl}");
+}

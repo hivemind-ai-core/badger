@@ -22,7 +22,7 @@ pub fn simplify(prog: &mut Program) -> usize {
     n
 }
 
-fn simplify_func(f: &mut Func) -> usize {
+pub(crate) fn simplify_func(f: &mut Func) -> usize {
     let mut total = 0;
     for round in 0..ROUNDS {
         let mut changed = fold(f);
