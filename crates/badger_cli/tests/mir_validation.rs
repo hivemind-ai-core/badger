@@ -134,7 +134,7 @@ fn every_corpus_program_passes_the_smt_validator_with_its_output_unchanged() {
                     let on =
                         out(lang().env("BADGER_MIR_TV", "1").arg("compile").arg(&f).arg("-o").arg(&checked));
                     let stderr = String::from_utf8_lossy(&on.stderr);
-                    if off.status.success() != on.status.success() || !stderr.contains("BADGER_MIR_TV:") {
+                    if off.status.success() != on.status.success() || stderr.contains("changed the meaning") {
                         failures.lock().unwrap().push(format!("{}: the check failed\n{stderr}", f.display()));
                     } else if std::fs::read(&plain).ok() != std::fs::read(&checked).ok() {
                         failures

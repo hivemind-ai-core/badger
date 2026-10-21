@@ -1428,11 +1428,13 @@ pub enum Mode {
     /// No check (the default).
     Off,
     /// `BADGER_MIR_TV=1`: the passes in reach of the model; a function
-    /// another pass changed is counted, not validated, and a refutation
-    /// fails the compilation.
+    /// another pass changed is counted, not validated, a refutation fails
+    /// the compilation, and the summary is printed when a function is not
+    /// proven.
     InReach,
     /// `BADGER_MIR_TV=all`: every pass, for the survey of what the model
-    /// decides; nothing fails the compilation.
+    /// decides; nothing fails the compilation, and the summary is always
+    /// printed.
     All,
 }
 

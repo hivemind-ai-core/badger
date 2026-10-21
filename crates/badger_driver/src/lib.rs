@@ -1571,7 +1571,7 @@ fn optimize_mir(
 
 /// Run the MIR pipeline with the translation validator
 /// (`badger_mir::opt::tv`) checking every function each pass changes, and
-/// print its summary to stderr. A function the solver refutes in a pass the
+/// print its summary to stderr when a function is not proven. A function the solver refutes in a pass the
 /// model covers fails the compilation; one it does not prove is reported
 /// and kept. The validator only reads the passes' input and output, so the
 /// program is the one the pipeline produces without it.
@@ -1589,7 +1589,12 @@ fn translation_validate(
         records.extend(tv::check_pass(pass, before, after, mode.validates(pass)));
         checking += start.elapsed();
     });
-    tv::report(&records, bytes, checking);
+    // the summary is printed when the check has something to report: a
+    // function it did not prove (always in the survey mode)
+    let validated = |r: &&tv::Record| mode.validates(r.pass) && r.verdict != tv::Verdict::Equivalent;
+    if mode == tv::Mode::All || records.iter().any(|r| validated(&r)) {
+        tv::report(&records, bytes, checking);
+    }
     if mode == tv::Mode::InReach
         && let Some(r) = records.iter().find(|r| matches!(r.verdict, tv::Verdict::Refuted(_)))
         && let tv::Verdict::Refuted(why) = &r.verdict
