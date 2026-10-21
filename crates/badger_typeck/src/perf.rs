@@ -9,11 +9,12 @@
 //!   copies the whole list, where `list.append` adds in place.
 //!
 //! Only a variable declared outside the loop counts (one declared inside
-//! starts over each iteration), and only assignments the loop itself runs
-//! (not ones in a closure it builds).
+//! starts over each iteration), only assignments the loop itself runs
+//! (not ones in a closure it builds), and not in a loop over a short
+//! literal range (`for i in 0..9`), whose cost cannot grow.
 
 use badger_base::Diagnostic;
-use badger_hir::{DefId, DefKind, ExprId, ExprKind, Hir, InterpPart, LocalId, Stmt};
+use badger_hir::{BinOp, DefId, DefKind, ExprId, ExprKind, Hir, InterpPart, Lit, LocalId, Stmt};
 use rustc_hash::FxHashSet;
 
 use crate::infer::Infer;
@@ -46,6 +47,9 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         else {
             continue;
         };
+        if short_range(hir, l) {
+            continue;
+        }
         let start = hir.exprs[l].span.range().start;
         let mut assigns: Vec<(LocalId, ExprId, badger_base::Span)> = vec![];
         walk_in_loop(hir, *body, &mut |e| {
@@ -84,6 +88,23 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
                 );
             }
         }
+    }
+}
+
+/// `for _ in A..B` (or `A..=B`) over integer literals, at most 100 steps.
+fn short_range(hir: &Hir, l: ExprId) -> bool {
+    let ExprKind::For { iter, .. } = &hir.exprs[l].kind else { return false };
+    let ExprKind::Binary { op: op @ (BinOp::Range | BinOp::RangeIncl), lhs, rhs } = &hir.exprs[*iter].kind
+    else {
+        return false;
+    };
+    let lit = |e: ExprId| match hir.exprs[e].kind {
+        ExprKind::Lit(Lit::Int { value, .. }) => i64::try_from(value).ok(),
+        _ => None,
+    };
+    match (lit(*lhs), lit(*rhs)) {
+        (Some(a), Some(b)) => b.saturating_sub(a) + i64::from(*op == BinOp::RangeIncl) <= 100,
+        _ => false,
     }
 }
 

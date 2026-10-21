@@ -26,6 +26,11 @@ pub fn main() -> Result<Unit, io.Error> {
         copy = $"{base}{i}"
         fs = list.append(fs, fn() { var s = "x"; s = $"{s}{i}"; s })
     }
+    // a short literal range: its cost cannot grow
+    var short = ""
+    for i in 0..9 {
+        short = $"{short}{i}"
+    }
     // a list grown by appending
     var xs: List<Int> = []
     for i in 0..3 {
@@ -52,6 +57,6 @@ pub fn main() -> Result<Unit, io.Error> {
         }
         ok(acc)
     })?
-    io.println($"{joined} {lines} {copy} {fs.len()} {xs} {total}")?
+    io.println($"{joined} {lines} {copy} {fs.len()} {short} {xs} {total}")?
     ok(())
 }
