@@ -4,6 +4,14 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+/// The process's global allocator. The compiler and the JIT'd program share
+/// one address space, so this covers both. See the `jemalloc` feature and
+/// `reports/alloc-deadcalls/2026-10-21-global-allocator.md` for the paired
+/// measurement and its peak-RSS cost.
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 mod bench;
 mod completions;
 mod doc;

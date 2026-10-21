@@ -14,6 +14,8 @@ badger_syntax.workspace = true
 clap.workspace = true
 libc = "0.2"
 serde_json = "1.0.154"
+# The global allocator, when the `jemalloc` feature (opt-in) is on.
+tikv-jemallocator = { workspace = true, optional = true }
 
 [[bin]]
 name = "badger"
@@ -24,6 +26,14 @@ path = "src/main.rs"
 badger_native_demo = { path = "../badger_native_demo" }
 
 [features]
+# Opt-in, not default: jemalloc measures −16 % wall / −16 % typecheck over the
+# 722-file corpus, but +27 to +44 % peak RSS for the compiler and +23 to
+# +88 % for the JIT'd benchmarks (a per-thread arena per worker is most of
+# the JIT's, and jemalloc returns freed pages lazily). See
+# `reports/alloc-deadcalls/2026-10-21-global-allocator.md`.
+# `default = ["jemalloc"]` turns it on for every build.
+default = []
+jemalloc = ["dep:tikv-jemallocator"]
 # ThreadSanitizer fiber annotations (see badger_runtime)
 tsan = ["badger_driver/tsan"]
 asan = ["badger_driver/asan"]

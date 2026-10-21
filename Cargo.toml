@@ -69,6 +69,13 @@ thiserror = "2.0.21"
 # --- CLI -------------------------------------------------------------------
 clap = { version = "4.6.7", features = ["derive"] }
 
+# The CLI's opt-in global allocator (the follow-up of
+# `reports/2026-10-20-typeck-allocation.md` §"What the remaining allocations
+# cost"): −16 % wall / −16 % typecheck over the 722-file corpus, at +23 to
+# +88 % peak RSS. `badger_cli`'s `jemalloc` feature selects it; off by
+# default — see `reports/alloc-deadcalls/2026-10-21-global-allocator.md`.
+tikv-jemallocator = "0.6"
+
 # --- solver ----------------------------------------------------------------
 # SMT check for the superoptimiser's algebraic rules (opt-in, `BADGER_MIR_SMT=1`).
 # `bundled` builds the Z3 it ships from source; the optimiser's hot path never
