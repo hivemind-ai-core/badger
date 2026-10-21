@@ -29,6 +29,12 @@ const GRAPH_KINDS: [&str; 4] = ["calls", "modules", "types", "systems"];
 /// The generators `badger generate` runs.
 const GENERATORS: [&str; 6] = ["sql", "feature", "worker", "service", "cli", "library"];
 
+/// The parser of `--workers`: 1 to 64 (the runtime's `MAX_WORKERS`), so another
+/// count is a usage error.
+fn workers() -> clap::builder::RangedU64ValueParser<usize> {
+    clap::builder::RangedU64ValueParser::new().range(1..=64)
+}
+
 /// What `badger inspect` reads from a program or a project.
 const INSPECT_LOCAL: [&str; 3] = ["plans", "config", "runtime"];
 
@@ -67,7 +73,7 @@ enum Command {
         #[arg(long)]
         profile: Option<String>,
         /// Worker threads to save as the default (`badger run --workers` still overrides).
-        #[arg(long, value_name = "N")]
+        #[arg(long, value_name = "N", value_parser = workers())]
         workers: Option<usize>,
         /// MIR optimization level: `release` (default), `aggressive`, or
         /// `superopt`.
@@ -90,7 +96,7 @@ enum Command {
         #[arg(long)]
         profile: Option<String>,
         /// Worker threads to save as the default.
-        #[arg(long, value_name = "N")]
+        #[arg(long, value_name = "N", value_parser = workers())]
         workers: Option<usize>,
         /// MIR optimization level: `release` (default), `aggressive`, or
         /// `superopt`.
@@ -104,7 +110,7 @@ enum Command {
         /// The release directory.
         dir: PathBuf,
         /// Worker threads (default: the release's saved setting).
-        #[arg(long, value_name = "N")]
+        #[arg(long, value_name = "N", value_parser = workers())]
         workers: Option<usize>,
         /// Arguments passed to the program (after `--`).
         #[arg(last = true)]
@@ -139,7 +145,7 @@ enum Command {
         #[arg(long, value_name = "ADDR")]
         inspect: Option<String>,
         /// Worker threads running tasks (default: `[runtime] workers`, or 1).
-        #[arg(long, value_name = "N")]
+        #[arg(long, value_name = "N", value_parser = workers())]
         workers: Option<usize>,
         /// With `--watch`: when a change is incompatible (a type definition or
         /// function type changed), cancel the program, halt its resources,
@@ -380,7 +386,7 @@ enum Command {
         #[arg(long, value_name = "FILE")]
         baseline: Option<PathBuf>,
         /// The number of workers the programs run with.
-        #[arg(long, value_name = "N")]
+        #[arg(long, value_name = "N", value_parser = workers())]
         workers: Option<usize>,
     },
     /// Turn a directory into a project: `badger.toml` and

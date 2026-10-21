@@ -173,7 +173,7 @@ An argument that looks like a path (contains `/`, or ends in `.bdg` or
 |---|---|---|
 | `--release` | | Optimize: the release MIR pipeline and optimized code generation. |
 | `--opt LEVEL` | `release`, `aggressive`, `superopt` | With `--release`: select the MIR level. `release` is the default; `aggressive` repeats inlining and simplification; `superopt` also runs the verified arithmetic/boolean superoptimizer. The level is recorded when compiling binary MIR. |
-| `--workers N` | 1 to 64 | Worker threads that run tasks. Default: `[runtime] workers`, else 1. Out of range is error E0013. |
+| `--workers N` | 1 to 64 | Worker threads that run tasks. Default: `[runtime] workers`, else 1. Out of range is a usage error (exit status 2). |
 | `--profile NAME` | | Merge `[profile.NAME]` into the configuration that `config.load` reads, and `[profile.NAME.runtime]` into the runtime settings. Needs a project directory. |
 | `--watch` | | Keep running; on a source change, recheck and replace compatible functions (new calls use new code). An incompatible change (a type definition, a function's type or effects) is rejected and the old version keeps running. |
 | `--reconstruct` | | With `--watch` only: on an incompatible change, cancel the program, halt its resources, and start the new version. |

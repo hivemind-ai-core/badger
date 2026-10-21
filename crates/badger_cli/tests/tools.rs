@@ -144,6 +144,22 @@ fn watch_reruns() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// `--workers` outside 1 to 64 is a usage error, for every command that
+/// takes it.
+#[test]
+fn workers_out_of_range_is_a_usage_error() {
+    for args in [
+        &["run", "--workers", "0", "x.bdg"][..],
+        &["compile", "--workers", "65"],
+        &["release", "--workers", "0"],
+        &["start", "dir", "--workers", "0"],
+        &["bench", "--workers", "0"],
+    ] {
+        let out = lang().args(args).output().unwrap();
+        assert_eq!(out.status.code(), Some(2), "{args:?}: {}", String::from_utf8_lossy(&out.stderr));
+    }
+}
+
 /// `badger test --filter` that matches no test fails, with `--list` and
 /// `--json` too (the JSON object names the error).
 #[test]
