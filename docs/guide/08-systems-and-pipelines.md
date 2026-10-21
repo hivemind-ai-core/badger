@@ -751,9 +751,9 @@ optional verified actor. It carries no dependencies; those are the
 operation's captured providers.
 
 `std.endpoint` binds an operation to HTTP and `std.command` binds it to a
-command line. A binding says how the input is decoded, how the output is
-rendered, and how each expected error is answered; the operation is the
-same for both:
+command line. A binding says how the input is decoded and how the output
+is rendered; the operation, and how its errors are reported, are the same
+for both:
 
 ```badger
 import std.app
@@ -766,8 +766,10 @@ import std.text
 
 type Greeting = { text: String }
 
-@derive(Error)
+// how each transport reports the error is said once, on its type
+@derive(Error, HttpError, CommandError)
 pub enum GreetError {
+    @message("a name is required") @http.status(400) @http.code(#hello/unnamed) @command.exit(1)
     unnamed,
 }
 
@@ -788,7 +790,6 @@ pub fn main() -> Result<Unit, AppError> {
             operation: greet,
             input: fn(params: { name: String }, _body: {}) { params.name },
             status: 200,
-            errors: fn(_e) { endpoint.failure(400, #hello/unnamed, "a name is required") },
         }),
     ])?
     let reply = http.call(api, http.request(#get, "/hello/Ada", ""))
@@ -800,7 +801,6 @@ pub fn main() -> Result<Unit, AppError> {
             operation: greet,
             input: fn(options: { name: String }) { options.name },
             output: fn(g) { g.text },
-            errors: fn(_e) { command.failure(1, "a name is required") },
         }),
     ]
     let outcome = command.run("hello", commands, app.call(), ["greet", "--name", "Ada"])
@@ -819,7 +819,12 @@ parameter and the body into its second; malformed input is a 400 reply
 naming the field, before the operation runs. A command's options are a
 `std.cli` record. The route name is the operation's id and its OpenAPI
 summary the documentation; `command.help` lists the commands with their
-documentation. `command.run` returns an outcome (exit status, standard
+documentation. An operation's expected error is answered as its type
+says: an endpoint replies with its `HttpStatus` (`derive(HttpError)` reads
+`@http.status`, `@http.code`, and the enum's `@http.codes(#prefix)`; a
+server error's reply names the status only), and a command exits with its
+`ExitStatus` (`derive(CommandError)` reads `@command.exit`), printing its
+display. `command.run` returns an outcome (exit status, standard
 output, standard error) without printing, for tests; `command.main` prints
 it and returns the exit status, for `main -> Int`. Each request is a new
 call, joined to the caller's `x-correlation-id` when the request has one.

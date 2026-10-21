@@ -1,6 +1,7 @@
 // The HTTP binding of the tasks feature: each operation bound to a method
-// and path (typed parameters, body, and reply; explicit replies for the
-// feature's errors), and the health routes, behind an access-log stage.
+// and path (typed parameters, body, and reply; the feature's errors answer
+// with the status and code they carry), and the health routes, behind an
+// access-log stage.
 import std.admission
 import std.app
 import std.endpoint
@@ -34,16 +35,6 @@ stage access_log() -> Result<_, Error> {
     }
 }
 
-// The status and code of each error: the client ones carry the feature's
-// message; a storage failure is the service's, and keeps its details.
-fn failure(e: model.Error) -> endpoint.Failure {
-    match e {
-        .invalid_title(_) => endpoint.failure(400, #tasks/invalid_title, e.display()),
-        .not_found(_) => endpoint.failure(404, #tasks/not_found, e.display()),
-        .storage(_) => endpoint.failure(503, #tasks/unavailable, "the task store is unavailable"),
-    }
-}
-
 pub fn routes(tasks: model.Tasks, writes: admission.Gate) -> List<route.Route> {
     // writes are admitted through a gate (a bounded queue), each within 5s
     // of its arrival
@@ -55,7 +46,6 @@ pub fn routes(tasks: model.Tasks, writes: admission.Gate) -> List<route.Route> {
             operation: tasks.list,
             input: fn(_params: {}, _body: {}) { {} },
             status: 200,
-            errors: failure,
         }),
         endpoint.bind_in(writing, {
             method: #post,
@@ -63,7 +53,6 @@ pub fn routes(tasks: model.Tasks, writes: admission.Gate) -> List<route.Route> {
             operation: tasks.create,
             input: fn(_params: {}, body: model.NewTask) { body },
             status: 201,
-            errors: failure,
         }),
         endpoint.bind_in(writing, {
             method: #post,
@@ -71,7 +60,6 @@ pub fn routes(tasks: model.Tasks, writes: admission.Gate) -> List<route.Route> {
             operation: tasks.complete,
             input: fn(params: { id: Int }, _body: {}) { params.id },
             status: 200,
-            errors: failure,
         }),
     ]
 }

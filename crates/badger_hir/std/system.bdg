@@ -42,6 +42,8 @@ impl prelude.Error for ProviderError {
     fn details(self: &Self) -> Data { self.details }
 }
 
+impl ExitStatus for ProviderError {}
+
 impl HttpStatus for ProviderError {}
 
 impl Display for Error {
@@ -54,6 +56,8 @@ impl Display for Error {
         if list.len(self.notes) == 0 { base } else { $"{base} (cleanup: {text.join(self.notes, "; ")})" }
     }
 }
+
+impl ExitStatus for Error {}
 
 impl HttpStatus for Error {}
 

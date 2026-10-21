@@ -50,6 +50,14 @@ fn is_upper(s: &str) -> bool {
     s.starts_with(|c: char| c.is_ascii_uppercase())
 }
 
+/// What a derived method answers for one variant (`derive(HttpError)`,
+/// `derive(CommandError)`).
+enum Answer {
+    Lit(Lit),
+    /// The wrapped error's, through this prelude helper.
+    Source(&'static str),
+}
+
 fn squash(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -168,10 +176,12 @@ impl<'a, 'i> Lower<'a, 'i> {
             TypeKind::Path { module, name, args } if module.is_empty() && args.is_empty() && self.interner.resolve(name.sym) == which)
     }
 
-    /// Variant attributes: `@http.status(code)`, read by `derive(HttpError)`, and
+    /// Variant attributes: `@http.status(code)` and `@http.code(#c)`, read by
+    /// `derive(HttpError)`, `@command.exit(status)`, read by
+    /// `derive(CommandError)`, and
     /// `@message("text {field}")`, read by `derive(Error)` and
     /// `derive(Display)`.
-    fn check_variant_attributes(&mut self, variants: &[Variant], http: bool, display: bool) {
+    fn check_variant_attributes(&mut self, variants: &[Variant], http: bool, command: bool, display: bool) {
         for v in variants {
             let mut status: Option<Span> = None;
             for a in &v.attributes {
@@ -257,6 +267,34 @@ impl<'a, 'i> Lower<'a, 'i> {
                             );
                         }
                     }
+                    // (its argument is checked against its declaration)
+                    "http.code" if !http => {
+                        self.diags.push(
+                            Diagnostic::warning("`@http.code` has no effect without `derive(HttpError)`")
+                                .with_code("E0193")
+                                .with_label(a.span, "read by `derive(HttpError)` on the enum"),
+                        );
+                    }
+                    "command.exit" => {
+                        // a failure's exit status: 1 to 255 (0 is success)
+                        let ok = matches!(a.args.as_slice(), [AttrArg::Int(n)] if (1..=255).contains(n));
+                        if !ok {
+                            self.error(
+                                "E0193",
+                                a.span,
+                                "`@command.exit` takes one failing exit status (1 to 255)",
+                                "e.g. `@command.exit(3)`",
+                            );
+                        } else if !command {
+                            self.diags.push(
+                                Diagnostic::warning(
+                                    "`@command.exit` has no effect without `derive(CommandError)`",
+                                )
+                                .with_code("E0193")
+                                .with_label(a.span, "read by `derive(CommandError)` on the enum"),
+                            );
+                        }
+                    }
                     // the rest (a library's, an unknown one, a misplaced one)
                     // are checked with every other attribute
                     _ => {}
@@ -269,7 +307,111 @@ impl<'a, 'i> Lower<'a, 'i> {
     /// `impl HttpStatus for E { fn http_status(self: &Self) -> Int { match self { .missing(_) => 404, _ => 500 } } }`;
     /// a variant wrapping one error (`store(source: store.Error)`) answers
     /// with its source's status and code (`source_http_status(source)`, ...).
-    fn derive_http_error(&mut self, name: Name, generics: &[GenericParam], variants: &[Variant], at: Span) {
+    /// The code is the variant's `@http.code(#tasks/missing)`, else the
+    /// enum's `@http.codes(#tasks)` prefix and the variant name, else the
+    /// variant name.
+    fn derive_http_error(
+        &mut self,
+        name: Name,
+        generics: &[GenericParam],
+        variants: &[Variant],
+        enum_attrs: &[Attribute],
+        at: Span,
+    ) {
+        let source_sym = self.interner.intern("source");
+        let wraps = |v: &Variant| matches!(v.fields.as_slice(), [(Some(f), _)] if f.sym == source_sym);
+        let arg_of = |this: &Self, attrs: &[Attribute], which: &str| {
+            attrs.iter().find_map(|a| (this.interner.resolve(a.name) == which).then(|| a.args.clone()))
+        };
+        let statuses: Vec<Option<Answer>> = variants
+            .iter()
+            .map(|v| match arg_of(self, &v.attributes, "http.status").as_deref() {
+                Some([AttrArg::Int(n)]) => Some(Answer::Lit(Lit::Int { value: *n as u128, suffix: None })),
+                _ if wraps(v) => Some(Answer::Source("source_http_status")),
+                _ => None,
+            })
+            .collect();
+        let prefix = match arg_of(self, enum_attrs, "http.codes").as_deref() {
+            Some([AttrArg::Symbol(p)]) => Some(self.interner.resolve(*p).to_string()),
+            _ => None,
+        };
+        let explicit: Vec<Option<Symbol>> = variants
+            .iter()
+            .map(|v| match arg_of(self, &v.attributes, "http.code").as_deref() {
+                Some([AttrArg::Symbol(c)]) => Some(*c),
+                _ => None,
+            })
+            .collect();
+        let mut methods = vec![("http_status", "Int", statuses, Lit::Int { value: 500, suffix: None })];
+        // the code, when anything sets it (else the protocol's default, the
+        // variant name)
+        if prefix.is_some() || explicit.iter().any(Option::is_some) || variants.iter().any(|v| wraps(v)) {
+            let codes = variants
+                .iter()
+                .zip(&explicit)
+                .map(|(v, c)| match c {
+                    Some(c) => Some(Answer::Lit(Lit::Symbol(*c))),
+                    None if wraps(v) => Some(Answer::Source("source_http_code")),
+                    None => {
+                        let n = self.interner.resolve(v.name.sym).to_string();
+                        let code = match &prefix {
+                            Some(p) => format!("{p}/{n}"),
+                            None => n,
+                        };
+                        Some(Answer::Lit(Lit::Symbol(self.interner.intern(&code))))
+                    }
+                })
+                .collect();
+            methods.push(("http_code", "Symbol", codes, Lit::Symbol(self.interner.intern("error"))));
+        }
+        self.derive_variant_impl(name, generics, variants, "HttpStatus", methods, at);
+    }
+
+    /// `enum E { @command.exit(3) missing(id: Int), other } derive(CommandError)`
+    /// is `impl ExitStatus for E { fn exit_status(self: &Self) -> Int { match self { .missing(_) => 3, _ => 1 } } }`;
+    /// a variant wrapping one error answers with its source's exit status.
+    fn derive_command_error(
+        &mut self,
+        name: Name,
+        generics: &[GenericParam],
+        variants: &[Variant],
+        at: Span,
+    ) {
+        let source_sym = self.interner.intern("source");
+        let exits = variants
+            .iter()
+            .map(|v| {
+                let exit = v.attributes.iter().find_map(|a| {
+                    match (self.interner.resolve(a.name), a.args.as_slice()) {
+                        ("command.exit", [AttrArg::Int(n)]) => Some(*n),
+                        _ => None,
+                    }
+                });
+                match (exit, v.fields.as_slice()) {
+                    (Some(n), _) => Some(Answer::Lit(Lit::Int { value: n as u128, suffix: None })),
+                    (None, [(Some(f), _)]) if f.sym == source_sym => {
+                        Some(Answer::Source("source_exit_status"))
+                    }
+                    _ => None,
+                }
+            })
+            .collect();
+        let methods = vec![("exit_status", "Int", exits, Lit::Int { value: 1, suffix: None })];
+        self.derive_variant_impl(name, generics, variants, "ExitStatus", methods, at);
+    }
+
+    /// `impl PROTOCOL for E { fn METHOD(self: &Self) -> RET { match self { ... } } }`,
+    /// each method answering per variant (`None`: the method's default, in
+    /// a final `_` arm).
+    fn derive_variant_impl(
+        &mut self,
+        name: Name,
+        generics: &[GenericParam],
+        variants: &[Variant],
+        protocol: &str,
+        methods: Vec<(&str, &str, Vec<Option<Answer>>, Lit)>,
+        at: Span,
+    ) {
         let path = |this: &mut Self, text: &str, args: Vec<TypeId>| {
             let sym = this.interner.intern(text);
             this.alloc_ty(TypeKind::Path { module: vec![], name: Name { sym, span: at }, args }, at)
@@ -282,35 +424,8 @@ impl<'a, 'i> Lower<'a, 'i> {
             .collect();
         let ename = self.interner.resolve(name.sym).to_string();
         let self_ty = path(self, &ename, args);
-        let protocol = path(self, "HttpStatus", vec![]);
-        let int = path(self, "Int", vec![]);
-        let selfref_inner = path(self, "Self", vec![]);
-        let selfref = self.alloc_ty(TypeKind::Ref { mutable: false, inner: selfref_inner }, at);
-        let symbol = path(self, "Symbol", vec![]);
+        let protocol = path(self, protocol, vec![]);
         let source_sym = self.interner.intern("source");
-        // each variant's status: its `@http.status`, else its source's (a
-        // variant wrapping one error, `store(source: store.Error)`), else 500
-        enum Status {
-            Code(i64),
-            Source,
-            Default,
-        }
-        let statuses: Vec<Status> = variants
-            .iter()
-            .map(|v| {
-                let code = v.attributes.iter().find_map(|a| {
-                    match (self.interner.resolve(a.name), a.args.as_slice()) {
-                        ("http.status", [AttrArg::Int(n)]) => Some(*n),
-                        _ => None,
-                    }
-                });
-                match (code, v.fields.as_slice()) {
-                    (Some(n), _) => Status::Code(n),
-                    (None, [(Some(f), _)]) if f.sym == source_sym => Status::Source,
-                    _ => Status::Default,
-                }
-            })
-            .collect();
         // `.name(_, ..)`, or `.name(source)` binding the wrapped error
         let variant_pat = |this: &mut Self, v: &Variant, bind: bool| {
             let pargs = (!v.fields.is_empty()).then(|| {
@@ -324,51 +439,40 @@ impl<'a, 'i> Lower<'a, 'i> {
             });
             this.alloc_pat(PatKind::Variant { ty: None, name: v.name, args: pargs }, v.span)
         };
-        // `source_http_status(source)`: its bound says plainly when the
-        // wrapped error has no status
-        let delegate = |this: &mut Self, helper: &str, sp: Span| {
-            let arg = this.alloc_expr(ExprKind::Name(Name { sym: source_sym, span: sp }), sp);
-            let name = Name { sym: this.interner.intern(helper), span: sp };
-            let callee = this.alloc_expr(ExprKind::Name(name), sp);
-            this.alloc_expr(ExprKind::Call { callee, type_args: vec![], args: vec![arg] }, sp)
-        };
-        let mut arms = vec![];
-        for (v, st) in variants.iter().zip(&statuses) {
-            let (pat, body) = match st {
-                Status::Code(code) => (
-                    variant_pat(self, v, false),
-                    self.alloc_expr(ExprKind::Lit(Lit::Int { value: *code as u128, suffix: None }), v.span),
-                ),
-                Status::Source => (variant_pat(self, v, true), delegate(self, "source_http_status", v.span)),
-                Status::Default => continue,
-            };
-            arms.push(MatchArm { pat, guard: None, body, span: v.span });
-        }
-        if statuses.iter().any(|s| matches!(s, Status::Default)) || arms.is_empty() {
-            let pat = self.alloc_pat(PatKind::Discard, at);
-            let body = self.alloc_expr(ExprKind::Lit(Lit::Int { value: 500, suffix: None }), at);
-            arms.push(MatchArm { pat, guard: None, body, span: at });
-        }
-        let mut methods = vec![self.self_method("http_status", selfref, int, arms, at)];
-        // the code too passes through a source variant; the others keep the
-        // default, the variant's name
-        if statuses.iter().any(|s| matches!(s, Status::Source)) {
+        let mut fns = vec![];
+        for (method, ret, answers, default) in methods {
             let mut arms = vec![];
-            for (v, st) in variants.iter().zip(&statuses) {
-                let (pat, body) = match st {
-                    Status::Source => {
-                        (variant_pat(self, v, true), delegate(self, "source_http_code", v.span))
+            for (v, answer) in variants.iter().zip(&answers) {
+                let (pat, body) = match answer {
+                    Some(Answer::Lit(l)) => {
+                        (variant_pat(self, v, false), self.alloc_expr(ExprKind::Lit(l.clone()), v.span))
                     }
-                    _ => (
-                        variant_pat(self, v, false),
-                        self.alloc_expr(ExprKind::Lit(Lit::Symbol(v.name.sym)), v.span),
-                    ),
+                    // `source_http_status(source)`: its bound says plainly
+                    // when the wrapped error has none
+                    Some(Answer::Source(helper)) => {
+                        let arg =
+                            self.alloc_expr(ExprKind::Name(Name { sym: source_sym, span: v.span }), v.span);
+                        let name = Name { sym: self.interner.intern(helper), span: v.span };
+                        let callee = self.alloc_expr(ExprKind::Name(name), v.span);
+                        let call = self.alloc_expr(
+                            ExprKind::Call { callee, type_args: vec![], args: vec![arg] },
+                            v.span,
+                        );
+                        (variant_pat(self, v, true), call)
+                    }
+                    None => continue,
                 };
                 arms.push(MatchArm { pat, guard: None, body, span: v.span });
             }
+            if answers.iter().any(Option::is_none) || arms.is_empty() {
+                let pat = self.alloc_pat(PatKind::Discard, at);
+                let body = self.alloc_expr(ExprKind::Lit(default), at);
+                arms.push(MatchArm { pat, guard: None, body, span: at });
+            }
             let selfref_inner = path(self, "Self", vec![]);
             let selfref = self.alloc_ty(TypeKind::Ref { mutable: false, inner: selfref_inner }, at);
-            methods.push(self.self_method("http_code", selfref, symbol, arms, at));
+            let ret = path(self, ret, vec![]);
+            fns.push(self.self_method(method, selfref, ret, arms, at));
         }
         self.extra_items.push(Item {
             kind: ItemKind::Impl(ImplDecl {
@@ -376,7 +480,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                 protocol: Some(protocol),
                 self_ty,
                 where_preds: vec![],
-                methods,
+                methods: fns,
                 assoc_types: vec![],
             }),
             span: at,
@@ -572,6 +676,16 @@ impl<'a, 'i> Lower<'a, 'i> {
                     derives.remove(i);
                     self.derive_default(name, &generics, &fields, at);
                 }
+                if let Some(i) = derives.iter().position(|t| self.names_derive(*t, "CommandError")) {
+                    let at = self.ast.types[derives[i]].span;
+                    derives.remove(i);
+                    self.diags.push(
+                        Diagnostic::error("`derive(CommandError)` is for an enum")
+                            .with_code("E0193")
+                            .with_label(at, "on a struct")
+                            .with_note("each variant of an error enum gives its exit status: `@derive(CommandError) enum AppError { @command.exit(3) missing(id: Int), ... }`; for one status, `impl ExitStatus for T { fn exit_status(self: &Self) -> Int { 3 } }`"),
+                    );
+                }
                 if let Some(i) = derives.iter().position(|t| self.names_derive(*t, "HttpError")) {
                     let at = self.ast.types[derives[i]].span;
                     derives.remove(i);
@@ -611,12 +725,20 @@ impl<'a, 'i> Lower<'a, 'i> {
                 if let Some(i) = http {
                     let at = self.ast.types[derives[i]].span;
                     derives.remove(i);
-                    self.derive_http_error(name, &generics, &variants, at);
+                    self.derive_http_error(name, &generics, &variants, &attributes, at);
+                }
+                // `@derive(CommandError)`: an ExitStatus implementation from
+                // the variants' `@command.exit(status)`
+                let command = derives.iter().position(|t| self.names_derive(*t, "CommandError"));
+                if let Some(i) = command {
+                    let at = self.ast.types[derives[i]].span;
+                    derives.remove(i);
+                    self.derive_command_error(name, &generics, &variants, at);
                 }
                 let display = derives
                     .iter()
                     .any(|t| self.names_derive(*t, "Error") || self.names_derive(*t, "Display"));
-                self.check_variant_attributes(&variants, http.is_some(), display);
+                self.check_variant_attributes(&variants, http.is_some(), command.is_some(), display);
                 ItemKind::Enum(EnumDecl { name, generics, variants, derives })
             }
             cst::ItemKind::Protocol { name, generics, supers, members } => {

@@ -546,6 +546,25 @@ status it means with this.
 
 ## Attributes
 
+### `@http.code`
+
+```badger
+attribute code on variant { code: Symbol }
+```
+
+The stable code an error variant's client reply carries (`"error"`):
+`@http.code(#tasks/not_found)`, read by `derive(HttpError)`.
+
+### `@http.codes`
+
+```badger
+attribute codes on type { prefix: Symbol }
+```
+
+The prefix of an error enum's codes: `@http.codes(#tasks)` makes
+`not_found`'s code `#tasks/not_found` (a variant's `@http.code` still
+chooses its own), read by `derive(HttpError)`.
+
 ### `@http.status`
 
 ```badger

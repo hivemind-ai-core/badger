@@ -2,19 +2,23 @@
 // feature needs (a store), and what it offers: operations, the same ones to
 // HTTP, the command line, and workers.
 import std.app
+import std.command
+import std.http
 
 pub type Task = { id: Int, title: String, done: Bool }
 pub type NewTask = { title: String }
 
-// Each variant's message is the feature's own text, for every binding
-// (HTTP, the command line, workers); the bindings choose statuses and codes.
-@derive(Error)
+// What can go wrong, said once for every binding: each variant's message,
+// its HTTP status and code (`#tasks/<variant>`; a server error's details
+// stay out of the reply), and the exit status it ends a command with.
+@derive(Error, HttpError, CommandError)
+@http.codes(#tasks)
 pub enum Error {
-    @message("{message}")
+    @message("{message}") @http.status(400) @command.exit(1)
     invalid_title(message: String),
-    @message("no task {id}")
+    @message("no task {id}") @http.status(404) @command.exit(3)
     not_found(id: Int),
-    @message("{message}")
+    @message("{message}") @http.status(503) @command.exit(74)
     storage(message: String),
 }
 

@@ -30,6 +30,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { $"{self.kind}: {self.message}" }
 }
 
+impl ExitStatus for Error {}
+
 impl HttpStatus for Error {}
 
 impl prelude.Error for Error {

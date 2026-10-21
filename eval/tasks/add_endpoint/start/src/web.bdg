@@ -2,14 +2,8 @@ import std.endpoint
 import std.route
 import books
 
-fn failure(e: books.BookError) -> endpoint.Failure {
-    match e {
-        .missing(id) => endpoint.failure(404, #books/missing, $"no book {id}"),
-    }
-}
-
 pub fn routes() -> List<route.Route> {
     [
-        endpoint.bind({ method: #get, path: "/books", operation: books.list(), input: fn(_p: {}, _b: {}) { {} }, status: 200, errors: failure }),
+        endpoint.bind({ method: #get, path: "/books", operation: books.list(), input: fn(_p: {}, _b: {}) { {} }, status: 200 }),
     ]
 }

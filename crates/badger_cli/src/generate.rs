@@ -10,14 +10,20 @@ use std::path::{Path, PathBuf};
 const MODEL: &str = r#"// The @name@ feature's vocabulary: a @item@, what can go wrong, the storage
 // it needs, and the operations it offers.
 import std.app
+import std.http
 
 pub type @Item@ = { id: Int, title: String }
 pub type New@Item@ = { title: String }
 
-@derive(Error)
+// each error's message and HTTP status, said once for every binding
+@derive(Error, HttpError)
+@http.codes(#@name@)
 pub enum Error {
+    @message("{message}") @http.status(400)
     invalid(message: String),
+    @message("no @item@ {id}") @http.status(404)
     not_found(id: Int),
+    @message("{message}") @http.status(503)
     storage(message: String),
 }
 
@@ -128,19 +134,11 @@ import @name@.memory
 import @name@.model
 import @name@.service
 
-fn failure(e: model.Error) -> endpoint.Failure {
-    match e {
-        .invalid(message) => endpoint.failure(400, #@name@/invalid, message),
-        .not_found(id) => endpoint.failure(404, #@name@/not_found, $"no @item@ {id}"),
-        .storage(_) => endpoint.failure(503, #@name@/unavailable, "@name@ are unavailable"),
-    }
-}
-
 pub fn routes(@name@: model.Operations) -> List<route.Route> {
     [
-        endpoint.bind({ method: #post, path: "/@name@", operation: @name@.create, input: fn(_params: {}, body: model.New@Item@) { body }, status: 201, errors: failure }),
-        endpoint.bind({ method: #get, path: "/@name@/:id", operation: @name@.find, input: fn(params: { id: Int }, _body: {}) { params.id }, status: 200, errors: failure }),
-        endpoint.bind({ method: #get, path: "/@name@", operation: @name@.list, input: fn(_params: {}, _body: {}) { {} }, status: 200, errors: failure }),
+        endpoint.bind({ method: #post, path: "/@name@", operation: @name@.create, input: fn(_params: {}, body: model.New@Item@) { body }, status: 201 }),
+        endpoint.bind({ method: #get, path: "/@name@/:id", operation: @name@.find, input: fn(params: { id: Int }, _body: {}) { params.id }, status: 200 }),
+        endpoint.bind({ method: #get, path: "/@name@", operation: @name@.list, input: fn(_params: {}, _body: {}) { {} }, status: 200 }),
     ]
 }
 
@@ -235,6 +233,7 @@ fn test_a_submitted_job_is_processed() -> Result<Unit, TestError> {
 const SERVICE_MODEL: &str = r#"// The @name@ service's vocabulary: a @item@, what can go wrong, and the
 // operations the service offers.
 import std.app
+import std.http
 
 /// One @item@.
 pub type @Item@ = { id: Int, title: String }
@@ -242,11 +241,11 @@ pub type @Item@ = { id: Int, title: String }
 /// A new @item@.
 pub type New@Item@ = { title: String }
 
-/// What can go wrong.
-@derive(Error)
+/// What can go wrong, and the HTTP status each is answered with.
+@derive(Error, HttpError)
 pub enum Error {
-    invalid(message: String),
-    not_found(id: Int),
+    @http.status(400) invalid(message: String),
+    @http.status(404) not_found(id: Int),
 }
 
 /// The service's operations.
@@ -346,27 +345,13 @@ import @name@.model
 import @name@.service
 import @name@.store
 
-/// The service's errors, as the HTTP layer sees them.
-@derive(Error, From)
+/// The service's errors, as the HTTP layer sees them: each answers with
+/// the status of the error it wraps.
+@derive(Error, From, HttpError)
 pub enum Error {
     @name@(source: model.Error),
     route(source: route.RouteError),
     system(source: system.Error),
-}
-
-/// The status each error is answered with (500 unless the error chooses
-/// one): the route system reads it.
-impl HttpStatus for Error {
-    fn http_status(self: &Self) -> Int {
-        match self {
-            .@name@(e) => match e {
-                .invalid(_) => 400,
-                .not_found(_) => 404,
-            },
-            .route(_) => 500,
-            .system(_) => 500,
-        }
-    }
 }
 
 /// The service's route table.

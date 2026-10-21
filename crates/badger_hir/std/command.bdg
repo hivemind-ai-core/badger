@@ -7,7 +7,6 @@
 //         operation: create,
 //         input: fn(options: { title: String }) { { title: options.title } },
 //         output: fn(order) { $"created {order.id}" },
-//         errors: fn(e) { command.failure(1, e.display()) },
 //     })
 //     pub fn main() -> Int { command.main("orders", [add], env.args()) }
 //
@@ -15,7 +14,9 @@
 // and standard error) without printing, so commands are tested directly;
 // `main` dispatches on the first argument and prints. Exit statuses: 0
 // for success and help, 2 for a usage problem (unknown command, invalid
-// options), and the mapped status for an operation's expected error.
+// options), and for an operation's expected error, its exit status
+// (`ExitStatus`: `derive(CommandError)` reads each variant's
+// `@command.exit(status)`; 1 otherwise) with its display on standard error.
 import std.app
 import std.cli
 import std.io
@@ -23,11 +24,12 @@ import std.list
 import std.prelude
 import std.text
 
-/// How an expected error ends a command: an exit status and a message.
-pub type Failure = { exit: Int, message: String }
-
-pub fn failure(exit: Int, message: String) -> Failure {
-    { exit, message }
+/// The exit status an error variant ends a command with:
+/// `@command.exit(3) not_found(id: Int)`, read by `derive(CommandError)`
+/// (1 to 255; a variant without one ends with the status of the error it
+/// wraps, else 1).
+pub attribute exit on variant {
+    status: Int,
 }
 
 /// What running a command produced.
@@ -53,12 +55,10 @@ pub fn bind<A, I, O, E, Eff>(binding: {
     operation: app.Operation<I, O, E, Eff>,
     input: fn(A) -> I,
     output: fn(O) -> String,
-    errors: fn(E) -> Failure,
-}) -> Command where A: Codec {
+}) -> Command where A: Codec, E: ExitStatus, E: Display {
     let operation = binding.operation
     let input = binding.input
     let output = binding.output
-    let errors = binding.errors
     let name = binding.name
     {
         name,
@@ -70,10 +70,7 @@ pub fn bind<A, I, O, E, Eff>(binding: {
                 .err(e) => if e.code == #cli/help { done(0, e.usage, "") } else { done(2, "", e.display()) },
                 .ok(options) => match operation.call(call, input(options)) {
                     .ok(out) => done(0, output(out), ""),
-                    .err(e) => {
-                        let f = errors(e)
-                        done(f.exit, "", f.message)
-                    },
+                    .err(e) => done(e.exit_status(), "", e.display()),
                 },
             }
         },
@@ -90,6 +87,8 @@ impl Display for Error {
         self.message
     }
 }
+
+impl ExitStatus for Error {}
 
 impl HttpStatus for Error {}
 

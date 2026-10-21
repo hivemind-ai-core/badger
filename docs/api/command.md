@@ -11,7 +11,6 @@ its output is printed, and how its expected errors end the program.
         operation: create,
         input: fn(options: { title: String }) { { title: options.title } },
         output: fn(order) { $"created {order.id}" },
-        errors: fn(e) { command.failure(1, e.display()) },
     })
     pub fn main() -> Int { command.main("orders", [add], env.args()) }
 
@@ -19,7 +18,9 @@ its output is printed, and how its expected errors end the program.
 and standard error) without printing, so commands are tested directly;
 `main` dispatches on the first argument and prints. Exit statuses: 0
 for success and help, 2 for a usage problem (unknown command, invalid
-options), and the mapped status for an operation's expected error.
+options), and for an operation's expected error, its exit status
+(`ExitStatus`: `derive(CommandError)` reads each variant's
+`@command.exit(status)`; 1 otherwise) with its display on standard error.
 
 ## Types
 
@@ -46,14 +47,6 @@ A problem with a command table.
 fn display(self: &Self) -> String
 ```
 
-### `Failure`
-
-```badger
-pub type Failure = { exit: Int, message: String }
-```
-
-How an expected error ends a command: an exit status and a message.
-
 ### `Outcome`
 
 ```badger
@@ -67,16 +60,10 @@ What running a command produced.
 ### `bind`
 
 ```badger
-fn bind<A, I, O, E, Eff>(binding: { name: String, operation: app.Operation<I, O, E, Eff>, input: fn(A) -> I, output: fn(O) -> String, errors: fn(E) -> Failure, }) -> Command where A: Codec
+fn bind<A, I, O, E, Eff>(binding: { name: String, operation: app.Operation<I, O, E, Eff>, input: fn(A) -> I, output: fn(O) -> String, }) -> Command where A: Codec, E: ExitStatus, E: Display
 ```
 
 Bind an operation to a command name (see the module documentation).
-
-### `failure`
-
-```badger
-fn failure(exit: Int, message: String) -> Failure
-```
 
 ### `help`
 
@@ -112,4 +99,17 @@ fn validate(commands: List<Command>) -> Result<Unit, Error>
 
 Check a command table: names present, unique, and not `help`, and no
 operation bound twice under different names.
+
+## Attributes
+
+### `@command.exit`
+
+```badger
+attribute exit on variant { status: Int }
+```
+
+The exit status an error variant ends a command with:
+`@command.exit(3) not_found(id: Int)`, read by `derive(CommandError)`
+(1 to 255; a variant without one ends with the status of the error it
+wraps, else 1).
 

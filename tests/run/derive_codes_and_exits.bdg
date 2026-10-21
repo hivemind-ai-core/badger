@@ -1,0 +1,34 @@
+// `derive(HttpError)` codes: a variant's `@http.code`, else the enum's
+// `@http.codes(#prefix)` and the variant name, a wrapped error's own
+// through a `source` variant. `derive(CommandError)`: each variant's
+// `@command.exit(status)`, a wrapped error's through a `source` variant,
+// else 1.
+import std.command
+import std.http
+import std.io
+
+@derive(Error, HttpError, CommandError)
+@http.codes(#store)
+pub enum StoreError {
+    @http.status(404) @command.exit(3)
+    missing(id: Int),
+    @http.status(409) @http.code(#store/taken) @command.exit(4)
+    conflict,
+    broken,
+}
+
+@derive(Error, HttpError, CommandError, From)
+pub enum AppError {
+    store(source: StoreError),
+    io(source: io.Error),
+    @http.status(400) @command.exit(2)
+    usage,
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let es = [AppError.store(StoreError.missing(1)), AppError.store(StoreError.conflict), AppError.store(StoreError.broken), AppError.usage]
+    io.println($"{es.map(fn(e) => e.http_status())}")?
+    io.println($"{es.map(fn(e) => e.http_code())}")?
+    io.println($"{es.map(fn(e) => e.exit_status())}")?
+    ok(())
+}

@@ -42,6 +42,8 @@ impl Display for ConfigError {
 
 impl Error for ConfigError {}
 
+impl ExitStatus for ConfigError {}
+
 impl HttpStatus for ConfigError {}
 
 /// A failed send returns the unsent value.
@@ -53,6 +55,8 @@ pub struct SendError<T> {
 impl<T> Display for SendError<T> {
     fn display(self: &Self) -> String { $"send failed: {self.reason}" }
 }
+
+impl<T> ExitStatus for SendError<T> {}
 
 impl<T> HttpStatus for SendError<T> {}
 

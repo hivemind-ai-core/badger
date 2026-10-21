@@ -12,9 +12,12 @@ import std.task
 
 type Created = { count: Int, deadline: Bool, actor: String }
 
-@derive(Error)
+@derive(Error, HttpError)
+@http.codes(#orders)
 pub enum OrderError {
+    @message("sign in first") @http.status(401)
     unauthenticated,
+    @message("{actor} may not create orders") @http.status(403)
     forbidden(actor: String),
 }
 
@@ -32,13 +35,6 @@ fn verify(token: String) -> Option<app.Actor> {
         Option.some({ id: "bob", roles: ["reader"] })
     } else {
         Option.none
-    }
-}
-
-fn failure(e: OrderError) -> endpoint.Failure {
-    match e {
-        .unauthenticated => endpoint.failure(401, #orders/unauthenticated, "sign in first"),
-        .forbidden(who) => endpoint.failure(403, #orders/forbidden, $"{who} may not create orders"),
     }
 }
 
@@ -70,7 +66,6 @@ pub fn main() -> Result<Unit, AppError> {
             operation: create,
             input: fn(_params: {}, body: {}) { body },
             status: 201,
-            errors: failure,
         }),
     ])?
 

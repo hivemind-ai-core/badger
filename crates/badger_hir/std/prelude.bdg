@@ -197,6 +197,17 @@ pub fn source_http_status<E>(source: E) -> Int where E: HttpStatus { source.http
 /// The code of the error a `derive(HttpError)` variant wraps.
 pub fn source_http_code<E>(source: E) -> Symbol where E: HttpStatus { source.http_code() }
 
+/// How an error ends a command-line program (`command.bind`): its exit
+/// status. `derive(CommandError)` implements it from each variant's
+/// `@command.exit(status)`.
+pub protocol ExitStatus {
+    /// The exit status this error ends the program with.
+    fn exit_status(self: &Self) -> Int { 1 }
+}
+
+/// The exit status of the error a `derive(CommandError)` variant wraps.
+pub fn source_exit_status<E>(source: E) -> Int where E: ExitStatus { source.exit_status() }
+
 /// An expected failure: display text, a stable machine-readable code, an
 /// optional cause (the causal chain), and structured details.
 pub protocol Error: Display {
@@ -351,7 +362,11 @@ impl Display for OptionMissing {
 
 impl Error for OptionMissing {}
 
+impl ExitStatus for OptionMissing {}
+
 impl HttpStatus for OptionMissing {}
+
+impl ExitStatus for NumericError {}
 
 impl HttpStatus for NumericError {}
 
@@ -431,6 +446,8 @@ extern "intrinsic" fn data_to_string(value: Data) -> String
 impl Display for String {
     fn display(self: &Self) -> String { self }
 }
+impl ExitStatus for String {}
+
 impl HttpStatus for String {
     fn http_status(self: &Self) -> Int { 500 }
 }

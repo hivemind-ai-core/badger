@@ -11,7 +11,6 @@ route whose handler is an `app.Operation`.
         operation: create,
         input: fn(_params: {}, body: NewOrder) { body },
         status: 201,
-        errors: fn(e) { match e { .invalid(m) => endpoint.failure(400, #orders/invalid, m) } },
     })
 
 The path parameters decode into the input function's first parameter
@@ -20,7 +19,9 @@ malformed input is a 400 reply naming the input path, before the
 operation runs. Each request is a new `app.Call` (its correlation is the
 request's `x-correlation-id` when it has one, echoed in the reply). The
 operation's output is encoded with its schema; its expected errors are
-answered as `errors` maps them, so no error becomes a reply implicitly.
+answered as their type says (`@derive(HttpError)` with `@http.status`,
+`@http.code`, and `@http.codes` on the error enum), a server error
+without its details.
 The route's name is the operation's id and its summary the operation's
 documentation, so URLs and OpenAPI come from the same registration.
 
@@ -45,8 +46,8 @@ is decoded, not what was read).
 pub type Failure = { status: Int, code: Symbol, message: String }
 ```
 
-How an expected error is answered: a status, a stable code, and a
-message for the client.
+How a refused request is answered (an `identify` that refuses it): a
+status, a stable code, and a message for the client.
 
 ## Functions
 
@@ -64,7 +65,7 @@ refuses is a 401.
 ### `bind`
 
 ```badger
-fn bind<P, B, I, O, E, Eff>(binding: { method: Symbol, path: String, operation: app.Operation<I, O, E, Eff>, input: fn(P, B) -> I, status: Int, errors: fn(E) -> Failure, }) -> route.Route where P: Codec, B: Codec, O: Codec
+fn bind<P, B, I, O, E, Eff>(binding: { method: Symbol, path: String, operation: app.Operation<I, O, E, Eff>, input: fn(P, B) -> I, status: Int, }) -> route.Route where P: Codec, B: Codec, O: Codec, E: HttpStatus, E: Display
 ```
 
 Bind an operation to a method and path (see the module documentation),
@@ -73,7 +74,7 @@ with `public()` policies.
 ### `bind_in`
 
 ```badger
-fn bind_in<P, B, I, O, E, Eff>(context: Context, binding: { method: Symbol, path: String, operation: app.Operation<I, O, E, Eff>, input: fn(P, B) -> I, status: Int, errors: fn(E) -> Failure, }) -> route.Route where P: Codec, B: Codec, O: Codec
+fn bind_in<P, B, I, O, E, Eff>(context: Context, binding: { method: Symbol, path: String, operation: app.Operation<I, O, E, Eff>, input: fn(P, B) -> I, status: Int, }) -> route.Route where P: Codec, B: Codec, O: Codec, E: HttpStatus, E: Display
 ```
 
 Bind an operation under `context`'s policies. A request is checked in
@@ -82,7 +83,10 @@ parameters and body (400), admission (503 when the gate's queue is
 full or the deadline passes while waiting), and then the operation
 runs with the verified actor and the deadline in its call. A `#get` or
 `#delete` endpoint has no body, and an empty body is `{}`: the input
-function's second parameter decodes from it.
+function's second parameter decodes from it. The operation's error is
+answered as its type says (`HttpStatus`: `derive(HttpError)` reads each
+variant's `@http.status` and `@http.code`): a client error with its
+code and message, a server error with its status only.
 
 ### `call_of`
 

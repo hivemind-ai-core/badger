@@ -1,9 +1,12 @@
 import std.app
+import std.http
 
 pub type Book = { id: Int, title: String }
 
-@derive(Error)
+@derive(Error, HttpError)
+@http.codes(#books)
 pub enum BookError {
+    @message("no book {id}") @http.status(404)
     missing(id: Int),
 }
 

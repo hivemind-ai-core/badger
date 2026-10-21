@@ -39,6 +39,8 @@ impl Display for RouteError {
 
 impl Error for RouteError {}
 
+impl ExitStatus for RouteError {}
+
 impl HttpStatus for RouteError {}
 
 extern "intrinsic" fn trace_event<T>(name: Symbol, data: T) -> Unit

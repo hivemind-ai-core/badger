@@ -252,6 +252,16 @@ protocol Error: Display { cause: fn(&Self) -> Option<dyn Error>, code: fn(&Self)
 An expected failure: display text, a stable machine-readable code, an
 optional cause (the causal chain), and structured details.
 
+### `ExitStatus`
+
+```badger
+protocol ExitStatus { exit_status: fn(&Self) -> Int }
+```
+
+How an error ends a command-line program (`command.bind`): its exit
+status. `derive(CommandError)` implements it from each variant's
+`@command.exit(status)`.
+
 ### `F32`
 
 ```badger
@@ -891,6 +901,14 @@ Derived typed schema for `T`.
 ```badger
 fn some<T>(value: T) -> Option<T>
 ```
+
+### `source_exit_status`
+
+```badger
+fn source_exit_status<E>(source: E) -> Int where E: ExitStatus
+```
+
+The exit status of the error a `derive(CommandError)` variant wraps.
 
 ### `source_http_code`
 

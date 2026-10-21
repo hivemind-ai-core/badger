@@ -1,7 +1,8 @@
 // One operation implementation behind two transports: std.endpoint binds
-// it to HTTP (typed parameters, body, and reply; explicit error replies;
-// correlation from the request) and std.command to a command line (typed
-// options, output rendering, error-to-exit mapping).
+// it to HTTP (typed parameters, body, and reply; error replies as the
+// error type says; correlation from the request) and std.command to a
+// command line (typed options, output rendering, exit statuses as the
+// error type says).
 import std.app
 import std.codec
 import std.command
@@ -14,9 +15,13 @@ import std.text
 type Order = { id: Int, title: String }
 type NewOrder = { title: String }
 
-@derive(Error)
+// What can go wrong, with how each transport reports it.
+@derive(Error, HttpError, CommandError)
+@http.codes(#orders)
 pub enum OrderError {
+    @message("{message}") @http.status(400) @command.exit(1)
     invalid(message: String),
+    @message("no order {id}") @http.status(404) @command.exit(3)
     missing(id: Int),
 }
 
@@ -43,20 +48,6 @@ fn find_op() -> app.Operation<Int, Order, OrderError, !{}> {
     })
 }
 
-fn http_errors(e: OrderError) -> endpoint.Failure {
-    match e {
-        .invalid(message) => endpoint.failure(400, #orders/invalid, message),
-        .missing(id) => endpoint.failure(404, #orders/missing, $"no order {id}"),
-    }
-}
-
-fn exit_errors(e: OrderError) -> command.Failure {
-    match e {
-        .invalid(message) => command.failure(1, message),
-        .missing(id) => command.failure(3, $"no order {id}"),
-    }
-}
-
 fn send(api: http.Handler, method: Symbol, path: String, body: String) -> Result<Unit, AppError> {
     let response = http.call(api, http.request(method, path, body))
     io.println($"{method} {path} -> {response.status} {response.body.to_text().unwrap_or("?")}")?
@@ -80,7 +71,6 @@ pub fn main() -> Result<Unit, AppError> {
             operation: create,
             input: fn(_params: {}, body: NewOrder) { body },
             status: 201,
-            errors: http_errors,
         }),
         endpoint.bind({
             method: #get,
@@ -88,7 +78,6 @@ pub fn main() -> Result<Unit, AppError> {
             operation: find,
             input: fn(params: { id: Int }, _body: {}) { params.id },
             status: 200,
-            errors: http_errors,
         }),
     ]
     let api = route.table(routes)?
@@ -115,14 +104,12 @@ pub fn main() -> Result<Unit, AppError> {
             operation: create,
             input: fn(options: { title: String }) { { title: options.title } },
             output: fn(order) { $"created {order.id}: {order.title}" },
-            errors: exit_errors,
         }),
         command.bind({
             name: "show",
             operation: find,
             input: fn(options: { id: Int }) { options.id },
             output: fn(order) { codec.encode(order).to_text().unwrap_or("?") },
-            errors: exit_errors,
         }),
     ]
     command.validate(commands)?

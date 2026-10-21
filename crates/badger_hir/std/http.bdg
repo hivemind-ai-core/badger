@@ -26,6 +26,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { self.message }
 }
 
+impl ExitStatus for Error {}
+
 impl HttpStatus for Error {}
 
 impl prelude.Error for Error {}
@@ -41,6 +43,19 @@ pub attribute status on variant {
     code: Int,
 }
 
+/// The stable code an error variant's client reply carries (`"error"`):
+/// `@http.code(#tasks/not_found)`, read by `derive(HttpError)`.
+pub attribute code on variant {
+    code: Symbol,
+}
+
+/// The prefix of an error enum's codes: `@http.codes(#tasks)` makes
+/// `not_found`'s code `#tasks/not_found` (a variant's `@http.code` still
+/// chooses its own), read by `derive(HttpError)`.
+pub attribute codes on type {
+    prefix: Symbol,
+}
+
 /// An error that carries the status the application intends: the route
 /// system answers with that status instead of a generic 500. A client
 /// error carries the error's message; a server error does not.
@@ -52,6 +67,8 @@ pub struct StatusError<E> {
 impl<E> Display for StatusError<E> where E: Display {
     fn display(self: &Self) -> String { self.error.display() }
 }
+
+impl<E> ExitStatus for StatusError<E> {}
 
 impl<E> HttpStatus for StatusError<E> {
     fn http_status(self: &Self) -> Int { self.status }

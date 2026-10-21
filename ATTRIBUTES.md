@@ -103,8 +103,9 @@ the compiler's own names.
 `on type: Codec` and `on field: Codec` (the owner's), each use's file and
 line, and the declarations in `badger query api` / `badger doc`; `on field`
 covers struct fields and the fields of a `type` declaration's record
-(owner: the type). The standard library's own: `@http.status` (read by
-`derive(HttpError)`), `@config.env` (the variable a setting reads), and
+(owner: the type). The standard library's own: `@http.status`,
+`@http.code`, and `@http.codes` (read by `derive(HttpError)`),
+`@command.exit` (read by `derive(CommandError)`), `@config.env` (the variable a setting reads), and
 `@validate.not_blank` / `min_len` / `max_len` / `min` / `max` / `one_of`
 (read by `validate.check`). Not yet: `repeatable`.
 
