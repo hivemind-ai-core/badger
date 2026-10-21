@@ -252,7 +252,10 @@ provided through generic implementations and compiler derivation.
 supported derivations (`Default`, on a struct, is an implementation whose
 `default()` gives every field `default_of()`; each field type must implement
 `Default`. `HttpError`, on an enum, implements `HttpStatus` from each
-variant's `@http.status(code)` attribute, 500 for a variant without one. Under
+variant's `@http.status(code)` attribute; a variant without one whose only
+field is `source` answers with that error's status and code
+(`source_http_status`, `source_http_code`: the source must implement
+`HttpStatus`), any other with 500. Under
 `Error` and `Display`, a variant's `@message("text {field}")` attribute is
 its display: each `{field}` names a field of the variant, `{{` and `}}`
 are literal braces);

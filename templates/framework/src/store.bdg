@@ -1,16 +1,17 @@
 // The store: what a record is, what can go wrong, and the interface the
 // service needs from storage. Another adapter (SQLite, Postgres) would
 // provide the same interface; the service does not know which it has.
+import std.http
 import std.list
 
 /// One record.
 pub type Task = { id: Int, title: String, done: Bool }
 
-/// What can go wrong.
-@derive(Error)
+/// What can go wrong, and the HTTP status each is answered with.
+@derive(Error, HttpError)
 pub enum Error {
-    invalid(message: String),
-    not_found(id: Int),
+    @http.status(400) invalid(message: String),
+    @http.status(404) not_found(id: Int),
 }
 
 /// What the service needs from storage.

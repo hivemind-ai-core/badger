@@ -892,6 +892,23 @@ Derived typed schema for `T`.
 fn some<T>(value: T) -> Option<T>
 ```
 
+### `source_http_code`
+
+```badger
+fn source_http_code<E>(source: E) -> Symbol where E: HttpStatus
+```
+
+The code of the error a `derive(HttpError)` variant wraps.
+
+### `source_http_status`
+
+```badger
+fn source_http_status<E>(source: E) -> Int where E: HttpStatus
+```
+
+The status of the error a `derive(HttpError)` variant wraps
+(`store(source: store.Error)`): the variant answers with it.
+
 ## Methods on other types
 
 ### `().display`

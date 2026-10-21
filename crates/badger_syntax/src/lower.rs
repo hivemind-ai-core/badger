@@ -251,7 +251,9 @@ impl<'a, 'i> Lower<'a, 'i> {
     }
 
     /// `enum E { @http.status(404) missing(id: Int), other } derive(HttpError)` is
-    /// `impl HttpStatus for E { fn http_status(self: &Self) -> Int { match self { .missing(_) => 404, _ => 500 } } }`.
+    /// `impl HttpStatus for E { fn http_status(self: &Self) -> Int { match self { .missing(_) => 404, _ => 500 } } }`;
+    /// a variant wrapping one error (`store(source: store.Error)`) answers
+    /// with its source's status and code (`source_http_status(source)`, ...).
     fn derive_http_error(&mut self, name: Name, generics: &[GenericParam], variants: &[Variant], at: Span) {
         let path = |this: &mut Self, text: &str, args: Vec<TypeId>| {
             let sym = this.interner.intern(text);
@@ -269,60 +271,132 @@ impl<'a, 'i> Lower<'a, 'i> {
         let int = path(self, "Int", vec![]);
         let selfref_inner = path(self, "Self", vec![]);
         let selfref = self.alloc_ty(TypeKind::Ref { mutable: false, inner: selfref_inner }, at);
-        let self_sym = self.interner.intern("self");
-        let self_pat = self.alloc_pat(PatKind::Bind(Name { sym: self_sym, span: at }), at);
-        let mut arms = vec![];
-        let mut all = true;
-        for v in variants {
-            let code =
-                v.attributes.iter().find_map(|a| match (self.interner.resolve(a.name), a.args.as_slice()) {
-                    ("http.status", [AttrArg::Int(n)]) => Some(*n),
-                    _ => None,
+        let symbol = path(self, "Symbol", vec![]);
+        let source_sym = self.interner.intern("source");
+        // each variant's status: its `@http.status`, else its source's (a
+        // variant wrapping one error, `store(source: store.Error)`), else 500
+        enum Status {
+            Code(i64),
+            Source,
+            Default,
+        }
+        let statuses: Vec<Status> = variants
+            .iter()
+            .map(|v| {
+                let code = v.attributes.iter().find_map(|a| {
+                    match (self.interner.resolve(a.name), a.args.as_slice()) {
+                        ("http.status", [AttrArg::Int(n)]) => Some(*n),
+                        _ => None,
+                    }
                 });
-            let Some(code) = code else {
-                all = false;
-                continue;
+                match (code, v.fields.as_slice()) {
+                    (Some(n), _) => Status::Code(n),
+                    (None, [(Some(f), _)]) if f.sym == source_sym => Status::Source,
+                    _ => Status::Default,
+                }
+            })
+            .collect();
+        // `.name(_, ..)`, or `.name(source)` binding the wrapped error
+        let variant_pat = |this: &mut Self, v: &Variant, bind: bool| {
+            let pargs = (!v.fields.is_empty()).then(|| {
+                v.fields
+                    .iter()
+                    .map(|_| match bind {
+                        true => this.alloc_pat(PatKind::Bind(Name { sym: source_sym, span: v.span }), v.span),
+                        false => this.alloc_pat(PatKind::Discard, v.span),
+                    })
+                    .collect()
+            });
+            this.alloc_pat(PatKind::Variant { ty: None, name: v.name, args: pargs }, v.span)
+        };
+        // `source_http_status(source)`: its bound says plainly when the
+        // wrapped error has no status
+        let delegate = |this: &mut Self, helper: &str, sp: Span| {
+            let arg = this.alloc_expr(ExprKind::Name(Name { sym: source_sym, span: sp }), sp);
+            let name = Name { sym: this.interner.intern(helper), span: sp };
+            let callee = this.alloc_expr(ExprKind::Name(name), sp);
+            this.alloc_expr(ExprKind::Call { callee, type_args: vec![], args: vec![arg] }, sp)
+        };
+        let mut arms = vec![];
+        for (v, st) in variants.iter().zip(&statuses) {
+            let (pat, body) = match st {
+                Status::Code(code) => (
+                    variant_pat(self, v, false),
+                    self.alloc_expr(ExprKind::Lit(Lit::Int { value: *code as u128, suffix: None }), v.span),
+                ),
+                Status::Source => (variant_pat(self, v, true), delegate(self, "source_http_status", v.span)),
+                Status::Default => continue,
             };
-            let pargs = (!v.fields.is_empty())
-                .then(|| v.fields.iter().map(|_| self.alloc_pat(PatKind::Discard, v.span)).collect());
-            let pat = self.alloc_pat(PatKind::Variant { ty: None, name: v.name, args: pargs }, v.span);
-            let body = self.alloc_expr(ExprKind::Lit(Lit::Int { value: code as u128, suffix: None }), v.span);
             arms.push(MatchArm { pat, guard: None, body, span: v.span });
         }
-        if !all || arms.is_empty() {
+        if statuses.iter().any(|s| matches!(s, Status::Default)) || arms.is_empty() {
             let pat = self.alloc_pat(PatKind::Discard, at);
             let body = self.alloc_expr(ExprKind::Lit(Lit::Int { value: 500, suffix: None }), at);
             arms.push(MatchArm { pat, guard: None, body, span: at });
         }
-        let scrutinee = self.alloc_expr(ExprKind::Name(Name { sym: self_sym, span: at }), at);
-        let body = self.alloc_expr(ExprKind::Match { scrutinee, arms }, at);
-        let method = FnDecl {
-            attributes: vec![],
-            name: Name { sym: self.interner.intern("http_status"), span: at },
-            is_pub: false,
-            generics: vec![],
-            params: vec![Param { attributes: vec![], pat: self_pat, ty: Some(selfref) }],
-            ret: Some(int),
-            effect: None,
-            where_preds: vec![],
-            body: Some(body),
-            span: at,
-            contracts: vec![],
-            result_inferred: false,
-        };
+        let mut methods = vec![self.self_method("http_status", selfref, int, arms, at)];
+        // the code too passes through a source variant; the others keep the
+        // default, the variant's name
+        if statuses.iter().any(|s| matches!(s, Status::Source)) {
+            let mut arms = vec![];
+            for (v, st) in variants.iter().zip(&statuses) {
+                let (pat, body) = match st {
+                    Status::Source => {
+                        (variant_pat(self, v, true), delegate(self, "source_http_code", v.span))
+                    }
+                    _ => (
+                        variant_pat(self, v, false),
+                        self.alloc_expr(ExprKind::Lit(Lit::Symbol(v.name.sym)), v.span),
+                    ),
+                };
+                arms.push(MatchArm { pat, guard: None, body, span: v.span });
+            }
+            let selfref_inner = path(self, "Self", vec![]);
+            let selfref = self.alloc_ty(TypeKind::Ref { mutable: false, inner: selfref_inner }, at);
+            methods.push(self.self_method("http_code", selfref, symbol, arms, at));
+        }
         self.extra_items.push(Item {
             kind: ItemKind::Impl(ImplDecl {
                 generics: gens,
                 protocol: Some(protocol),
                 self_ty,
                 where_preds: vec![],
-                methods: vec![method],
+                methods,
                 assoc_types: vec![],
             }),
             span: at,
             is_pub: false,
             attributes: vec![],
         });
+    }
+
+    /// `fn NAME(self: &Self) -> RET { match self { ARMS } }`
+    fn self_method(
+        &mut self,
+        name: &str,
+        selfref: TypeId,
+        ret: TypeId,
+        arms: Vec<MatchArm>,
+        at: Span,
+    ) -> FnDecl {
+        let self_sym = self.interner.intern("self");
+        let self_pat = self.alloc_pat(PatKind::Bind(Name { sym: self_sym, span: at }), at);
+        let scrutinee = self.alloc_expr(ExprKind::Name(Name { sym: self_sym, span: at }), at);
+        let body = self.alloc_expr(ExprKind::Match { scrutinee, arms }, at);
+        FnDecl {
+            attributes: vec![],
+            name: Name { sym: self.interner.intern(name), span: at },
+            is_pub: false,
+            generics: vec![],
+            params: vec![Param { attributes: vec![], pat: self_pat, ty: Some(selfref) }],
+            ret: Some(ret),
+            effect: None,
+            where_preds: vec![],
+            body: Some(body),
+            span: at,
+            contracts: vec![],
+            result_inferred: false,
+        }
     }
 
     /// `struct S<T> { a: A, .. } derive(Default)` is

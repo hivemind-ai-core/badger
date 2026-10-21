@@ -554,5 +554,6 @@ attribute status on variant { code: Int }
 
 The HTTP status an error variant is answered with:
 `@http.status(404) not_found(id: Int)`, read by `derive(HttpError)` (an
-error status, 400 to 599; a variant without one is answered 500).
+error status, 400 to 599; a variant without one is answered with the
+status of the error it wraps (`store(source: store.Error)`), else 500).
 

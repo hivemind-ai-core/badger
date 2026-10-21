@@ -1,5 +1,6 @@
 // `derive(HttpError)`: each variant's `@http.status(code)` is its HTTP status,
-// the others answer 500; generic enums too.
+// a variant wrapping an error (`source`) answers with that error's status and
+// code, the others answer 500; generic enums too.
 import std.http
 import std.io
 
@@ -19,10 +20,20 @@ pub enum Wrapped<T> {
     bad(value: T),
 }
 
+@derive(Error, HttpError, From)
+pub enum Outer {
+    app(source: AppError),
+    @http.status(503) unavailable(source: io.Error),
+    @message("other")
+    other,
+}
+
 fn status_of<E>(e: E) -> Int where E: HttpStatus { e.http_status() }
 
 pub fn main() -> Result<Unit, AppError> {
     let es = [AppError.not_found(3), AppError.invalid("x"), AppError.conflict]
     io.println($"{es.map(fn(e) => e.http_status())} {status_of(Wrapped.bad(1))}")?
+    let os = [Outer.app(AppError.not_found(3)), Outer.app(AppError.conflict), Outer.other]
+    io.println($"{os.map(fn(e) => e.http_status())} {os.map(fn(e) => e.http_code())}")?
     ok(())
 }

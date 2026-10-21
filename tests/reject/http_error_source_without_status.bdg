@@ -1,0 +1,16 @@
+// expect-error: E0341
+// A `derive(HttpError)` variant wrapping an error answers with that error's
+// status, so the wrapped error must have one (`derive(HttpError)` on it, or
+// `@http.status` on the variant).
+@derive(Error)
+pub enum Inner {
+    @message("inner")
+    inner,
+}
+
+@derive(Error, HttpError, From)
+pub enum AppError {
+    inner(source: Inner),
+}
+
+pub fn main() {}

@@ -58,8 +58,10 @@ ok(note 7)
   service; in a small module `Error` is enough.
 - `derive(Error, From)` is what makes `?` work. Without the `From` part,
   every `?` needs a `match` or a `map_err`.
-- `derive(HttpError)` answers each variant with its `@http.status(code)`, and
-  500 for a variant without one, so an error type that says nothing about
+- `derive(HttpError)` answers each variant with its `@http.status(code)`, a
+  variant wrapping another error (`store(source: store.Error)`) with that
+  error's status and code (so a layer's error enum states nothing twice),
+  and 500 for any other variant, so an error type that says nothing about
   HTTP keeps the old behaviour. `@message("no note {id}")` is the
   variant's text (its `Display`), interpolating its fields; without one a
   variant reads `not found: 0`. (Implementing `HttpStatus` or `Display` by

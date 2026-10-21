@@ -1,29 +1,16 @@
 // The HTTP binding of the service: each operation bound to a method and
-// a path, and the status each error carries.
+// a path.
 import std.app
 import std.route
 import service
 import store
 
-/// The service's errors, as the HTTP layer sees them.
-@derive(Error, From)
+/// The service's errors, as the HTTP layer sees them: each answers with
+/// the status of the error it wraps.
+@derive(Error, From, HttpError)
 pub enum Error {
     store(source: store.Error),
     route(source: route.RouteError),
-}
-
-/// The status each error is answered with (500 unless the error chooses
-/// one): the route system reads it.
-impl HttpStatus for Error {
-    fn http_status(self: &Self) -> Int {
-        match self {
-            .store(e) => match e {
-                .invalid(_) => 400,
-                .not_found(_) => 404,
-            },
-            .route(_) => 500,
-        }
-    }
 }
 
 /// The service's routes.

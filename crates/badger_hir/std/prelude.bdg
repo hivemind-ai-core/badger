@@ -190,6 +190,13 @@ pub protocol HttpStatus {
     fn http_code(self: &Self) -> Symbol { error_code(self) }
 }
 
+/// The status of the error a `derive(HttpError)` variant wraps
+/// (`store(source: store.Error)`): the variant answers with it.
+pub fn source_http_status<E>(source: E) -> Int where E: HttpStatus { source.http_status() }
+
+/// The code of the error a `derive(HttpError)` variant wraps.
+pub fn source_http_code<E>(source: E) -> Symbol where E: HttpStatus { source.http_code() }
+
 /// An expected failure: display text, a stable machine-readable code, an
 /// optional cause (the causal chain), and structured details.
 pub protocol Error: Display {

@@ -2,6 +2,7 @@
 // operations are the service's contract: the HTTP routes, the command
 // line, and the workers all call the same ones.
 import std.app
+import std.http
 import std.list
 import std.text
 
@@ -11,11 +12,11 @@ pub type Note = { id: Int, title: String, done: Bool }
 /// A new record.
 pub type NewNote = { title: String }
 
-/// What can go wrong.
-@derive(Error)
+/// What can go wrong, and the HTTP status each is answered with.
+@derive(Error, HttpError)
 pub enum Error {
-    invalid(message: String),
-    not_found(id: Int),
+    @http.status(400) invalid(message: String),
+    @http.status(404) not_found(id: Int),
 }
 
 /// The service's operations.

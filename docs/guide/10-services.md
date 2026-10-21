@@ -105,8 +105,9 @@ An error carries the status it should be answered with through the
 `HttpStatus` protocol. The default is 500 ("internal server error"), so
 an error type that says nothing about HTTP keeps the old behaviour. An
 application states it once, on its error type: `derive(HttpError)`
-answers each variant marked `@http.status(code)` with that code, and the
-others with 500. (Implementing `HttpStatus` by hand, with a `match` in
+answers each variant marked `@http.status(code)` with that code, a
+variant wrapping another error (`store(source: store.Error)`) with that
+error's status and code, and the others with 500. (Implementing `HttpStatus` by hand, with a `match` in
 `http_status`, decides it some other way.)
 
 ```badger
