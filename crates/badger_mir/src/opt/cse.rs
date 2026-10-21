@@ -1,10 +1,16 @@
 //! Common-subexpression elimination within a block.
 //!
 //! Two identical pure computations with the same operands produce the same
-//! value, so the second reads the first's destination. The table is cleared
-//! at every operation that may write memory or have another observable
-//! effect (stores, calls, allocations, concatenation, polls), and entries
-//! that read a local are dropped when that local is reassigned.
+//! value, so the second reads the first's destination. Entries that read
+//! memory (loads and tags) are dropped at every operation that may write
+//! memory or have another observable effect (stores, calls, allocations,
+//! concatenation, polls); the rest only depend on their operands, and
+//! entries that read a local are dropped when that local is reassigned.
+//!
+//! A checked operation identical to an earlier one in the block (checked
+//! the same way) shares its result whatever its source location: the
+//! earlier one runs first, so if the check fails it reports first, and if
+//! it passes the later one cannot fail.
 
 use rustc_hash::FxHashMap;
 
@@ -25,11 +31,11 @@ enum OpKey {
 /// One expression, keyed by its operation and its operands' identities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Key {
-    Bin(u8, OpKey, OpKey, u8, u64),
-    Neg(OpKey, u8, u64),
+    Bin(u8, OpKey, OpKey, u8, bool),
+    Neg(OpKey, u8, bool),
     Not(OpKey),
     Cmp(u8, OpKey, OpKey, u8),
-    Convert(OpKey, u8, u8, u64),
+    Convert(OpKey, u8, u8, bool),
     Fits(OpKey, u8, u8),
     Overflows(u8, OpKey, OpKey, u8),
     Tag(OpKey),
@@ -104,16 +110,16 @@ fn op_key(o: &Operand) -> Option<OpKey> {
 
 fn key(rv: &Rvalue) -> Option<Key> {
     Some(match rv {
-        // checked operations carry the location a defect reports; only
-        // identical checks may share a result
+        // a checked operation (nonzero location) may only share the result
+        // of another checked one: a wrapping result skips the check
         Rvalue::Bin { op, a, b, ty, loc } => {
-            Key::Bin(op_code(*op), op_key(a)?, op_key(b)?, num_code(*ty), *loc)
+            Key::Bin(op_code(*op), op_key(a)?, op_key(b)?, num_code(*ty), *loc != 0)
         }
-        Rvalue::Neg { a, ty, loc } => Key::Neg(op_key(a)?, num_code(*ty), *loc),
+        Rvalue::Neg { a, ty, loc } => Key::Neg(op_key(a)?, num_code(*ty), *loc != 0),
         Rvalue::Not(a) => Key::Not(op_key(a)?),
         Rvalue::Cmp { op, a, b, ty } => Key::Cmp(cmp_code(*op), op_key(a)?, op_key(b)?, num_code(*ty)),
-        Rvalue::Convert { a, from, to, checked, loc } => {
-            Key::Convert(op_key(a)?, num_code(*from), num_code(*to), if *checked { *loc } else { 0 })
+        Rvalue::Convert { a, from, to, checked, .. } => {
+            Key::Convert(op_key(a)?, num_code(*from), num_code(*to), *checked)
         }
         Rvalue::Fits { a, from, to } => Key::Fits(op_key(a)?, num_code(*from), num_code(*to)),
         Rvalue::Overflows { op, a, b, ty } => {
@@ -125,6 +131,11 @@ fn key(rv: &Rvalue) -> Option<Key> {
         Rvalue::Load { base, offset, repr } => Key::Load(op_key(base)?, *offset, repr_code(*repr)),
         _ => return None,
     })
+}
+
+/// Whether a computation reads managed memory (which an effect may change).
+fn reads_memory(k: &Key) -> bool {
+    matches!(k, Key::Load(..) | Key::Tag(_))
 }
 
 fn reads_local(rv: &Rvalue, l: Local) -> bool {
@@ -145,7 +156,7 @@ fn cse_func(f: &mut Func) -> usize {
             let (dest, rv) = match &f.blocks[b].stmts[i] {
                 Stmt::Assign(d, rv) => (*d, rv.clone()),
                 Stmt::Store { .. } | Stmt::GlobalStore { .. } | Stmt::Poll => {
-                    table.clear();
+                    table.retain(|k, _| !reads_memory(k));
                     i += 1;
                     continue;
                 }
@@ -177,7 +188,7 @@ fn cse_func(f: &mut Func) -> usize {
             // any expression whose result was that local.
             table.retain(|_, (d, expr)| *d != dest && !reads_local(expr, dest));
             if effect {
-                table.clear();
+                table.retain(|k, _| !reads_memory(k));
             }
             if let Some(k) = k {
                 let stored = match replacement {

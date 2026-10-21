@@ -1,0 +1,5 @@
+deque back-built some(0) some(4) [0, 1, 2, 3, 4]
+deque front-built some(4) some(0) [4, 3, 2, 1, 0]
+deque one some(7) some(7) some(7) none
+omit [(1, "a"), (3, "c")]
+char_at some(é) some(o) none none

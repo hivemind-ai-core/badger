@@ -1320,6 +1320,12 @@ impl Own<'_, '_, '_> {
                 if name.as_deref() == Some("Seq") {
                     return args.iter().find_map(|a| self.affine_in(a, seen));
                 }
+                // a task with an affine result hands it to one joiner (its
+                // struct holds only an id: it is judged by its result, not
+                // by its fields)
+                if name.as_deref() == Some("Task") {
+                    return args.last().and_then(|a| self.affine_in(a, seen));
+                }
                 match expand(seen, &t) {
                     Expand::Cycle => return None,
                     Expand::Deep => return args.iter().find_map(|a| self.affine_in(a, seen)),
@@ -1333,9 +1339,9 @@ impl Own<'_, '_, '_> {
                         .collect()
                 } else if self.inf.g.env.structs.contains_key(d) {
                     self.inf.g.env.struct_fields(*d, args).into_iter().map(|f| f.1).collect()
-                } else if matches!(name.as_deref(), Some("List" | "Array" | "Map" | "Set" | "Task")) {
-                    // runtime collections and task results hold their
-                    // elements: affine elements make them affine
+                } else if matches!(name.as_deref(), Some("List" | "Array" | "Map" | "Set")) {
+                    // runtime collections hold their elements: affine
+                    // elements make them affine
                     args.clone()
                 } else {
                     // handles (channel endpoints, cells, atoms, pools) refer to

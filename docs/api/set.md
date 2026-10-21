@@ -125,7 +125,8 @@ fn insert<T>(s: Set<T>, value: T) -> Set<T>
 fn intersection<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash
 ```
 
-The items in both sets.
+The items in both sets (the smaller set's items, looked up in the
+larger).
 
 ### `is_disjoint`
 
@@ -199,7 +200,9 @@ Members in unspecified order.
 fn union<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash
 ```
 
-The items in either set.
+The items in either set. With one set much smaller, the larger with
+the smaller's items added (sharing the larger's structure: the cost is
+the smaller's size); else a new set of both.
 
 ## Methods on other types
 

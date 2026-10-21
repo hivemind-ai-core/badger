@@ -1,0 +1,17 @@
+// expect-error: E0404
+// A task whose result is affine is itself affine: putting it in a list
+// twice would let two joins own the same buffer.
+import std.io
+import std.task
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let r = task.scope(fn(s) -> Result<Int, io.Error> {
+        let t = s.spawn(fn() { let b = buffer.new<Int>(); b.push(1); b })
+        let ts = [t, t]
+        var total = 0
+        for x in ts { let b = x.join(); b.push(5); total = total + b.len() }
+        ok(total)
+    })?
+    io.println($"{r}")?
+    ok(())
+}

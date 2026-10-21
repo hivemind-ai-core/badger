@@ -289,9 +289,8 @@ impl Report {
 /// never touches the solver and the rule table is not even built. Read once:
 /// the optimiser asks per candidate, and the environment does not change.
 pub fn enabled() -> bool {
-    static ENABLED: LazyLock<bool> = LazyLock::new(|| {
-        std::env::var_os("BADGER_MIR_SMT").is_some_and(|v| v == "1")
-    });
+    static ENABLED: LazyLock<bool> =
+        LazyLock::new(|| std::env::var_os("BADGER_MIR_SMT").is_some_and(|v| v == "1"));
     *ENABLED
 }
 
@@ -388,15 +387,7 @@ fn plain(
 /// bit. The match site still proves the domain and still runs the exhaustive
 /// verifier, hence `exhaustive: true`.
 fn bool_claim(rule: Rule, src: Term, dst: Term) -> Row {
-    Row {
-        rule,
-        widths: &[1],
-        vars: &[("x", VWidth::One)],
-        premises: vec![],
-        src,
-        dst,
-        exhaustive: true,
-    }
+    Row { rule, widths: &[1], vars: &[("x", VWidth::One)], premises: vec![], src, dst, exhaustive: true }
 }
 
 /// `k != 0`: the shift pair clears at least one bit, the shift amount the
@@ -438,11 +429,7 @@ fn build_rows() -> Vec<Row> {
         vars: &[("x", VWidth::W), ("k", VWidth::Shift)],
         premises: vec![],
         src: op(Op::Urem, var(0), op(Op::Shl, Term::Const(1), var(1))),
-        dst: op(
-            Op::And,
-            var(0),
-            op(Op::Sub, op(Op::Shl, Term::Const(1), var(1)), Term::Const(1)),
-        ),
+        dst: op(Op::And, var(0), op(Op::Sub, op(Op::Shl, Term::Const(1), var(1)), Term::Const(1))),
         exhaustive: false,
     });
 
@@ -456,11 +443,7 @@ fn build_rows() -> Vec<Row> {
         dst: op(
             Op::And,
             var(0),
-            op(
-                Op::Sub,
-                op(Op::Shl, Term::Const(1), op(Op::Sub, Term::Width, var(1))),
-                Term::Const(1),
-            ),
+            op(Op::Sub, op(Op::Shl, Term::Const(1), op(Op::Sub, Term::Width, var(1))), Term::Const(1)),
         ),
         exhaustive: false,
     });
@@ -507,31 +490,11 @@ fn build_rows() -> Vec<Row> {
     ));
 
     // The boolean rules, at width one: a proven boolean *is* a one-bit value.
-    rows.push(bool_claim(
-        Rule::BoolCmpKeep,
-        op(Op::Eq, var(0), Term::Const(1)),
-        var(0),
-    ));
-    rows.push(bool_claim(
-        Rule::BoolCmpKeep,
-        op(Op::Ne, var(0), Term::Const(0)),
-        var(0),
-    ));
-    rows.push(bool_claim(
-        Rule::BoolCmpFlip,
-        op(Op::Eq, var(0), Term::Const(0)),
-        not(var(0)),
-    ));
-    rows.push(bool_claim(
-        Rule::BoolCmpFlip,
-        op(Op::Ne, var(0), Term::Const(1)),
-        not(var(0)),
-    ));
-    rows.push(bool_claim(
-        Rule::DoubleNeg,
-        not(not(var(0))),
-        var(0),
-    ));
+    rows.push(bool_claim(Rule::BoolCmpKeep, op(Op::Eq, var(0), Term::Const(1)), var(0)));
+    rows.push(bool_claim(Rule::BoolCmpKeep, op(Op::Ne, var(0), Term::Const(0)), var(0)));
+    rows.push(bool_claim(Rule::BoolCmpFlip, op(Op::Eq, var(0), Term::Const(0)), not(var(0))));
+    rows.push(bool_claim(Rule::BoolCmpFlip, op(Op::Ne, var(0), Term::Const(1)), not(var(0))));
+    rows.push(bool_claim(Rule::DoubleNeg, not(not(var(0))), var(0)));
 
     // !(a op b) -> a op' b. Eq and Ne are complements of each other for
     // every type MIR has (`Rvalue::Cmp`'s Ne is `Eq`'s negation by
@@ -633,10 +596,8 @@ fn check_instance(row: &Row, width: u8, fixed: &[(usize, u64)]) -> RowReport {
             detail: Some(format!("did not decide within {:?}", TIMEOUT)),
         },
         SatResult::Sat => {
-            let detail = solver
-                .get_model()
-                .map(|model| counterexample(row, &vars, &model))
-                .unwrap_or_default();
+            let detail =
+                solver.get_model().map(|model| counterexample(row, &vars, &model)).unwrap_or_default();
             RowReport { rule: row.rule, width, verdict: Verdict::Invalid, detail: Some(detail) }
         }
     }
@@ -700,6 +661,211 @@ fn encode(term: &Term, vars: &[BV], w: u32) -> BV {
                 Op::Sle => bit(a.bvsle(b)),
                 Op::Sgt => bit(a.bvsgt(b)),
                 Op::Sge => bit(a.bvsge(b)),
+            }
+        }
+    }
+}
+
+// The MIR operations over bitvectors, as code generation compiles them. The
+// translation validator ([`super::tv`]) states a function's meaning with
+// these; each mirrors the Cranelift sequence in `badger_codegen` it is named
+// after, so a claim proved over them is a claim about the generated code.
+
+/// A defect's kind, as code generation reports it to the runtime.
+pub(crate) const DEFECT_OVERFLOW: u8 = 0;
+pub(crate) const DEFECT_DIVIDE_BY_ZERO: u8 = 1;
+pub(crate) const DEFECT_SHIFT: u8 = 5;
+pub(crate) const DEFECT_CONVERSION: u8 = 6;
+
+/// The width of a value of `repr`: the bits of its Cranelift type.
+pub(crate) fn repr_bits(repr: crate::mir::Repr) -> u32 {
+    use crate::mir::Repr;
+    match repr {
+        Repr::I8 => 8,
+        Repr::I16 => 16,
+        Repr::I32 | Repr::F32 => 32,
+        Repr::I64 | Repr::F64 | Repr::Ptr => 64,
+    }
+}
+
+/// `coerce`: a value narrowed to its low `bits` or zero-extended to them. A
+/// float of the same width is the same bits.
+pub(crate) fn coerce(v: &BV, bits: u32) -> BV {
+    let from = v.get_size();
+    if from == bits {
+        v.clone()
+    } else if from > bits {
+        v.extract(bits - 1, 0)
+    } else {
+        v.zero_ext(bits - from)
+    }
+}
+
+/// A comparison's 8-bit 0/1 result, as `icmp` and `fcmp` produce it.
+pub(crate) fn flag(b: &Bool) -> BV {
+    b.ite(&BV::from_u64(1, 8), &BV::from_u64(0, 8))
+}
+
+/// The bitvector equality the claims are made of.
+pub(crate) fn same(a: &BV, b: &BV) -> Bool {
+    bit_eq(a, b)
+}
+
+/// The operands of a commutative operation in a canonical order (by the
+/// solver's term identity). The operation and its overflow test are
+/// symmetric, so the order does not change the value; stating it here
+/// keeps `a * b` and `b * a` one term, where the solver would otherwise
+/// have to prove a 64-bit multiplier's overflow test commutative by
+/// bit-blasting.
+fn commute<'v>(x: &'v BV, y: &'v BV) -> (&'v BV, &'v BV) {
+    use std::hash::{Hash, Hasher};
+    let key = |v: &BV| {
+        let mut h = rustc_hash::FxHasher::default();
+        v.hash(&mut h);
+        h.finish()
+    };
+    if key(y) < key(x) { (y, x) } else { (x, y) }
+}
+
+/// `int_bin`: an integer operation on two operands already coerced to
+/// `bits`, and the defects it reports, each with the condition under which
+/// it does. The defects are listed in the order the generated code tests
+/// them; the first that holds is the one reported.
+pub(crate) fn int_bin(
+    op: crate::mir::BinOp,
+    x: &BV,
+    y: &BV,
+    bits: u32,
+    signed: bool,
+    checked: bool,
+) -> (BV, Vec<(Bool, u8)>) {
+    use crate::mir::BinOp;
+    let (x, y) = match op {
+        BinOp::Add | BinOp::Mul | BinOp::And | BinOp::Or | BinOp::Xor => commute(x, y),
+        _ => (x, y),
+    };
+    let zero = BV::from_u64(0, bits);
+    let min = BV::from_u64(1, bits).bvshl(BV::from_u64(u64::from(bits - 1), bits));
+    let minus_one = BV::from_u64(u64::MAX, 64).extract(bits - 1, 0);
+    match op {
+        BinOp::Add | BinOp::Sub | BinOp::Mul => {
+            let r = match op {
+                BinOp::Add => x.bvadd(y),
+                BinOp::Sub => x.bvsub(y),
+                _ => x.bvmul(y),
+            };
+            if !checked {
+                return (r, vec![]);
+            }
+            // The exact result, at twice the width, differs from the wrapped
+            // one extended: the overflow test of `int_overflow`, stated with
+            // the solver's own (commutative, normalised) arithmetic.
+            let ext = |v: &BV| if signed { v.sign_ext(bits) } else { v.zero_ext(bits) };
+            let exact = match op {
+                BinOp::Add => ext(x).bvadd(ext(y)),
+                BinOp::Sub => ext(x).bvsub(ext(y)),
+                _ => ext(x).bvmul(ext(y)),
+            };
+            let fits = bit_eq(&exact, &ext(&r));
+            (r, vec![(fits.not(), DEFECT_OVERFLOW)])
+        }
+        BinOp::Div | BinOp::Rem => {
+            let by_zero = (bit_eq(y, &zero), DEFECT_DIVIDE_BY_ZERO);
+            if !signed {
+                let r = if op == BinOp::Div { x.bvudiv(y) } else { x.bvurem(y) };
+                return (r, vec![by_zero]);
+            }
+            let both = Bool::and(&[bit_eq(x, &min), bit_eq(y, &minus_one)]);
+            if op == BinOp::Div {
+                (x.bvsdiv(y), vec![by_zero, (both, DEFECT_OVERFLOW)])
+            } else {
+                // MIN % -1 is 0: the divisor is replaced by 1
+                let y = both.ite(&BV::from_u64(1, bits), y);
+                (x.bvsrem(&y), vec![by_zero])
+            }
+        }
+        BinOp::And => (x.bvand(y), vec![]),
+        BinOp::Or => (x.bvor(y), vec![]),
+        BinOp::Xor => (x.bvxor(y), vec![]),
+        BinOp::Shl | BinOp::Shr => {
+            let bad = y.bvuge(BV::from_u64(u64::from(bits), bits));
+            let r = match (op, signed) {
+                (BinOp::Shl, _) => x.bvshl(y),
+                (_, true) => x.bvashr(y),
+                _ => x.bvlshr(y),
+            };
+            (r, vec![(bad, DEFECT_SHIFT)])
+        }
+    }
+}
+
+/// `icmp` on two operands already coerced to the comparison's width.
+pub(crate) fn int_cmp(op: crate::mir::CmpOp, x: &BV, y: &BV, signed: bool) -> Bool {
+    use crate::mir::CmpOp;
+    let (x, y) = if matches!(op, CmpOp::Eq | CmpOp::Ne) { commute(x, y) } else { (x, y) };
+    match (op, signed) {
+        (CmpOp::Eq, _) => bit_eq(x, y),
+        (CmpOp::Ne, _) => bit_eq(x, y).not(),
+        (CmpOp::Lt, true) => x.bvslt(y),
+        (CmpOp::Le, true) => x.bvsle(y),
+        (CmpOp::Gt, true) => x.bvsgt(y),
+        (CmpOp::Ge, true) => x.bvsge(y),
+        (CmpOp::Lt, false) => x.bvult(y),
+        (CmpOp::Le, false) => x.bvule(y),
+        (CmpOp::Gt, false) => x.bvugt(y),
+        (CmpOp::Ge, false) => x.bvuge(y),
+    }
+}
+
+/// `int_convert`: an integer of `from_bits` (already coerced to them)
+/// converted to `to_bits`, and the flag that it does not survive the
+/// conversion (the round trip differs, or the sign flips).
+pub(crate) fn int_convert(
+    x: &BV,
+    from_bits: u32,
+    from_signed: bool,
+    to_bits: u32,
+    to_signed: bool,
+) -> (BV, Bool) {
+    let r = if to_bits < from_bits {
+        x.extract(to_bits - 1, 0)
+    } else if to_bits > from_bits {
+        if from_signed { x.sign_ext(to_bits - from_bits) } else { x.zero_ext(to_bits - from_bits) }
+    } else {
+        x.clone()
+    };
+    let back = if to_bits < from_bits {
+        if to_signed { r.sign_ext(from_bits - to_bits) } else { r.zero_ext(from_bits - to_bits) }
+    } else if to_bits > from_bits {
+        r.extract(from_bits - 1, 0)
+    } else {
+        r.clone()
+    };
+    let lossy = bit_eq(&back, x).not();
+    let negative = |v: &BV, bits: u32| v.extract(bits - 1, bits - 1);
+    let neg_src = if from_signed { negative(x, from_bits) } else { BV::from_u64(0, 1) };
+    let neg_dst = if to_signed { negative(&r, to_bits) } else { BV::from_u64(0, 1) };
+    let flip = bit_eq(&neg_src, &neg_dst).not();
+    (r, Bool::or(&[lossy, flip]))
+}
+
+/// `Rvalue::Overflows`: whether the integer operation would report a defect,
+/// on operands already coerced to `bits`.
+pub(crate) fn int_overflows(op: crate::mir::BinOp, x: &BV, y: &BV, bits: u32, signed: bool) -> Bool {
+    use crate::mir::BinOp;
+    match op {
+        BinOp::Add | BinOp::Sub | BinOp::Mul => {
+            let (_, defects) = int_bin(op, x, y, bits, signed, true);
+            defects.into_iter().next().map(|(c, _)| c).expect("a checked operation reports overflow")
+        }
+        _ => {
+            let zero = bit_eq(y, &BV::from_u64(0, bits));
+            if signed && op == BinOp::Div {
+                let min = BV::from_u64(1, bits).bvshl(BV::from_u64(u64::from(bits - 1), bits));
+                let minus_one = BV::from_u64(u64::MAX, 64).extract(bits - 1, 0);
+                Bool::or(&[zero, Bool::and(&[bit_eq(x, &min), bit_eq(y, &minus_one)])])
+            } else {
+                zero
             }
         }
     }

@@ -40,6 +40,23 @@ fn reverse<T>(c: Cons<T>) -> Cons<T> {
     out
 }
 
+// the last element
+fn last<T>(c: Cons<T>) -> Option<T> {
+    var out: Option<T> = Option.none
+    var rest = c
+    loop {
+        match rest {
+            .nil => break,
+            .cons(c) => {
+                let (x, tail) = c.get()
+                out = Option.some(x)
+                rest = tail
+            },
+        }
+    }
+    out
+}
+
 // the first `n` elements, and the rest
 fn split<T>(c: Cons<T>, n: Int) -> (Cons<T>, Cons<T>) {
     var taken: Cons<T> = Cons.nil
@@ -81,11 +98,20 @@ impl<T> Deque<T> {
         self.len() == 0
     }
 
+    // An element pushed onto an empty deque goes to the other side, so a
+    // deque built from one end still has both ends at hand (`peek_front`
+    // after `push_back`s).
     pub fn push_front(self: &Self, item: T) -> Deque<T> {
+        if self.is_empty() {
+            return { ..self, back: cons(item, Cons.nil), back_len: 1 }
+        }
         { ..self, front: cons(item, self.front), front_len: self.front_len + 1 }
     }
 
     pub fn push_back(self: &Self, item: T) -> Deque<T> {
+        if self.is_empty() {
+            return { ..self, front: cons(item, Cons.nil), front_len: 1 }
+        }
         { ..self, back: cons(item, self.back), back_len: self.back_len + 1 }
     }
 
@@ -140,12 +166,20 @@ impl<T> Deque<T> {
         }
     }
 
+    // A peek rebalances nothing (`pop_front` would move half the elements
+    // to look at one): the end's own side, else the other side's last.
     pub fn peek_front(self: &Self) -> Option<T> {
-        self.pop_front().map(fn(p) { p.0 })
+        match self.front {
+            .cons(c) => Option.some(c.get().0),
+            .nil => last(self.back),
+        }
     }
 
     pub fn peek_back(self: &Self) -> Option<T> {
-        self.pop_back().map(fn(p) { p.0 })
+        match self.back {
+            .cons(c) => Option.some(c.get().0),
+            .nil => last(self.front),
+        }
     }
 
     /// The element at `index`, from the nearer end.

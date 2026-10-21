@@ -1,0 +1,5 @@
+overflow: integer overflow
+grown buffer: precondition of `small` failed: n <= 2 (at most two)
+buffer literal: precondition of `small` failed: n <= 2 (at most two)
+builder: precondition of `none_yet` failed: n <= 0 (empty)
+list literal: 2

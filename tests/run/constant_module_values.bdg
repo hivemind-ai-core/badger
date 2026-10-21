@@ -1,0 +1,28 @@
+// Module values with constant initializers read as their constants in
+// release builds; an initializer that can fail stays lazy, so a value that
+// is never read never fails.
+import std.io
+
+let limit = 10
+let scale = limit * 4
+let enabled = true
+let label = "cap"
+let ratio = 2.5
+let nothing: Option<Int> = none
+let zero = 0
+let boom = 1 / zero
+let biggest = 9223372036854775807
+let past = biggest + 1
+
+fn clamp(x: Int) -> Int {
+    if x > limit { limit * scale } else { x }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    var s = 0
+    for i in 0..20 { s = s + clamp(i) }
+    io.println($"{s} {enabled} {label} {ratio} {nothing.is_none()}")?
+    if s < 0 { io.println($"{boom} {past}")? }
+    io.println($"{biggest}")?
+    ok(())
+}

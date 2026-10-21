@@ -309,22 +309,27 @@ pub fn params_of(path: String) -> List<String> {
     list.map(list.filter(segments(path), fn(s) { text.starts_with(s, ":") }), fn(s) { text.replace(s, ":", "") })
 }
 
-/// Match a path against a pattern (`:name` segments capture).
-fn match_path(pattern: String, path: String) -> Option<Params> {
-    let ps = segments(pattern)
-    let xs = segments(path)
+/// Match a path's segments against a pattern's (`:name` segments capture):
+/// the counts first, then the literal segments, and only a match decodes
+/// its parameters.
+fn match_segments(ps: List<String>, xs: List<String>) -> Option<Params> {
     if list.len(ps) != list.len(xs) {
         return Option.none
     }
-    var params: Params = map.empty()
     var i = 0
     while i < list.len(ps) {
         let p = ps[i]
-        let x = xs[i]
-        if text.starts_with(p, ":") {
-            params = map.insert(params, text.replace(p, ":", ""), decode_segment(x))
-        } else if p != x {
+        if !text.starts_with(p, ":") && p != xs[i] {
             return Option.none
+        }
+        i = i + 1
+    }
+    var params: Params = map.empty()
+    i = 0
+    while i < list.len(ps) {
+        let p = ps[i]
+        if text.starts_with(p, ":") {
+            params = map.insert(params, text.replace(p, ":", ""), decode_segment(xs[i]))
         }
         i = i + 1
     }
@@ -415,14 +420,20 @@ pub fn validate(routes: List<Route>) -> Result<Unit, RouteError> {
 /// Validate a route table and compile it into an HTTP handler.
 pub fn table(routes: List<Route>) -> Result<http.Handler, RouteError> {
     validate(routes)?
+    // the patterns are split once, and each request's path once
+    let patterns = list.map(routes, fn(r) { segments(r.path) })
     ok(http.handler(fn(request) -> Result<http.Response, RouteError> {
-        for r in routes {
+        let xs = segments(path_of(request.path))
+        var i = 0
+        while i < list.len(routes) {
+            let r = routes[i]
             if r.method == request.method {
-                match match_path(r.path, path_of(request.path)) {
+                match match_segments(patterns[i], xs) {
                     .some(params) => { return ok(r.run(request, with_query(params, request))) },
                     .none => (),
                 }
             }
+            i = i + 1
         }
         ok(json_reply(404, { error: "route/not_found" }))
     }))

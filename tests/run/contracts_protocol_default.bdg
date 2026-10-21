@@ -1,0 +1,39 @@
+// A protocol method's default body is not what an implementation runs:
+// a precondition calling it through a generic bound or `dyn` is not
+// proven from the default, and fails for an implementation that
+// overrides it.
+import std.io
+import std.task
+
+protocol Check {
+    fn fine(self: &Self) -> Bool { true }
+}
+
+struct Bad { v: Int }
+
+impl Check for Bad {
+    fn fine(self: &Self) -> Bool { false }
+}
+
+requires t.fine(), "must be fine"
+fn generic<T: Check>(t: T) -> Int { 1 }
+
+requires t.fine(), "must be fine"
+fn dynamic(t: dyn Check) -> Int { 2 }
+
+fn show(name: String, e: task.Exit<Int>) -> Unit {
+    let _ = match e {
+        .returned(v) => io.println($"{name}: {v}"),
+        // the failure without where it happened (the path varies)
+        .failed(info) => io.println($"{name}: {info.message.split_once("; ").map(fn(p) { p.0 }).unwrap_or(info.message)}"),
+        .cancelled(_) => io.println($"{name}: cancelled"),
+    }
+}
+
+pub fn main() -> Unit {
+    let _ = task.scope(fn(s) -> Result<Unit, Unit> {
+        show("generic", s.capture(fn() { let b: Bad = { v: 1 }; generic(b) }).join())
+        show("dyn", s.capture(fn() { let b: Bad = { v: 1 }; dynamic(b) }).join())
+        ok(())
+    })
+}

@@ -7,7 +7,9 @@
 //!   updates, iteration, `?` conversions)
 //! - [`program`]: binding groups, generalization, and per-instance re-checking
 //! - [`exhaust`], [`ownership`]: match exhaustiveness and affine use checks
-//! - [`concurrency`]: task/channel patterns that always deadlock
+//! - [`concurrency`]: task/channel patterns that always deadlock, or that
+//!   run spawned tasks one at a time
+//! - [`perf`]: loops that rebuild a string or list from itself (quadratic)
 #![allow(clippy::type_complexity)]
 
 pub mod concurrency;
@@ -15,6 +17,7 @@ pub mod env;
 pub mod exhaust;
 pub mod infer;
 pub mod ownership;
+pub mod perf;
 pub mod program;
 pub mod regions;
 pub mod solve;

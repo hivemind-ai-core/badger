@@ -188,6 +188,9 @@ pub struct Infer<'g, 'a> {
     pub method_via: Vec<DefId>,
     /// In-progress monotypes for definitions of the current binding group.
     pub mono: FxHashMap<DefId, Ty>,
+    /// Pending schemes already seen without free variables (a type with
+    /// none never gains one), held so the pointer cannot be reused.
+    pub closed_pending: FxHashMap<DefId, Ty>,
     /// Module of the definition being checked (for privacy).
     pub module: Option<badger_hir::ModuleId>,
     /// Nominal types currently being explored by structural checks
@@ -231,6 +234,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             instance_bounds: vec![],
             method_via: vec![],
             mono: FxHashMap::default(),
+            closed_pending: FxHashMap::default(),
             module: None,
             visiting: vec![],
             unsafe_depth: 0,
@@ -1321,7 +1325,18 @@ impl<'g, 'a> Infer<'g, 'a> {
                 self.pending.push(Constraint::FloatLit { ty: t.clone(), span });
                 t
             }
-            Lit::Duration(_) => self.prim(self.b().duration),
+            Lit::Duration(n) => {
+                // a duration is a count of nanoseconds in 64 bits
+                if *n > i64::MAX as u128 {
+                    self.error(
+                        "E0338",
+                        span,
+                        "duration literal does not fit in `Duration`",
+                        "out of range: the longest duration is about 292 years (2^63 - 1 nanoseconds)",
+                    );
+                }
+                self.prim(self.b().duration)
+            }
             Lit::Str(_) => self.string_ty(),
             Lit::Char(_) => self.prim(self.b().char_),
             Lit::Symbol(_) => self.prim(self.b().symbol),
@@ -2642,11 +2657,16 @@ impl<'g, 'a> Infer<'g, 'a> {
         let mut stack = vec![p];
         // each distinct type once; polymorphic recursion (a struct holding
         // itself at a bigger type) has no end, so past a bound on how often
-        // one type constructor is expanded every modeled effect is charged
-        // (sound, never silently dropped)
-        let mut seen: Vec<Ty> = vec![];
+        // one type constructor is expanded, on how many types are visited,
+        // or on how big one grows (`Nest<(T, T)>` doubles at each level)
+        // every modeled effect is charged (sound, never silently dropped)
+        let mut seen: rustc_hash::FxHashSet<Ty> = Default::default();
         let mut expanded: rustc_hash::FxHashMap<DefId, u32> = Default::default();
         while let Some(t) = stack.pop() {
+            if ty_larger_than(&t, 4096) {
+                labels = self.g.env.all_effects.clone();
+                break;
+            }
             if seen.contains(&t) {
                 continue;
             }
@@ -2658,7 +2678,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                     break;
                 }
             }
-            seen.push(t.clone());
+            seen.insert(t.clone());
             match &*t {
                 TyKind::Fn(f) => {
                     for (l, _) in row_fields(&f.eff).0 {

@@ -334,7 +334,7 @@ fn attribute_tables_read_their_uses() {
 
 /// Attribute values of every field type (floats, durations, negative
 /// numbers, lists), each use's file and line, `on type: Codec` uses with
-/// their type's schema; a type position of another protocol is rejected,
+/// their type's schema, `on field` uses on a record type's fields; a type position of another protocol is rejected,
 /// and the API listing (`badger query api`, `badger doc`) shows the
 /// declarations.
 #[test]
@@ -343,13 +343,13 @@ fn attribute_values_locations_and_schemas() {
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(dir.join("badger.toml"), "[package]\nname = \"attrvalues\"\nentry = \"src/main.bdg\"\n")
         .unwrap();
-    let web = "pub enum Mode {\n    fast,\n    safe,\n}\n\n/// How a job runs.\npub attribute tuning on fn() -> Int {\n    ratio: Float,\n    timeout: Duration,\n    offset: Int,\n    tags: List<String>,\n    weights: Option<List<Float>>,\n    modes: List<Mode>,\n}\n\npub attribute model on type: Codec { name: String }\n\npub fn report() -> List<String> {\n    let models = model.uses.map(fn(u) => $\"{u.value.name}: {u.schema}\")\n    let tunings = tuning.uses.map(fn(u) => $\"{u.target.name} at {u.target.file}:{u.target.line}: ratio={u.value.ratio} timeout={u.value.timeout} offset={u.value.offset} tags={u.value.tags} weights={u.value.weights} modes={u.value.modes.len()} call={(u.call)()}\")\n    models.concat(tunings)\n}\n";
+    let web = "pub enum Mode {\n    fast,\n    safe,\n}\n\n/// How a job runs.\npub attribute tuning on fn() -> Int {\n    ratio: Float,\n    timeout: Duration,\n    offset: Int,\n    tags: List<String>,\n    weights: Option<List<Float>>,\n    modes: List<Mode>,\n}\n\npub attribute model on type: Codec { name: String }\n\npub attribute env on field { name: String }\n\npub fn report() -> List<String> {\n    let models = model.uses.map(fn(u) => $\"{u.value.name}: {u.schema}\").concat(env.uses.map(fn(u) => $\"{u.target.owner.unwrap_or(\"?\")}.{u.target.name}={u.value.name}\"))\n    let tunings = tuning.uses.map(fn(u) => $\"{u.target.name} at {u.target.file}:{u.target.line}: ratio={u.value.ratio} timeout={u.value.timeout} offset={u.value.offset} tags={u.value.tags} weights={u.value.weights} modes={u.value.modes.len()} call={(u.call)()}\")\n    models.concat(tunings)\n}\n";
     std::fs::write(dir.join("src/web.bdg"), web).unwrap();
-    std::fs::write(dir.join("src/main.bdg"), "import std.io\nimport web\n\n@web.model(\"book\")\npub struct Book {\n    pub id: Int,\n    pub title: String,\n}\n\n@web.tuning(ratio = 0.5, timeout = 250ms, offset = -3, tags = [\"a\", \"b\"], weights = [1, -2.5], modes = [fast, safe])\npub fn tuned() -> Int { 42 }\n\n@web.tuning(ratio = -1, timeout = 2s, offset = 0, tags = [], modes = [])\npub fn plain() -> Int { 0 }\n\npub fn main() -> Result<Unit, io.Error> {\n    for line in web.report() {\n        io.println(line)?\n    }\n    ok(())\n}\n").unwrap();
+    std::fs::write(dir.join("src/main.bdg"), "import std.io\nimport web\n\n@web.model(\"book\")\npub struct Book {\n    pub id: Int,\n    pub title: String,\n}\n\n@web.tuning(ratio = 0.5, timeout = 250ms, offset = -3, tags = [\"a\", \"b\"], weights = [1, -2.5], modes = [fast, safe])\npub fn tuned() -> Int { 42 }\n\n@web.tuning(ratio = -1, timeout = 2s, offset = 0, tags = [], modes = [])\npub fn plain() -> Int { 0 }\n\npub type Settings = {\n    @web.env(\"DB_URL\") database: String,\n    port: Int,\n}\n\npub fn main() -> Result<Unit, io.Error> {\n    for line in web.report() {\n        io.println(line)?\n    }\n    ok(())\n}\n").unwrap();
     let run = lang().arg("run").arg(&dir).output().unwrap();
     assert_eq!(
         String::from_utf8_lossy(&run.stdout),
-        "book: {\"record\":\"Book\",\"fields\":{\"id\":\"I64\",\"title\":\"String\"}}\ntuned at src/main.bdg:10: ratio=0.5 timeout=250.000ms offset=-3 tags=[\"a\", \"b\"] weights=some([1.0, -2.5]) modes=2 call=42\nplain at src/main.bdg:13: ratio=-1.0 timeout=2s offset=0 tags=[] weights=none modes=0 call=0\n",
+        "book: {\"record\":\"Book\",\"fields\":{\"id\":\"I64\",\"title\":\"String\"}}\nSettings.database=DB_URL\ntuned at src/main.bdg:10: ratio=0.5 timeout=250.000ms offset=-3 tags=[\"a\", \"b\"] weights=some([1.0, -2.5]) modes=2 call=42\nplain at src/main.bdg:13: ratio=-1.0 timeout=2s offset=0 tags=[] weights=none modes=0 call=0\n",
         "{}",
         String::from_utf8_lossy(&run.stderr)
     );
@@ -364,7 +364,7 @@ fn attribute_values_locations_and_schemas() {
     let out = dir.join("doc");
     assert!(lang().arg("doc").arg(&dir).arg("--out").arg(&out).status().unwrap().success());
     let page = std::fs::read_to_string(out.join("web.md")).unwrap();
-    assert!(page.contains("## Attributes\n\n### `@web.model`"), "{page}");
+    assert!(page.contains("## Attributes\n\n### `@web.env`") && page.contains("### `@web.model`"), "{page}");
     std::fs::write(dir.join("src/web.bdg"), web.replace("type: Codec", "type: Display")).unwrap();
     let check = lang().args(["check", "--json"]).arg(&dir).output().unwrap();
     let json = String::from_utf8_lossy(&check.stdout);
@@ -887,6 +887,40 @@ fn config_resolve() {
     let out = lang().args(["inspect", "config", "tests/projects/settings"]).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("token = [redacted]") && !text.contains("dev-token"), "{text}");
+}
+
+/// `@config.env("NAME")`: a setting read from the variable it names, by
+/// `load` and `resolve` (provenance names the variable); the prefixed name
+/// it replaces is then unknown to strict resolution, and an override still
+/// wins.
+#[test]
+fn config_env_names_the_variable() {
+    let run = |args: &[&str], env: &[(&str, &str)]| {
+        let mut c = lang();
+        c.args(["run", "tests/projects/config_env"]).args(args);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    let url = ("BADGER_TEST_DATABASE_URL", "pg://db/x");
+    let (ok, out, err) = run(&[], &[url]);
+    assert!(ok, "{err}");
+    assert_eq!(
+        out,
+        "load: pg://db/x 8080\nresolve: pg://db/x 8080\ndatabase = pg://db/x  (env BADGER_TEST_DATABASE_URL)\nport = 8080  (config port)\n"
+    );
+    let (ok, _, err) = run(&[], &[url, ("ENVNAME_DATABASE", "pg://old")]);
+    assert!(!ok && err.contains("no configuration field reads `ENVNAME_DATABASE`"), "{err}");
+    let (ok, _, err) = run(&[], &[]);
+    assert!(!ok && err.contains("environment variable `BADGER_TEST_DATABASE_URL`"), "{err}");
+    let (ok, out, err) = run(&["--", "database=pg://cli"], &[url]);
+    assert!(ok && out.contains("database = pg://cli  (override database=pg://cli)"), "{out}{err}");
 }
 
 /// `config.load` and `config.resolve` read a `config.Secret`, an

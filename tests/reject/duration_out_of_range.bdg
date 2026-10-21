@@ -1,0 +1,9 @@
+// expect-error: E0338
+// A duration is 64 bits of nanoseconds: `2562048h` is past the longest
+// (`2562047h` fits), and was silently wrapped to a negative duration.
+import std.io
+pub fn main() -> Result<Unit, io.Error> {
+    let d = 2562048h
+    io.println($"{d}")?
+    ok(())
+}

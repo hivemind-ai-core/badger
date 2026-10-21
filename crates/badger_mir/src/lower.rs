@@ -1840,7 +1840,11 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 Repr::F32 => Operand::Const(Const::F32(*value as f32)),
                 _ => Operand::Const(Const::F64(*value)),
             },
-            Lit::Duration(n) => Operand::Const(Const::Int(*n as i64, Repr::I64)),
+            // the checker rejects a literal beyond 64 bits of nanoseconds
+            Lit::Duration(n) => Operand::Const(Const::Int(
+                i64::try_from(*n).expect("duration literal out of range after checking"),
+                Repr::I64,
+            )),
             Lit::Str(s) => Operand::Const(Const::Addr(self.m.str_const(s))),
             Lit::Char(c) => Operand::Const(Const::Int(*c as i64, Repr::I32)),
             Lit::Symbol(s) => {
@@ -2468,6 +2472,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.switch(join);
                 Some(unit_op())
             }
+            // a finished list's length is its first payload word (the
+            // runtime's `list::len` adds only the consumed-builder check,
+            // which a `List` never fails)
+            "list_len" => Some(self.assign(
+                Repr::I64,
+                Rvalue::Load { base: args[0], offset: badger_runtime::list::LEN_OFFSET, repr: Repr::I64 },
+            )),
             "cell_get" => {
                 let r = self.repr(ret_ty);
                 Some(self.assign(r, Rvalue::Load { base: args[0], offset: 0, repr: r }))
@@ -3351,10 +3362,16 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 }
                 self.loops.pop();
                 self.switch(step);
-                // stop before overflowing at the inclusive upper bound
-                let last = self.assign(
+                // stop before overflowing at the inclusive upper bound (an
+                // exclusive range's body only runs below it, so its step
+                // needs no test)
+                let at_end = self.assign(
                     Repr::I8,
                     Rvalue::Cmp { op: CmpOp::Eq, a: Operand::Local(i), b: end, ty: NumTy::I(64, true) },
+                );
+                let last = self.assign(
+                    Repr::I8,
+                    Rvalue::Bin { op: BinOp::And, a: at_end, b: inc8, ty: NumTy::I(8, false), loc: 0 },
                 );
                 let next = self.block();
                 self.term(Term::Branch(last, exit, next));

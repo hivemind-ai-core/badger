@@ -1,0 +1,20 @@
+// A string rebuilt from itself on every iteration (by interpolation or by
+// `text.concat`, at either end): each step copies everything built so far.
+// expect-warning: E0453
+import std.io
+import std.text
+
+pub fn main() -> Result<Unit, io.Error> {
+    var s = ""
+    for i in 0..1000 {
+        s = $"{s}{i},"
+    }
+    var t = ""
+    var n = 0
+    while n < 1000 {
+        t = text.concat("x", t)
+        n = n + 1
+    }
+    io.println($"{s.len()} {t.len()}")?
+    ok(())
+}

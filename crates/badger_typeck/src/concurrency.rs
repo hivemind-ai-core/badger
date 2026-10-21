@@ -9,6 +9,10 @@
 //!   joined before anything is sent on it (E0451).
 //! - Sends on a channel created in the block, more than its capacity,
 //!   before any other task could receive from it (E0452).
+//!
+//! And one that does not deadlock but runs spawned tasks one at a time: a
+//! task spawned in a loop and joined at once, in the same iteration
+//! (E0455).
 
 use badger_base::Diagnostic;
 use badger_hir::{DefId, DefKind, ExprId, ExprKind, Hir, Lit, LocalId, PatKind, Stmt};
@@ -48,6 +52,107 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         join_before_close(inf, b);
         join_before_send(inf, body, b, &fresh);
         sends_without_receiver(inf, b);
+    }
+    spawn_join_in_loop(inf, body);
+}
+
+/// Visit `e` and what it runs, but not the bodies of closures it builds.
+fn walk_in_loop(hir: &Hir, e: ExprId, f: &mut impl FnMut(ExprId)) {
+    f(e);
+    if matches!(hir.exprs[e].kind, ExprKind::Lambda(_)) {
+        return;
+    }
+    hir.exprs[e].kind.for_each_child(|c| walk_in_loop(hir, c, f));
+}
+
+/// `s.spawn(..)` on a task scope.
+fn is_spawn(inf: &mut Infer<'_, '_>, e: ExprId) -> bool {
+    let hir = inf.g.hir;
+    matches!(&hir.exprs[e].kind, ExprKind::MethodCall { recv, method, .. }
+        if inf.sym(*method) == "spawn" && type_name(inf, *recv).as_deref() == Some("TaskScope"))
+}
+
+/// The joins in `e` (outside closures): `X.join()` on a task, with `X`.
+fn joins_in(inf: &mut Infer<'_, '_>, e: ExprId) -> Vec<(ExprId, ExprId)> {
+    let hir = inf.g.hir;
+    let mut calls = vec![];
+    walk_in_loop(hir, e, &mut |x| {
+        if let ExprKind::MethodCall { recv, method, args, .. } = &hir.exprs[x].kind
+            && args.is_empty()
+        {
+            calls.push((x, *recv, *method));
+        }
+    });
+    calls
+        .into_iter()
+        .filter(|(_, recv, method)| {
+            inf.sym(*method) == "join" && type_name(inf, *recv).as_deref() == Some("Task")
+        })
+        .map(|(x, recv, _)| (x, recv))
+        .collect()
+}
+
+/// A task spawned in a loop and joined before anything else runs in that
+/// iteration (`let t = s.spawn(..)` then `t.join()` in the next statement,
+/// or `s.spawn(..).join()`): the loop waits for each task before it starts
+/// the next, so they never run at the same time.
+fn spawn_join_in_loop(inf: &mut Infer<'_, '_>, fn_body: ExprId) {
+    let hir = inf.g.hir;
+    let mut loops: Vec<ExprId> = vec![];
+    walk_exprs(hir, fn_body, &mut |e| {
+        if let ExprKind::For { body, .. } | ExprKind::While { body, .. } | ExprKind::Loop { body } =
+            &hir.exprs[e].kind
+        {
+            loops.push(*body);
+        }
+    });
+    let mut found: Vec<(ExprId, Option<LocalId>)> = vec![];
+    for body in loops {
+        let mut blocks = vec![];
+        walk_in_loop(hir, body, &mut |e| {
+            if matches!(hir.exprs[e].kind, ExprKind::Block { .. }) {
+                blocks.push(e);
+            }
+        });
+        for b in blocks {
+            let ExprKind::Block { stmts, .. } = &hir.exprs[b].kind else { continue };
+            let exprs = block_exprs(hir, b);
+            for (i, &x) in exprs.iter().enumerate() {
+                for (join, recv) in joins_in(inf, x) {
+                    if is_spawn(inf, recv) {
+                        found.push((join, None));
+                    }
+                }
+                // `let t = s.spawn(..)`, joined in the next statement
+                if let Some(Stmt::Let { pat, init, .. }) = stmts.get(i)
+                    && let PatKind::Bind(t) = hir.pats[*pat].kind
+                    && is_spawn(inf, *init)
+                    && let Some(&next) = exprs.get(i + 1)
+                    && let Some((join, _)) = joins_in(inf, next)
+                        .into_iter()
+                        .find(|(_, r)| matches!(hir.exprs[*r].kind, ExprKind::Local(l) if l == t))
+                {
+                    found.push((join, Some(t)));
+                }
+            }
+        }
+    }
+    // a join in nested loops is reported once
+    found.sort_by_key(|(j, _)| hir.exprs[*j].span.range().start);
+    found.dedup_by_key(|(j, _)| *j);
+    for (join, t) in found {
+        let what = match t {
+            Some(t) => format!("`{}`", inf.g.interner.resolve(hir.locals[t].name)),
+            None => "this task".to_string(),
+        };
+        inf.push_diag(
+            Diagnostic::warning(format!(
+                "{what} is joined in the iteration that spawns it, so the loop runs its tasks one at a time"
+            ))
+            .with_code("E0455")
+            .with_label(hir.exprs[join].span, "this join waits before the next task is spawned")
+            .with_note("spawn every task first (collect them in a list), then join them after the loop"),
+        );
     }
 }
 

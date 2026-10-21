@@ -4,6 +4,7 @@ extern "intrinsic" fn bytes_len(b: Bytes) -> Int
 extern "intrinsic" fn bytes_slice(b: Bytes, start: Int, end: Int) -> Option<Bytes>
 extern "intrinsic" fn bytes_concat(a: Bytes, b: Bytes) -> Bytes
 extern "intrinsic" fn bytes_to_list(b: Bytes) -> List<Byte>
+extern "intrinsic" fn bytes_join(parts: List<Bytes>, sep: Bytes) -> Bytes
 extern "intrinsic" fn bytes_hex(b: Bytes) -> String
 extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
 extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
@@ -64,23 +65,8 @@ pub fn split(b: Bytes, sep: Bytes) -> List<Bytes> {
     out.finish()
 }
 
-/// The parts with `sep` between them.
-pub fn join(parts: List<Bytes>, sep: Bytes) -> Bytes {
-    let out = list.builder<Byte>()
-    var first = true
-    for p in parts {
-        if !first {
-            for x in bytes_to_list(sep) {
-                out.append(x)
-            }
-        }
-        first = false
-        for x in bytes_to_list(p) {
-            out.append(x)
-        }
-    }
-    bytes_from_list(out.finish())
-}
+/// The parts with `sep` between them (one copy of each).
+pub fn join(parts: List<Bytes>, sep: Bytes) -> Bytes { bytes_join(parts, sep) }
 
 pub fn len(b: Bytes) -> Int { bytes_len(b) }
 /// Checked byte slice.

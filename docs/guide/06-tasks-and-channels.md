@@ -679,6 +679,40 @@ What the compiler guarantees regardless of warnings:
 - No lock-order deadlocks: there are no locks in the language.
 - No leaked children: every scope waits for or cancels its tasks.
 
+## Tasks that run one at a time
+
+A task spawned in a loop and joined in the same iteration finishes before
+the loop spawns the next one, so the tasks never run together; the
+compiler warns (E0455). Spawn them all first, then join them:
+
+```badger
+import std.io
+import std.list
+import std.task
+
+pub fn main() -> Result<Unit, io.Error> {
+    let total = task.scope(fn(s) -> Result<Int, io.Error> {
+        var tasks: List<task.Task<_, Int>> = []
+        for i in 0..4 {
+            tasks = list.append(tasks, s.spawn(fn() { i * i }))
+        }
+        var sum = 0
+        for t in tasks {
+            sum = sum + t.join()
+        }
+        ok(sum)
+    })?
+    io.println($"{total}")?
+    ok(())
+}
+```
+
+`join` hands the task's value to the caller. A task whose value is affine
+(a buffer, a builder, a `@move_only` value) is consumed by its join, so
+only one caller owns the value; joining it again is E0404 (E0415 for a
+`@move_only` value). A task with a shareable value may be joined any
+number of times.
+
 ## Workers
 
 Tasks run on worker threads. The count comes from `badger run --workers N`,

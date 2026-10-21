@@ -98,12 +98,17 @@ pub struct Heap {
     pub pause_total: u64,
     pub pause_max: u64,
     /// Verification mode: freed objects awaiting release (with their
-    /// original descriptors), their total size, and immortal objects.
+    /// original descriptors) and their total size.
     quarantine: VecDeque<(*mut Header, &'static TypeDesc)>,
     quarantine_bytes: usize,
     freed: FxHashMap<usize, &'static TypeDesc>,
-    immortals: FxHashSet<usize>,
 }
+
+/// Verification mode: the immortal objects. Under their own lock: an
+/// immortal (a symbol from decoded data) may be made by runtime code
+/// running without the runtime lock.
+static IMMORTALS: std::sync::Mutex<FxHashSet<usize>> =
+    std::sync::Mutex::new(FxHashSet::with_hasher(FxBuildHasher));
 
 struct HeapCell(UnsafeCell<Heap>);
 unsafe impl Sync for HeapCell {}
@@ -120,7 +125,6 @@ static HEAP: HeapCell = HeapCell(UnsafeCell::new(Heap {
     quarantine: VecDeque::new(),
     quarantine_bytes: 0,
     freed: FxHashMap::with_hasher(FxBuildHasher),
-    immortals: FxHashSet::with_hasher(FxBuildHasher),
 }));
 
 /// The heap's shared state (roots, statistics, verification), used under
@@ -709,7 +713,7 @@ pub fn alloc_immortal(desc: &'static TypeDesc, payload: usize) -> u64 {
         (*p).desc = desc;
         (*p).meta = ((payload as u64) << 32) | IMMORTAL;
         if verify() {
-            heap().immortals.insert(p as usize);
+            IMMORTALS.lock().unwrap().insert(p as usize);
         }
         p as u64
     }
@@ -1024,9 +1028,10 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     }
     let live: FxHashSet<usize> =
         if checking { all_objects().map(|p| p as usize).collect() } else { FxHashSet::default() };
+    let immortals = if checking { IMMORTALS.lock().unwrap().clone() } else { FxHashSet::default() };
     // a referenced word must be a live or immortal object
     let check = |w: u64, by: &dyn Fn() -> String| {
-        if !checking || w == 0 || live.contains(&(w as usize)) || h.immortals.contains(&(w as usize)) {
+        if !checking || w == 0 || live.contains(&(w as usize)) || immortals.contains(&(w as usize)) {
             return;
         }
         if h.freed.contains_key(&(w as usize)) {

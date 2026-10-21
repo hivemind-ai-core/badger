@@ -2045,6 +2045,7 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
         crate::exhaust::check_row_labels(inf, d);
         crate::ownership::check_def(inf, d);
         crate::concurrency::check_def(inf, d);
+        crate::perf::check_def(inf, d);
     }
     if !defs.is_empty() {
         crate::regions::check(inf);

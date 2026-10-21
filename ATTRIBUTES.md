@@ -2,8 +2,8 @@
 
 **Status: Phase 1 implemented.** The syntax (lexer, grammar, CST, AST, HIR
 storage) and the unknown-attribute policy are in place. Attributes may be
-written on declarations, methods, local functions, struct fields, enum
-variants, parameters, and statements (see
+written on declarations, methods, local functions, struct fields (and
+the fields of a `type` declaration's record), enum variants, parameters, and statements (see
 [Placement, namespaces, and visibility](#placement-namespaces-and-visibility));
 a library's attributes are namespaced by its module (`@lib.name`).
 The old `derive(...)` form has since been removed (Phase 3): `@derive(...)` is
@@ -58,6 +58,7 @@ tags, or on the same line):
 | an `impl` method | `@allow(E0197) pub fn norm(self: &Self) -> Int { ... }` |
 | a local (nested) function | `@allow(E0196) fn helper() -> Int { ... }` |
 | a struct field | `@flatten pub id: BookId` (where it applies), `@db.column(name = "px") pub x: Int` |
+| a field of a `type` declaration's record | `pub type Settings = { @config.env("DB_URL") database: String }` (a record type written anywhere else names no item: E0199) |
 | an enum variant | `@http.status(404) @message("no book {id}") not_found(id: Int)` |
 | a parameter (functions, methods, lambdas) | `fn f(@allow(E0197) x: Int)` |
 | a statement (a block written as a statement included) | `@allow(E0197) let total = 0` |
@@ -99,8 +100,13 @@ the compiler's own names.
 ## User-defined attributes (agreed 2026-10-20; declarations, uses, and reading implemented)
 
 **Status:** implemented: declarations, uses, reading, schemas for
-`on type: Codec`, each use's file and line, and the declarations in
-`badger query api` / `badger doc`. Not yet: `repeatable`.
+`on type: Codec` and `on field: Codec` (the owner's), each use's file and
+line, and the declarations in `badger query api` / `badger doc`; `on field`
+covers struct fields and the fields of a `type` declaration's record
+(owner: the type). The standard library's own: `@http.status` (read by
+`derive(HttpError)`), `@config.env` (the variable a setting reads), and
+`@validate.not_blank` / `min_len` / `max_len` / `min` / `max` / `one_of`
+(read by `validate.check`). Not yet: `repeatable`.
 
 - A declaration (`attribute NAME on POSITIONS { FIELDS }`) is parsed,
   formatted, and lowered (`DefKind::Attribute`); a bad position, a repeated
@@ -108,8 +114,8 @@ the compiler's own names.
   Field types are `Bool`, the integer and float types, `Duration`,
   `String`, `Symbol`, payload-free enums, a `List` of one, and an `Option`
   of either; arguments write them as `true`, `-3`, `0.5`, `250ms`, `"s"`,
-  `#sym`, `get`, `["a", "b"]`. A type position names `Codec` or nothing
-  (E0150 otherwise).
+  `#sym`, `get`, `["a", "b"]`. A type or field position names `Codec` or
+  nothing (E0150 otherwise).
 - A use (`@lib.name(...)`) is checked against the declaration once every
   module is lowered: an attribute its module does not declare is a warning
   in user code (E0191; an error in std); a private one, a position the
@@ -125,8 +131,10 @@ the compiler's own names.
   String, line: Int }` (the owner: the struct or enum of a field or
   variant; the file relative to the project); `call` is the annotated
   function, of the declared `fn(SIGNATURE)` type, and `schema` (for
-  `on type: Codec`) the type's `schema<T>().describe()` — each an `Option`
-  when the attribute has other positions too. A function of another signature is a type error at
+  `on type: Codec` / `on field: Codec`) the type's or the field owner's
+  `schema<T>().describe()` — each an `Option` when the attribute has other
+  positions too. Records are structural, so a library finds the uses for
+  its `T` by schema: `env.uses.filter(fn(u) => u.schema == schema.of<T>().describe())`. A function of another signature is a type error at
   its use. Reading the uses from another module, or naming the attribute as
   a value otherwise, is E0151. The table is an ordinary value, so what it
   references is kept by reachability like anything else, and it is in saved
@@ -201,8 +209,10 @@ annotating a particular function or type has no point:
 - `on type: Codec`: each use carries the type's schema (`use.schema`, as
   `schema<T>().describe()` gives); a plain `on type` carries the target
   only.
-- `on field` / `on variant`: the owning type (as for `type`) and the
-  field's or variant's name and type.
+- `on field: Codec`: each use carries its owner's schema, so a generic
+  library function (`validate.check<T>`, `config.resolve<T>`) finds the
+  rules for its `T`; a plain `on field` / `on variant` carries the owner's
+  name and the member's name.
 
 **Implementation notes.** The table is static: it is built when the program
 is lowered, stored with the type descriptors (where `@message` already

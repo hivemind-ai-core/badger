@@ -104,7 +104,7 @@ impl Place {
             Place::Item("let") => "a module-level value",
             Place::Item(_) => "this declaration",
             Place::Method => "a method",
-            Place::Field => "a struct field",
+            Place::Field => "a field",
             Place::Variant => "an enum variant",
             Place::Param => "a parameter",
             Place::Statement => "a statement",
@@ -424,7 +424,7 @@ impl Cx<'_> {
             let fits = decl.positions.iter().any(|(p, _)| match (p, u.place) {
                 (AttributePosition::Type(_), Place::Item("struct" | "enum" | "type")) => true,
                 (AttributePosition::Fn(_), Place::Item("fn")) => true,
-                (AttributePosition::Field, Place::Field) => true,
+                (AttributePosition::Field(_), Place::Field) => true,
                 (AttributePosition::Variant, Place::Variant) => true,
                 (AttributePosition::Value, Place::Item("let")) => true,
                 _ => false,
@@ -436,7 +436,7 @@ impl Cx<'_> {
                     .map(|(p, _)| match p {
                         AttributePosition::Type(_) => "a type",
                         AttributePosition::Fn(_) => "a function",
-                        AttributePosition::Field => "a struct field",
+                        AttributePosition::Field(_) => "a field",
                         AttributePosition::Variant => "an enum variant",
                         AttributePosition::Value => "a module-level value",
                     })
@@ -631,9 +631,13 @@ impl Cx<'_> {
             _ => None,
         });
         let only_fns = sig.is_some() && decl.positions.len() == 1;
-        // `on type: Codec`: each type's entry carries its schema
-        let codec_types = decl.positions.iter().any(|(p, _)| matches!(p, AttributePosition::Type(Some(_))));
-        let only_types = codec_types && decl.positions.len() == 1;
+        // `on type: Codec` / `on field: Codec`: each use carries the
+        // (owning) type's schema, an `Option` unless every position does
+        let codec = |p: &AttributePosition| {
+            matches!(p, AttributePosition::Type(Some(_)) | AttributePosition::Field(Some(_)))
+        };
+        let codec_types = decl.positions.iter().any(|(p, _)| codec(p));
+        let only_types = decl.positions.iter().all(|(p, _)| codec(p));
         let string = self.lang_ty("String", vec![], at);
         let name = self.interner.intern(&format!("{}.uses", self.sym(self.hir.defs[attr].name)));
         let table =
@@ -780,7 +784,14 @@ impl Cx<'_> {
                 // `schema<T>().describe()`: the type's fields, variants, and
                 // element types (a type that is not `Codec` is a type error
                 // at the use)
-                let schema = if matches!(place, Place::Item("struct" | "enum" | "type")) {
+                let codec_here = decl.positions.iter().any(|(p, _)| match p {
+                    AttributePosition::Type(Some(_)) => {
+                        matches!(place, Place::Item("struct" | "enum" | "type"))
+                    }
+                    AttributePosition::Field(Some(_)) => place == Place::Field,
+                    _ => false,
+                });
+                let schema = if codec_here {
                     let t = HTy { kind: HTyKind::Named { def: item, args: vec![] }, span };
                     let of = match self.hir.try_lang("schema") {
                         Some(d) => ExprKind::Def { def: d, type_args: vec![t] },
@@ -1985,7 +1996,21 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                             AttributePosition::Type(p)
                         }
                         ast::AttrPosition::Fn(t) => AttributePosition::Fn(self.lower_ty(*t)),
-                        ast::AttrPosition::Field => AttributePosition::Field,
+                        ast::AttrPosition::Field(p) => {
+                            let p = p.map(|t| self.lower_ty(t));
+                            // the protocol a field's owner offers: `Codec`
+                            if let Some(t) = &p
+                                && !matches!(&t.kind, HTyKind::Named { def, .. } if self.cx.hir.try_lang("Codec") == Some(*def))
+                            {
+                                self.err(
+                                    "E0150",
+                                    *span,
+                                    "a field position names `Codec` or nothing",
+                                    "`on field: Codec` gives each use its owner's schema",
+                                );
+                            }
+                            AttributePosition::Field(p)
+                        }
                         ast::AttrPosition::Variant => AttributePosition::Variant,
                         ast::AttrPosition::Value => AttributePosition::Value,
                     };
@@ -2010,8 +2035,14 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     .collect();
                 DefKind::Attribute(AttributeDef { positions, fields })
             }
-            ast::ItemKind::TypeAlias { generics, ty, .. } => {
+            ast::ItemKind::TypeAlias { generics, ty, field_attributes, .. } => {
                 let generics = self.push_generics(generics, Some(def));
+                // a record body's field attributes: fields of the type
+                for (label, attrs) in field_attributes {
+                    self.attr_target = Some((def, Some(label.sym)));
+                    self.check_attributes(attrs, Place::Field, label.span);
+                    self.attr_target = None;
+                }
                 let ty = self.lower_ty(*ty);
                 self.generics.pop();
                 DefKind::Alias(AliasDef { generics, ty })
@@ -3074,7 +3105,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         match l {
             ast::Lit::Int { value, suffix } => Lit::Int { value: *value, suffix: *suffix },
             ast::Lit::Float { value, suffix } => Lit::Float { value: *value, suffix: *suffix },
-            ast::Lit::Duration { value, unit } => Lit::Duration(value * unit.nanos()),
+            // saturating: the type checker rejects what does not fit (E0338)
+            ast::Lit::Duration { value, unit } => Lit::Duration(value.saturating_mul(unit.nanos())),
             ast::Lit::Str(s) => Lit::Str(s.clone()),
             ast::Lit::Char(c) => Lit::Char(*c),
             ast::Lit::Symbol(s) => Lit::Symbol(*s),

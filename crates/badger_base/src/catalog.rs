@@ -188,7 +188,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0150",
         "attribute declaration",
-        "A library's attribute is declared `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`: each position is `type` (or `type: Codec`, whose uses carry the type's schema), `field`, `variant`, `value`, or a function type (`fn(http.Request) -> http.Response`, the signature the annotated functions have), listed once; the name cannot be one of the compiler's attributes (`allow`, `derive`, ...); and each field holds what an attribute argument can write: `Bool`, an integer or float type, `Duration`, `String`, `Symbol`, an enum whose variants carry nothing, a `List` of one, or an `Option` of either.",
+        "A library's attribute is declared `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`: each position is `type` (or `type: Codec`, whose uses carry the type's schema), `field` (or `field: Codec`, whose uses carry the owner's), `variant`, `value`, or a function type (`fn(http.Request) -> http.Response`, the signature the annotated functions have), listed once; the name cannot be one of the compiler's attributes (`allow`, `derive`, ...); and each field holds what an attribute argument can write: `Bool`, an integer or float type, `Duration`, `String`, `Symbol`, an enum whose variants carry nothing, a `List` of one, or an `Option` of either.",
     ),
     (
         "E0151",
@@ -203,7 +203,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0199",
         "misplaced attribute",
-        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@message` on an enum variant, `@move_only` (without arguments) on a struct or enum. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
+        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@message` on an enum variant, `@move_only` (without arguments) on a struct or enum. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it. Any attribute on a record type's field is misplaced unless the record is the body of a `type` declaration (`pub type Settings = { @config.env(\"DB_URL\") database: String }`), whose field it then is.",
     ),
     (
         "E0190",
@@ -525,6 +525,21 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "E0452",
         "send past capacity",
         "More messages were sent on a channel created in this function than it holds, before any other task could receive from it, so the send past its capacity waits forever (warning). Start the receiving task first, or use `try_send`.",
+    ),
+    (
+        "E0453",
+        "string rebuilt in a loop",
+        "A `String` variable declared outside a loop is rebuilt from itself on every iteration (`s = $\"{s}...\"`, `s = text.concat(s, ...)`). Each step copies everything built so far, so the loop takes time quadratic in the string's length (warning). Collect the parts in a list and `text.join` them once after the loop.",
+    ),
+    (
+        "E0454",
+        "list concatenated in a loop",
+        "A `List` variable declared outside a loop is concatenated with a list literal on every iteration (`xs = list.concat(xs, [x])`, `xs = xs.concat([x])`). Each step copies the whole list, so the loop takes time quadratic in its length (warning). Use `list.append`, or collect with `list.builder()`.",
+    ),
+    (
+        "E0455",
+        "spawn and join in one iteration",
+        "A task spawned in a loop is joined in the same iteration before anything else runs, so the loop waits for each task before starting the next and they never run at the same time (warning). Spawn every task first, then join them after the loop.",
     ),
     (
         "E0401",

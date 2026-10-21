@@ -238,7 +238,9 @@ error. `badger_cli` is the `badger` binary.
 - Self tail calls become loops. Module-level values are lazily initialized
   getters; function values referenced statically are immortal closures.
 - **Release MIR pipeline** (`badger_mir::opt`): a fixed, inspectable order
-  of named passes — inline, closure specialization, scalar replacement,
+  of named passes — constant module values (`globals`: a getter whose
+  initializer only stores a constant reads as that constant), inline,
+  closure specialization, scalar replacement,
   simplification, map/list/enum representation passes, CSE, a second
   inlining/simplification round (`--opt aggressive`), and verified
   superoptimization (`--opt superopt`) — followed by reachability pruning
@@ -309,10 +311,21 @@ error. `badger_cli` is the `badger` binary.
   identities; constant and copy propagation into uses dominated by their
   single definition; dead-assignment elimination (never a checked operation
   that can defect); constant-branch and switch folding; unreachable-block
-  clearing; empty-goto threading and single-predecessor block merging.
+  clearing; empty-goto threading and single-predecessor block merging; a
+  match's chain of switches on one tag merges into one switch (a jump
+  table).
+- Jump threading (`thread` pass, after the option representation pass and
+  before enum scalarization; `badger_mir::opt::cfg`): a predecessor that
+  already knows the value a join block tests — a constant, the tag it just
+  stored into a fresh enum object, or a nullary variant's static object —
+  runs a copy of the join's statements and jumps straight to the chosen
+  successor; block-local copy propagation then detaches the object, so a
+  `Result` built only to be tested by `?` is scalarized away.
 - CSE (`badger_mir::opt::cse`): within a block, identical pure computations
-  with unchanged operands read the earlier result. Checked operations keep
-  their source location in the key; stores, calls, polls, and reassigned
+  with unchanged operands read the earlier result. A checked operation
+  shares an identical earlier checked one's result whatever its source
+  location (the earlier one fails first); stores, calls, and polls
+  invalidate the entries that read memory (loads and tags), and reassigned
   operands invalidate affected entries.
 - Superoptimization (`badger_mir::opt::superopt`, `--opt superopt`):
   straight-line integer and boolean regions are rewritten by exactly

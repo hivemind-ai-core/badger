@@ -1,0 +1,10 @@
+// expect-error: E0338
+// A duration whose nanoseconds do not fit even 128 bits (`1e26h`), or whose
+// digits do not, was wrapped or read as `0h` before the range check saw it.
+import std.io
+pub fn main() -> Result<Unit, io.Error> {
+    let d = 100000000000000000000000000h
+    let e = 1000000000000000000000000000000000000000000ns
+    io.println($"{d} {e}")?
+    ok(())
+}

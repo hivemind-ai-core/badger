@@ -4,9 +4,16 @@
 
 Validation rules: one place to state what a valid value is.
 
-A rule pairs a condition with the error it reports. `validate` returns
-the first violation; `validate_all` collects every violation, so a
-caller can report all the problems at once.
+A type's fields can carry their rules, which `check` reads:
+
+```badger
+pub type NewBook = { @validate.not_blank @validate.max_len(200) title: String }
+validate.check(book)   // ok(book), or err of every broken rule
+```
+
+Rules written as code pair a condition with the error it reports:
+`validate` returns the first violation; `validate_all` collects every
+violation, so a caller can report all the problems at once.
 
 ```badger
 validate(book, [
@@ -25,6 +32,14 @@ pub type Rule<E> = (Bool, E)
 
 A rule: a condition and the error it reports when it fails.
 
+### `Violation`
+
+```badger
+pub type Violation = { field: String, message: String }
+```
+
+A rule a field breaks: the field's name and what is wrong.
+
 ## Functions
 
 ### `at_least`
@@ -42,6 +57,18 @@ fn at_most(value: String, n: Int) -> Bool
 ```
 
 The text is at most `n` characters long.
+
+### `check`
+
+```badger
+fn check<T>(value: T) -> Result<T, List<Violation>> where T: Codec
+```
+
+`value` when each of its fields keeps its rules (`@validate.not_blank`,
+`@validate.max_len(200)`, ...); every broken rule otherwise, by field
+name. The rules are those on the fields of `T` itself (a struct, or a
+`type`'s record); an `Option` field left `none` keeps them all, and a
+rule on a field of another kind (`max_len` on an `Int`) is broken.
 
 ### `greater_than`
 
@@ -83,6 +110,14 @@ fn rule<E>(condition: Bool, error: E) -> Rule<E>
 
 A rule that holds when `condition` holds.
 
+### `summary`
+
+```badger
+fn summary(violations: List<Violation>) -> String
+```
+
+The violations as one line: each message, `; `-joined.
+
 ### `validate`
 
 ```badger
@@ -100,4 +135,55 @@ fn validate_all<T, E>(value: T, rules: List<Rule<E>>) -> Result<T, List<E>>
 
 The value when every rule holds; every failing rule's error otherwise,
 in rule order.
+
+## Attributes
+
+### `@validate.max`
+
+```badger
+attribute max on field: Codec { value: Int }
+```
+
+A field rule: the integer is at most `value`.
+
+### `@validate.max_len`
+
+```badger
+attribute max_len on field: Codec { length: Int }
+```
+
+A field rule: the text has at most `length` characters.
+
+### `@validate.min`
+
+```badger
+attribute min on field: Codec { value: Int }
+```
+
+A field rule: the integer is at least `value`.
+
+### `@validate.min_len`
+
+```badger
+attribute min_len on field: Codec { length: Int }
+```
+
+A field rule: the text has at least `length` characters.
+
+### `@validate.not_blank`
+
+```badger
+attribute not_blank on field: Codec
+```
+
+A field rule, read by `check`: the text is not empty (nor only blanks).
+`pub type NewBook = { @validate.not_blank title: String }`
+
+### `@validate.one_of`
+
+```badger
+attribute one_of on field: Codec { values: List<String> }
+```
+
+A field rule: the text is one of `values`.
 

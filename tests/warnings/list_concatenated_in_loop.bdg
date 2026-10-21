@@ -1,0 +1,18 @@
+// A list concatenated with a one-item literal on every iteration: each
+// step copies the whole list, where `list.append` adds to its last page.
+// expect-warning: E0454
+import std.io
+import std.list
+
+pub fn main() -> Result<Unit, io.Error> {
+    var xs: List<Int> = []
+    for i in 0..1000 {
+        xs = list.concat(xs, [i])
+    }
+    var ys: List<Int> = []
+    for i in 0..1000 {
+        ys = ys.concat([i, i])
+    }
+    io.println($"{xs.len()} {ys.len()}")?
+    ok(())
+}

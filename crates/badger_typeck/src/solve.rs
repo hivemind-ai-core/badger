@@ -343,11 +343,27 @@ impl Infer<'_, '_> {
         }
         let mut seen: rustc_hash::FxHashSet<TyVid> = Default::default();
         // module values still being inferred are visible to every function
-        let globals: Vec<Ty> = self.g.pending_schemes.borrow().values().map(|s| s.ty.clone()).collect();
-        for t in visible.iter().chain(globals.iter()) {
+        let globals: Vec<(DefId, Ty)> = self
+            .g
+            .pending_schemes
+            .borrow()
+            .iter()
+            .filter(|(d, s)| !self.closed_pending.get(*d).is_some_and(|t| std::rc::Rc::ptr_eq(t, &s.ty)))
+            .map(|(d, s)| (*d, s.ty.clone()))
+            .collect();
+        for t in visible.iter() {
             let mut fv = vec![];
             let r = strip_effects(&self.icx.resolve(t));
             self.icx.free_vars(&r, &mut fv);
+            seen.extend(fv.into_iter().map(|v| self.icx.root(v)));
+        }
+        for (d, t) in globals {
+            let mut fv = vec![];
+            let r = strip_effects(&self.icx.resolve(&t));
+            self.icx.free_vars(&r, &mut fv);
+            if fv.is_empty() {
+                self.closed_pending.insert(d, t);
+            }
             seen.extend(fv.into_iter().map(|v| self.icx.root(v)));
         }
         let vars_of = |inf: &mut Self, c: &Constraint| -> Vec<TyVid> {

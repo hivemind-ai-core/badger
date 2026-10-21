@@ -148,6 +148,29 @@ impl<'a> Analysis<'a> {
         self.interner.resolve(self.hir.defs[d].name).to_string()
     }
 
+    /// Whether an expression's type is a collection that never changes
+    /// after it is made (`List`, `Array`, `String`, `Map`, `Set`): only
+    /// those keep a length the analysis may remember. A buffer or a
+    /// builder grows in place behind an immutable binding.
+    fn fixed_len(&self, e: ExprId) -> bool {
+        self.types
+            .exprs
+            .get(&e)
+            .is_some_and(|t| matches!(t.split('<').next(), Some("List" | "Array" | "String" | "Map" | "Set")))
+    }
+
+    /// Whether a method belongs to a protocol (its default body), or to an
+    /// implementation of one: either may also run through a generic bound
+    /// or a `dyn` value, where the call sites are not the direct calls the
+    /// analysis sees, and a default body may be overridden.
+    fn protocol_method(&self, f: &FnDef) -> bool {
+        f.owner.is_some_and(|o| match &self.hir.defs[o].kind {
+            DefKind::Protocol(_) => true,
+            DefKind::Impl(i) => i.protocol.is_some(),
+            _ => false,
+        })
+    }
+
     // ------------------------------------------------------------ evaluation
 
     fn eval(&self, e: ExprId, env: &Env) -> V {
@@ -160,7 +183,8 @@ impl<'a> Analysis<'a> {
             ExprKind::Lit(Lit::Bool(b)) => V::Bool(Some(*b)),
             ExprKind::Lit(Lit::Str(s)) => V::Str(Some(s.clone())),
             ExprKind::Local(l) => env.get(*l),
-            ExprKind::List(items) => {
+            // a list or array literal (a buffer's grows after it is made)
+            ExprKind::List(items) if self.fixed_len(e) => {
                 let n = items.len() as i128;
                 V::List(n, n)
             }
@@ -254,6 +278,7 @@ impl<'a> Analysis<'a> {
             if let Some(b) = f.body
                 && self.types.exprs.get(&call).is_some_and(|t| t == "Bool")
                 && !is_std(self.hir, self.hir.defs[d].span)
+                && !self.protocol_method(f)
                 && self.inlining.get() < 3
                 && self.one_expression(b)
             {
@@ -396,7 +421,9 @@ impl<'a> Analysis<'a> {
                 if args.is_empty() && self.interner.resolve(*method) == "len" =>
             {
                 match &self.hir.exprs[*recv].kind {
-                    ExprKind::Local(l) if !self.assigned.contains(l) => Some((*l, true)),
+                    ExprKind::Local(l) if !self.assigned.contains(l) && self.fixed_len(*recv) => {
+                        Some((*l, true))
+                    }
                     _ => None,
                 }
             }
@@ -724,10 +751,18 @@ impl<'a> Analysis<'a> {
                         .last()
                         .is_some_and(|s| matches!(s, Stmt::Expr { expr, .. } if self.diverges(*expr)))
             }
-            ExprKind::Call { callee, .. } => matches!(
-                &self.hir.exprs[*callee].kind,
-                ExprKind::Def { def, .. } if self.interner.resolve(self.hir.defs[*def].name) == "panic"
-            ),
+            // a call of a function declared to return `Never` (`panic`, a
+            // user's own that never returns), not one merely named so
+            ExprKind::Call { callee, .. } => match &self.hir.exprs[*callee].kind {
+                ExprKind::Def { def, .. } => {
+                    self.fn_def(*def).and_then(|f| f.ret.as_ref()).is_some_and(|t| {
+                        matches!(t.kind, badger_hir::HTyKind::Named { def: n, .. }
+                            if self.hir.modules[self.hir.defs[n].module].is_std
+                                && self.interner.resolve(self.hir.defs[n].name) == "Never")
+                    })
+                }
+                _ => false,
+            },
             _ => false,
         }
     }
@@ -1168,9 +1203,14 @@ fn analyze(
             a.check_returns(*d, f, &mut elided.posts);
         }
     }
-    // preconditions proven at every call of a function only called directly
+    // preconditions proven at every call of a function only called
+    // directly (a protocol's method may be called through a bound or `dyn`)
     for (d, f) in &fns {
-        if f.requires.is_empty() || a.escapes.contains(d) || is_std(hir, hir.defs[*d].span) {
+        if f.requires.is_empty()
+            || a.escapes.contains(d)
+            || a.protocol_method(f)
+            || is_std(hir, hir.defs[*d].span)
+        {
             continue;
         }
         // a function never called keeps its checks (an entry point, a test)
@@ -1199,6 +1239,8 @@ fn analyze(
                 ("proven", format!("holds at all {calls} call(s)"))
             } else if a.escapes.contains(d) {
                 ("runtime", "the function is used as a value, so not every call is known".into())
+            } else if a.protocol_method(f) {
+                ("runtime", "a protocol method may be called through a bound or `dyn`".into())
             } else if calls == 0 {
                 ("runtime", "no direct calls (an entry point, or called from tests)".into())
             } else {
