@@ -143,3 +143,26 @@ fn watch_reruns() {
     assert!(runs >= 2, "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// `badger test --filter` that matches no test fails, with `--list` and
+/// `--json` too (the JSON object names the error).
+#[test]
+fn an_unmatched_filter_fails() {
+    let dir = scratch("unmatched-filter");
+    let file = dir.join("main.bdg");
+    std::fs::write(&file, "pub fn main() -> Unit {}\n\nfn test_one() -> Unit {}\n").unwrap();
+    let f = file.to_str().unwrap();
+    for extra in [&[][..], &["--list"], &["--json"], &["--list", "--json"]] {
+        let out = lang().args(["test", f, "--filter", "nomatch"]).args(extra).output().unwrap();
+        assert_eq!(out.status.code(), Some(1), "{extra:?}");
+        if extra.contains(&"--json") {
+            let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("json");
+            assert!(v["error"].as_str().unwrap().contains("nomatch"), "{v}");
+        }
+    }
+    // a filter that matches lists its test, and succeeds
+    let out = lang().args(["test", f, "--filter", "one", "--list"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("test_one"));
+    let _ = std::fs::remove_dir_all(&dir);
+}

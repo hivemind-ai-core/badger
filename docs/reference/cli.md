@@ -224,8 +224,10 @@ project to test (default `.`); a path that does not exist is an error
 | `--exact` | FILTER names one test: its full name (`orders.service.test_create`) or its function's name. |
 | `--watch` | Run the tests, then run them again whenever a source file of the project changes (the files are polled; Ctrl-C stops it). |
 
-Exit status: 0 when every test that ran passed (also when the filter
-matched none), 1 when one failed or the program does not check.
+Exit status: 0 when every test that ran passed, 1 when one failed, the
+program does not check, or `--filter` matched no test (a mistyped name is
+not a pass; with `--list` too, and the `--json` object then has an
+`error`).
 
 ```sh
 $ badger test --filter half

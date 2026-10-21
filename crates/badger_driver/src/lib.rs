@@ -1845,14 +1845,22 @@ pub fn finish_tests(json: bool, filter: Option<&str>) -> i32 {
     if let Some(f) = unmatched {
         eprintln!("error: no test matches `{f}`");
     }
+    // the JSON object names the error too
+    let error = unmatched
+        .map(|f| format!(",\"error\":{}", badger_base::diagnostics::json_str(&format!("no test matches `{f}`"))))
+        .unwrap_or_default();
     if LISTING.load(std::sync::atomic::Ordering::Relaxed) {
         if json {
-            println!("{{\"tests\":[{}]}}", results.join(","));
+            println!("{{\"tests\":[{}]{error}}}", results.join(","));
         }
-        return 0;
+        return if unmatched.is_none() { 0 } else { 1 };
     }
     if json {
-        println!("{{\"passed\":{},\"failed\":{failed},\"tests\":[{}]}}", ran - failed, results.join(","));
+        println!(
+            "{{\"passed\":{},\"failed\":{failed},\"tests\":[{}]{error}}}",
+            ran - failed,
+            results.join(",")
+        );
     } else {
         println!(
             "\ntest result: {}. {} passed; {failed} failed",
@@ -1883,9 +1891,9 @@ fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &Ru
             continue;
         }
         if opts.list {
-            if opts.json {
-                results.push(format!("{{\"name\":{}}}", badger_base::diagnostics::json_str(name)));
-            } else {
+            // kept without `--json` too: a filter that listed a test matched
+            results.push(format!("{{\"name\":{}}}", badger_base::diagnostics::json_str(name)));
+            if !opts.json {
                 println!("{name}");
             }
             continue;
