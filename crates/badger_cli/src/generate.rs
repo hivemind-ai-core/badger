@@ -19,11 +19,11 @@ pub type New@Item@ = { title: String }
 @derive(Error, HttpError)
 @http.codes(#@name@)
 pub enum Error {
-    @message("{message}") @http.status(400)
+    @display("{message}") @http.status(400)
     invalid(message: String),
-    @message("no @item@ {id}") @http.status(404)
+    @display("no @item@ {id}") @http.status(404)
     not_found(id: Int),
-    @message("{message}") @http.status(503)
+    @display("{message}") @http.status(503)
     storage(message: String),
 }
 

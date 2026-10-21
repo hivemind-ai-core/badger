@@ -24,7 +24,7 @@ pub enum Wrapped<T> {
 pub enum Outer {
     app(source: AppError),
     @http.status(503) unavailable(source: io.Error),
-    @message("other")
+    @display("other")
     other,
 }
 

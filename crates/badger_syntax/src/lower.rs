@@ -179,20 +179,20 @@ impl<'a, 'i> Lower<'a, 'i> {
     /// Variant attributes: `@http.status(code)` and `@http.code(#c)`, read by
     /// `derive(HttpError)`, `@command.exit(status)`, read by
     /// `derive(CommandError)`, and
-    /// `@message("text {field}")`, read by `derive(Error)` and
+    /// `@display("text {field}")`, read by `derive(Error)` and
     /// `derive(Display)`.
     fn check_variant_attributes(&mut self, variants: &[Variant], http: bool, command: bool, display: bool) {
         for v in variants {
             let mut status: Option<Span> = None;
             for a in &v.attributes {
                 match self.interner.resolve(a.name) {
-                    "message" => {
+                    "display" => {
                         let [AttrArg::Str(template)] = a.args.as_slice() else {
                             self.error(
                                 "E0198",
                                 a.span,
-                                "`@message` takes one string",
-                                "e.g. `@message(\"no book {id}\")`",
+                                "`@display` takes one string",
+                                "e.g. `@display(\"no book {id}\")`",
                             );
                             continue;
                         };
@@ -207,7 +207,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                             .collect();
                         match message_placeholders(template) {
                             Err(why) => {
-                                self.error("E0198", a.span, format!("`@message` template: {why}"), "here")
+                                self.error("E0198", a.span, format!("`@display` template: {why}"), "here")
                             }
                             Ok(names) => {
                                 if let Some(bad) = names.iter().find(|n| !fields.contains(n)) {
@@ -221,14 +221,14 @@ impl<'a, 'i> Lower<'a, 'i> {
                                         "E0198",
                                         a.span,
                                         format!(
-                                            "`@message` names `{{{bad}}}`, which is not a field of `{vname}`"
+                                            "`@display` names `{{{bad}}}`, which is not a field of `{vname}`"
                                         ),
                                         have,
                                     );
                                 } else if !display {
                                     self.diags.push(
                                         Diagnostic::warning(
-                                            "`@message` has no effect without `derive(Error)` or `derive(Display)`",
+                                            "`@display` has no effect without `derive(Error)` or `derive(Display)`",
                                         )
                                         .with_code("E0198")
                                         .with_label(a.span, "read by the derived display of the enum"),
@@ -2295,7 +2295,7 @@ fn bound_names(ast: &Ast, p: PatId, out: &mut Vec<Name>) {
     }
 }
 
-/// The field names a `@message` template interpolates (`{id}`), with `{{`
+/// The field names a `@display` template interpolates (`{id}`), with `{{`
 /// and `}}` for literal braces; the same rules the runtime renders it with.
 pub fn message_placeholders(template: &str) -> Result<Vec<String>, String> {
     let mut names = vec![];

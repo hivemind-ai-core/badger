@@ -19,9 +19,9 @@ type NewOrder = { title: String }
 @derive(Error, HttpError, CommandError)
 @http.codes(#orders)
 pub enum OrderError {
-    @message("{message}") @http.status(400) @command.exit(1)
+    @display("{message}") @http.status(400) @command.exit(1)
     invalid(message: String),
-    @message("no order {id}") @http.status(404) @command.exit(3)
+    @display("no order {id}") @http.status(404) @command.exit(3)
     missing(id: Int),
 }
 

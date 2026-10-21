@@ -59,7 +59,7 @@ tags, or on the same line):
 | a local (nested) function | `@allow(E0196) fn helper() -> Int { ... }` |
 | a struct field | `@flatten pub id: BookId` (where it applies), `@db.column(name = "px") pub x: Int` |
 | a field of a `type` declaration's record | `pub type Settings = { @config.env("DB_URL") database: String }` (a record type written anywhere else names no item: E0199) |
-| an enum variant | `@http.status(404) @message("no book {id}") not_found(id: Int)` |
+| an enum variant | `@http.status(404) @display("no book {id}") not_found(id: Int)` |
 | a parameter (functions, methods, lambdas) | `fn f(@allow(E0197) x: Int)` |
 | a statement (a block written as a statement included) | `@allow(E0197) let total = 0` |
 
@@ -91,7 +91,7 @@ the tagged thing.
 |---|---|---|
 | The compiler | every position above (whether a pass acts on one depends on the pass) | — |
 | Macros (when they exist) | top-level functions and types by name; statements, blocks, and local functions inside the body passed to the macro | `impl` methods (the macro cannot see which impl a value has); a function stored in a variable (it could change at run time) |
-| Run time (user-defined attributes, later) | top-level declarations, enum variants, and struct fields, compiled into a static table on the type's descriptor (as `@message` already is) | methods, statements, parameters, local functions |
+| Run time (user-defined attributes, later) | top-level declarations, enum variants, and struct fields, compiled into a static table on the type's descriptor (as `@display` already is) | methods, statements, parameters, local functions |
 
 Run-time-readable, user-declared attributes are planned after 1.0 (next
 section); the namespacing rule above is what keeps them from colliding with
@@ -216,7 +216,7 @@ annotating a particular function or type has no point:
   name and the member's name.
 
 **Implementation notes.** The table is static: it is built when the program
-is lowered, stored with the type descriptors (where `@message` already
+is lowered, stored with the type descriptors (where `@display` already
 lives) and in saved MIR, and must keep what it references alive — the
 reachability pass may not prune a function or type that only an attribute
 table reaches.
@@ -369,7 +369,7 @@ recognised attribute is a row, and the consumer does the work.
 | `@derive(P, …)` | impl synthesis from the type’s shape | generator |
 | `@flatten` | codecs and schemas: a one-field struct is its field (done) | metadata |
 | `@http.status(code)` (variant) | `derive(HttpError)`: the variant's HTTP status (done) | metadata |
-| `@message("text {field}")` (variant) | `derive(Error)` / `derive(Display)`: the variant's display (done) | metadata |
+| `@display("text {field}")` (variant) | `derive(Error)` / `derive(Display)`: the variant's display (done) | metadata |
 | `@move_only` (struct, enum) | ownership: the type's values are moved, never copied (done; E0414) | metadata |
 | `@fusion(role, template)` | sequence/eager fusion templates | metadata |
 | `@inline(always\|never)` | inliner | metadata |

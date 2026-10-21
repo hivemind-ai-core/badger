@@ -352,7 +352,7 @@ pub fn fmt_duration(nanos: i64) -> String {
 /// Display a value. Strings display raw at the top level and quoted inside
 /// aggregates. User `Display` implementations registered on descriptors are
 /// used when present.
-/// A variant's `@message("no book {id}")`: each `{field}` is the field's
+/// A variant's `@display("no book {id}")`: each `{field}` is the field's
 /// display (as in an error-style display); `{{` and `}}` are braces. The
 /// compiler checked the template, so an unknown name is left as written.
 fn render_message(
@@ -504,7 +504,7 @@ fn write_display(ctx: *mut TaskCtx, d: &TypeDesc, w: u64, top: bool, o: &mut Str
             let t = unsafe { *(p as *const u32) };
             let v = &variants[t as usize];
             // error-style display at the top: `variant: payload`, or the
-            // variant's `@message` template
+            // variant's `@display` template
             let error_style = top && d.name != "Option" && d.name != "Result";
             if let (true, Some(template)) = (error_style, &v.message) {
                 render_message(ctx, template, &v.fields, p, o);

@@ -4,7 +4,7 @@
 // `@http.status` on the variant).
 @derive(Error)
 pub enum Inner {
-    @message("inner")
+    @display("inner")
     inner,
 }
 

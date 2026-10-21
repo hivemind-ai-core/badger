@@ -27,9 +27,9 @@ import std.text
 
 @derive(Error, HttpError, From)
 pub enum AppError {
-    @http.status(400) @message("{message}")
+    @http.status(400) @display("{message}")
     invalid_input(message: String),
-    @http.status(404) @message("no note {id}")
+    @http.status(404) @display("no note {id}")
     not_found(id: Int),
     io(source: io.Error),
 }
@@ -62,7 +62,7 @@ ok(note 7)
   variant wrapping another error (`store(source: store.Error)`) with that
   error's status and code (so a layer's error enum states nothing twice),
   and 500 for any other variant, so an error type that says nothing about
-  HTTP keeps the old behaviour. `@message("no note {id}")` is the
+  HTTP keeps the old behaviour. `@display("no note {id}")` is the
   variant's text (its `Display`), interpolating its fields; without one a
   variant reads `not found: 0`. (Implementing `HttpStatus` or `Display` by
   hand decides them some other way.)
@@ -330,7 +330,7 @@ type NewNote = { title: String }
 
 @derive(Error, HttpError, From)
 pub enum AppError {
-    @http.status(404) @message("no note {id}")
+    @http.status(404) @display("no note {id}")
     not_found(id: Int),
     http(source: http.Error),
     route(source: route.RouteError),
@@ -602,7 +602,7 @@ type Note = { id: Int, title: String }
 
 @derive(Error, HttpError, From)
 pub enum AppError {
-    @http.status(404) @message("no note {id}")
+    @http.status(404) @display("no note {id}")
     not_found(id: Int),
     route(source: route.RouteError),
 }

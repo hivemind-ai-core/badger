@@ -20,7 +20,7 @@ type Note = { id: Int, title: String }
 
 @derive(Error, HttpError, From)
 pub enum AppError {
-    @http.status(404) @message("no note {id}")
+    @http.status(404) @display("no note {id}")
     not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),
@@ -122,12 +122,12 @@ import std.route
 import std.text
 
 // The status each error is answered with: the variant's `@http.status`; its
-// message: the variant's `@message`, if it has one.
+// message: the variant's `@display`, if it has one.
 @derive(Error, HttpError, From)
 pub enum AppError {
     @http.status(400)
     invalid_input(message: String),
-    @http.status(404) @message("no note {id}")
+    @http.status(404) @display("no note {id}")
     not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),

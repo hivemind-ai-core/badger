@@ -769,7 +769,7 @@ type Greeting = { text: String }
 // how each transport reports the error is said once, on its type
 @derive(Error, HttpError, CommandError)
 pub enum GreetError {
-    @message("a name is required") @http.status(400) @http.code(#hello/unnamed) @command.exit(1)
+    @display("a name is required") @http.status(400) @http.code(#hello/unnamed) @command.exit(1)
     unnamed,
 }
 

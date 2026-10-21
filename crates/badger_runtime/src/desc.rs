@@ -81,7 +81,7 @@ pub struct Field {
 pub struct Variant {
     pub name: String,
     pub fields: Vec<Field>,
-    /// `@message("no book {id}")`: the template of the variant's
+    /// `@display("no book {id}")`: the template of the variant's
     /// error-style display (`{field}` interpolates a field).
     pub message: Option<String>,
 }

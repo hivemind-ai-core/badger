@@ -9,7 +9,7 @@
 //
 //   * Errors: one `AppError` enum. `derive(From)` lets `?` convert every
 //     underlying error; `derive(HttpError)` answers each variant with its
-//     `@http.status` (a wrapped error with its own), and `@message` is its
+//     `@http.status` (a wrapped error with its own), and `@display` is its
 //     text, so a handler just returns `err`.
 //
 //   * HTTP: JSON routes with typed path and query parameters
@@ -98,9 +98,9 @@ pub enum AppError {
     route(source: route.RouteError),
     system(source: system.Error),
     io(source: io.Error),
-    @http.status(400) @message("{message}")
+    @http.status(400) @display("{message}")
     invalid_input(message: String),
-    @http.status(404) @message("no book {id}")
+    @http.status(404) @display("no book {id}")
     not_found(id: Int),
 }
 

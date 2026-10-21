@@ -1,4 +1,4 @@
-// `@message("...")` on a variant is its derived display (the error
+// `@display("...")` on a variant is its derived display (the error
 // message): `{field}` interpolates a field, `{{`/`}}` are braces; variants
 // without one keep `variant: payload`. Client error replies carry it.
 import std.http
@@ -6,11 +6,11 @@ import std.io
 
 @derive(Error, HttpError, From)
 pub enum AppError {
-    @http.status(404) @message("no book {id}")
+    @http.status(404) @display("no book {id}")
     not_found(id: Int),
-    @http.status(409) @message("a book called {title} by {author} exists")
+    @http.status(409) @display("a book called {title} by {author} exists")
     duplicate(title: String, author: String),
-    @http.status(400) @message("nothing to do {{yet}}")
+    @http.status(400) @display("nothing to do {{yet}}")
     empty,
     @http.status(400)
     invalid(message: String),
@@ -19,7 +19,7 @@ pub enum AppError {
 
 @derive(Display)
 enum Shape {
-    @message("a circle of radius {0}")
+    @display("a circle of radius {0}")
     circle(Float),
     square(side: Int),
 }

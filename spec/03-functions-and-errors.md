@@ -256,7 +256,7 @@ variant's `@http.status(code)` attribute; a variant without one whose only
 field is `source` answers with that error's status and code
 (`source_http_status`, `source_http_code`: the source must implement
 `HttpStatus`), any other with 500. Under
-`Error` and `Display`, a variant's `@message("text {field}")` attribute is
+`Error` and `Display`, a variant's `@display("text {field}")` attribute is
 its display: each `{field}` names a field of the variant, `{{` and `}}`
 are literal braces);
 each has a checked schema and can fail with a normal diagnostic. Derivation

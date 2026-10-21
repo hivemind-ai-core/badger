@@ -15,9 +15,9 @@ type Created = { count: Int, deadline: Bool, actor: String }
 @derive(Error, HttpError)
 @http.codes(#orders)
 pub enum OrderError {
-    @message("sign in first") @http.status(401)
+    @display("sign in first") @http.status(401)
     unauthenticated,
-    @message("{actor} may not create orders") @http.status(403)
+    @display("{actor} may not create orders") @http.status(403)
     forbidden(actor: String),
 }
 

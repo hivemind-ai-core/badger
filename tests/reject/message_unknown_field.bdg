@@ -1,8 +1,8 @@
 // expect-error: E0198
-// A `@message` placeholder names a field of its variant.
+// A `@display` placeholder names a field of its variant.
 @derive(Error)
 pub enum E {
-    @message("no book {book}")
+    @display("no book {book}")
     not_found(id: Int),
 }
 

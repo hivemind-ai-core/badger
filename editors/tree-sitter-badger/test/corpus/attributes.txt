@@ -151,7 +151,7 @@ Dotted attribute names
 ==================
 
 pub enum Error {
-  @http.status(400) @message("{message}")
+  @http.status(400) @display("{message}")
   invalid(message: String),
 }
 

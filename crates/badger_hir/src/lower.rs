@@ -65,7 +65,7 @@ struct ModScope {
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
-const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "message", "move_only"];
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "display", "move_only"];
 
 /// Where an attribute is written.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -138,7 +138,7 @@ fn attribute_fits(name: &str, place: Place) -> bool {
         "derive" | "move_only" => matches!(place, Place::Item("struct" | "enum")),
         "flatten" => place == Place::Item("struct"),
         "fusion" => matches!(place, Place::Item("fn") | Place::Method),
-        "message" => place == Place::Variant,
+        "display" => place == Place::Variant,
         _ => true,
     }
 }
@@ -2084,7 +2084,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     let fields =
                         v.fields.iter().map(|(l, t)| (l.map(|l| l.sym), self.lower_ty(*t))).collect();
                     let message = v.attributes.iter().find_map(|a| match a.args.as_slice() {
-                        [ast::AttrArg::Str(t)] if self.sym(a.name) == "message" => Some(t.clone()),
+                        [ast::AttrArg::Str(t)] if self.sym(a.name) == "display" => Some(t.clone()),
                         _ => None,
                     });
                     self.attr_target = self.cur_def.map(|d| (d, Some(v.name.sym)));
