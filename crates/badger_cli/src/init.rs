@@ -114,6 +114,17 @@ pub fn init(path: &Path, template: Option<&str>) -> Result<Vec<(String, String)>
     Ok(files)
 }
 
+/// A path as a shell word: in single quotes when it holds a space or
+/// another character the shell would read (`cd 'My App'`).
+fn shell_word(p: &str) -> String {
+    let plain = |c: char| c.is_alphanumeric() || "/._-+,:@%=".contains(c);
+    if !p.is_empty() && p.chars().all(plain) {
+        p.to_string()
+    } else {
+        format!("'{}'", p.replace('\'', r"'\''"))
+    }
+}
+
 /// What the command prints after it wrote the project.
 pub fn report(path: &Path, files: &[(String, String)]) -> String {
     let made = files
@@ -121,7 +132,10 @@ pub fn report(path: &Path, files: &[(String, String)]) -> String {
         .map(|(file, _)| format!("{}/{}", path.display(), file))
         .collect::<Vec<_>>()
         .join(" and ");
-    let mut s = format!("created {made}\n\nnext:\n    cd {}\n    badger check\n", path.display());
+    let mut s = format!(
+        "created {made}\n\nnext:\n    cd {}\n    badger check\n",
+        shell_word(&path.display().to_string())
+    );
     if !is_library(files) {
         s.push_str("    badger run\n");
     }

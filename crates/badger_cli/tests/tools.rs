@@ -144,6 +144,19 @@ fn watch_reruns() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// `badger init` into a directory whose name has a space: the hint quotes
+/// it, so it can be pasted into a shell.
+#[test]
+fn init_quotes_the_directory() {
+    let dir = scratch("init-space");
+    let project = dir.join("My App");
+    let out = lang().args(["init", project.to_str().unwrap()]).output().unwrap();
+    assert!(out.status.success());
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(text.contains(&format!("cd '{}'", project.display())), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// `--workers` outside 1 to 64 is a usage error, for every command that
 /// takes it.
 #[test]
