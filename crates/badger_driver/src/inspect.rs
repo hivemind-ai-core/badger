@@ -150,6 +150,13 @@ fn eval_start(input: &str) -> Eval {
     let built = match session.build(&repl.entry, &opts) {
         Ok(b) => b,
         Err(_) => {
+            // the function wrapping an expression is the session's own:
+            // not named as where the error is
+            for d in session.diagnostics.iter_mut() {
+                if d.scope.as_deref().is_some_and(|s| s.ends_with(&format!(".{eval_fn}"))) {
+                    d.scope = None;
+                }
+            }
             let mut out = Vec::new();
             let _ = session.diagnostics.render_with(&session.sources, &mut out, false);
             return Eval::Failed(String::from_utf8_lossy(&out).trim_end().to_string());

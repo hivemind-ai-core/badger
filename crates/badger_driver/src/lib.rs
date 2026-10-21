@@ -711,6 +711,14 @@ impl Session {
         let mut diags = vec![];
         let hir =
             badger_hir::lower_program(&loaded.modules, Some(loaded.entry), &mut self.interner, &mut diags);
+        // a REPL session's definitions and imports are there to be used by
+        // later inputs: not unused yet
+        if REPL_SESSION.load(std::sync::atomic::Ordering::Relaxed) {
+            let entry = loaded.modules[loaded.entry].file;
+            diags.retain(|d| {
+                !matches!(d.code, Some("E0195" | "E0196")) || d.primary().is_none_or(|s| s.file != entry)
+            });
+        }
         self.diagnostics.extend(diags);
         hir
     }
@@ -2093,9 +2101,13 @@ fn collect_ast_refs(a: &ast::Ast, e: ast::ExprId, out: &mut Vec<Symbol>) {
     go(a, e, out);
 }
 
+/// Whether this process is a local REPL session.
+static REPL_SESSION: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// Mark this process as a local REPL session (see
 /// `badger_typeck::set_repl_session`).
 pub fn set_repl_session() {
+    REPL_SESSION.store(true, std::sync::atomic::Ordering::Relaxed);
     badger_typeck::set_repl_session();
 }
 
