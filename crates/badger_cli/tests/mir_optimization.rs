@@ -77,9 +77,8 @@ fn a_local_set_only_to_the_same_function_is_known() {
     let src = dir.join("same_function.bdg");
     // past the inliner's size limit, so each shape keeps its own function
     let pad: String = (0..45).map(|i| format!("    v = v + {}\n", i % 3 + 1)).collect();
-    let mut s = String::from(
-        "import std.io\n\nfn same(x: Int) -> Int { x }\nfn other(x: Int) -> Int { x + 1 }\n\n",
-    );
+    let mut s =
+        String::from("import std.io\n\nfn same(x: Int) -> Int { x }\nfn other(x: Int) -> Int { x + 1 }\n\n");
     for (name, held) in [
         ("twice", "    var f = same\n    if x > 0 { f = same }"),
         ("copied", "    let one = same\n    var f = one\n    if x > 0 { f = one }"),
@@ -87,7 +86,9 @@ fn a_local_set_only_to_the_same_function_is_known() {
     ] {
         s.push_str(&format!("fn {name}(x: Int) -> Int {{\n    var v = 0\n{pad}{held}\n    f(v + x)\n}}\n\n"));
     }
-    s.push_str("pub fn main() -> Unit {\n    let _ = io.println($\"{twice(1)} {copied(1)} {varies(1)}\")\n}\n");
+    s.push_str(
+        "pub fn main() -> Unit {\n    let _ = io.println($\"{twice(1)} {copied(1)} {varies(1)}\")\n}\n",
+    );
     std::fs::write(&src, s).unwrap();
     let (stdout, mir) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
     assert_eq!(stdout, "91 91 92\n");
