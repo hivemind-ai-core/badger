@@ -474,13 +474,17 @@ $ badger query hover src/main.bdg --line 22 --col 53
 
 Find a definition: the query is looked for in the names and in the
 documentation of the standard library and of the project's modules. PATH
-is the project to search as well (default `.`).
+is the program to search as well (default: the current directory, when it
+is a project); a PATH that is not there or does not check is an error
+(exit status 1).
 
 | Flag | Meaning |
 |---|---|
 | `--json` | Print the matches as a JSON array. |
 
-Each match names the module, the item, and its documentation. The
+Each match names the module (`std.list`, or a project module by its path
+below the program's sources: `main`, `orders.service`), the item, and its
+documentation. The
 standard library is searched in its sources, the project in its checked
 interface (the same one `badger query api` prints).
 

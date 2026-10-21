@@ -74,18 +74,21 @@ fn std_items(module: &str) -> Vec<Found> {
     out
 }
 
-/// The public items of a program, from its checked interface.
-fn project_items(path: &Path) -> Vec<Found> {
-    let Ok(items) = crate::lsp::api(path) else { return vec![] };
-    let Some(list) = items.as_array() else { return vec![] };
-    list.iter()
+/// The public items of a program, from its checked interface, each in
+/// its module by name (`util`, `a.util`), as `badger doc` names them.
+fn project_items(path: &Path) -> Result<Vec<Found>, String> {
+    let items = crate::lsp::api(path)?;
+    let list = items.as_array().cloned().unwrap_or_default();
+    let root = crate::doc::files_root(list.iter().filter_map(|i| i["module"].as_str()));
+    Ok(list
+        .iter()
         .map(|i| Found {
-            module: i["module"].as_str().unwrap_or("").to_string(),
+            module: crate::doc::module_name(i["module"].as_str().unwrap_or(""), &root),
             name: i["name"].as_str().unwrap_or("").to_string(),
             signature: i["signature"].as_str().unwrap_or("").to_string(),
             doc: i["doc"].as_str().unwrap_or("").to_string(),
         })
-        .collect()
+        .collect())
 }
 
 /// Whether a thing matches the query: its name holds it (ignoring case),
@@ -96,8 +99,9 @@ fn matches(f: &Found, query: &str) -> bool {
 }
 
 /// Everything the query finds: the standard library first, then the
-/// project.
-pub fn search(query: &str, path: &Path) -> Vec<Found> {
+/// program at `path` (none: the current directory's project, when it is
+/// one). A program that is not there or does not check is an error.
+pub fn search(query: &str, path: Option<&Path>) -> Result<Vec<Found>, String> {
     let mut out = vec![];
     for m in badger_driver::std_modules() {
         for f in std_items(m) {
@@ -106,12 +110,19 @@ pub fn search(query: &str, path: &Path) -> Vec<Found> {
             }
         }
     }
-    for f in project_items(path) {
-        if matches(&f, query) {
-            out.push(f);
+    let here = Path::new(".");
+    let path = match path {
+        Some(p) => Some(p),
+        None => here.join("badger.toml").exists().then_some(here),
+    };
+    if let Some(path) = path {
+        for f in project_items(path)? {
+            if matches(&f, query) {
+                out.push(f);
+            }
         }
     }
-    out
+    Ok(out)
 }
 
 /// The matches as plain text: one per line, with the module, the name,

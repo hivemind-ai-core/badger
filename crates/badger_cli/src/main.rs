@@ -487,9 +487,9 @@ enum Command {
     Search {
         /// The text to look for.
         query: String,
-        /// The project to search as well (default `.`).
-        #[arg(default_value = ".")]
-        path: PathBuf,
+        /// The project to search as well (default: the current directory's,
+        /// when it is one).
+        path: Option<PathBuf>,
         /// Print the matches as JSON.
         #[arg(long)]
         json: bool,
@@ -1511,7 +1511,13 @@ fn command(cli: Cli) -> ExitCode {
         },
         Command::Watch { path, command } => watch::watch(&path, command),
         Command::Search { query, path, json } => {
-            let found = search::search(&query, &path);
+            let found = match search::search(&query, path.as_deref()) {
+                Ok(f) => f,
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
             if json {
                 println!("{}", search::json(&found));
             } else if found.is_empty() {
