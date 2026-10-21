@@ -1339,7 +1339,7 @@ where
     // `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`
     let attr_position = choice((
         kw("type").ignore_then(just(Tok::Colon).ignore_then(ty.clone()).or_not()).map(AttrPosition::Type),
-        kw("field").to(AttrPosition::Field),
+        kw("field").ignore_then(just(Tok::Colon).ignore_then(ty.clone()).or_not()).map(AttrPosition::Field),
         kw("variant").to(AttrPosition::Variant),
         kw("value").to(AttrPosition::Value),
         // a function position names the signature the functions have

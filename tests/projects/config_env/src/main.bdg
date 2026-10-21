@@ -1,0 +1,28 @@
+// `@config.env("NAME")`: a setting read from the variable the platform
+// sets, in place of `PREFIX` + its name, by `load`, `from_env`, and
+// `resolve` alike.
+import std.config
+import std.env
+import std.io
+
+type Settings = {
+    @config.env("BADGER_TEST_DATABASE_URL") database: String,
+    port: Int,
+}
+
+@derive(Error, From)
+pub enum AppError {
+    config(source: config.Error),
+    io(source: io.Error),
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let loaded = config.load<Settings>("ENVNAME_")?
+    io.println($"load: {loaded.database} {loaded.port}")?
+    let resolved = config.resolve<Settings>("ENVNAME_", env.args())?
+    io.println($"resolve: {resolved.value.database} {resolved.value.port}")?
+    for setting in resolved.settings {
+        io.println($"{setting.key} = {setting.value}  ({setting.source} {setting.origin})")?
+    }
+    ok(())
+}

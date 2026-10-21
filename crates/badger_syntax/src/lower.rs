@@ -523,7 +523,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                         let span = self.span(sp);
                         let p = match p {
                             cst::AttrPosition::Type(p) => AttrPosition::Type(p.map(|t| self.ty(t))),
-                            cst::AttrPosition::Field => AttrPosition::Field,
+                            cst::AttrPosition::Field(p) => AttrPosition::Field(p.map(|t| self.ty(t))),
                             cst::AttrPosition::Variant => AttrPosition::Variant,
                             cst::AttrPosition::Value => AttrPosition::Value,
                             cst::AttrPosition::Fn(t) => {

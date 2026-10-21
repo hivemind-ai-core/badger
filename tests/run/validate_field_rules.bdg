@@ -1,0 +1,28 @@
+// `validate.check`: a type's fields carry their rules (`@validate.not_blank`,
+// `max_len`, `min`, `max`, `one_of`, `min_len`), and every broken one is
+// reported, by field name; an `Option` field left `none` keeps them all.
+import std.io
+import std.validate
+
+pub type NewBook = {
+    @validate.not_blank @validate.max_len(10) title: String,
+    @validate.not_blank author: String,
+    @validate.min(1) @validate.max(5) rating: Int,
+    @validate.one_of(["paper", "ebook"]) format: String,
+    @validate.min_len(3) note: Option<String>,
+}
+
+fn show(r: Result<NewBook, List<validate.Violation>>) -> String {
+    match r {
+        .ok(b) => $"ok {b.title}",
+        .err(vs) => validate.summary(vs),
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let good: NewBook = { title: "Dune", author: "Herbert", rating: 5, format: "paper", note: Option.none }
+    io.println(show(validate.check(good)))?
+    let bad: NewBook = { title: "A very long title", author: "  ", rating: 9, format: "scroll", note: Option.some("x") }
+    io.println(show(validate.check(bad)))?
+    ok(())
+}

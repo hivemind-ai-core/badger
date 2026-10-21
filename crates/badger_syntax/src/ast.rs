@@ -149,7 +149,8 @@ pub enum AttrPosition {
     Type(Option<TypeId>),
     /// A top-level function of this signature (a function type).
     Fn(TypeId),
-    Field,
+    /// A field, of a protocol its owner must implement (`field: Codec`).
+    Field(Option<TypeId>),
     Variant,
     Value,
 }

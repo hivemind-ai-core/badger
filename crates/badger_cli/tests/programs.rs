@@ -889,6 +889,40 @@ fn config_resolve() {
     assert!(text.contains("token = [redacted]") && !text.contains("dev-token"), "{text}");
 }
 
+/// `@config.env("NAME")`: a setting read from the variable it names, by
+/// `load` and `resolve` (provenance names the variable); the prefixed name
+/// it replaces is then unknown to strict resolution, and an override still
+/// wins.
+#[test]
+fn config_env_names_the_variable() {
+    let run = |args: &[&str], env: &[(&str, &str)]| {
+        let mut c = lang();
+        c.args(["run", "tests/projects/config_env"]).args(args);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    let url = ("BADGER_TEST_DATABASE_URL", "pg://db/x");
+    let (ok, out, err) = run(&[], &[url]);
+    assert!(ok, "{err}");
+    assert_eq!(
+        out,
+        "load: pg://db/x 8080\nresolve: pg://db/x 8080\ndatabase = pg://db/x  (env BADGER_TEST_DATABASE_URL)\nport = 8080  (config port)\n"
+    );
+    let (ok, _, err) = run(&[], &[url, ("ENVNAME_DATABASE", "pg://old")]);
+    assert!(!ok && err.contains("no configuration field reads `ENVNAME_DATABASE`"), "{err}");
+    let (ok, _, err) = run(&[], &[]);
+    assert!(!ok && err.contains("environment variable `BADGER_TEST_DATABASE_URL`"), "{err}");
+    let (ok, out, err) = run(&["--", "database=pg://cli"], &[url]);
+    assert!(ok && out.contains("database = pg://cli  (override database=pg://cli)"), "{out}{err}");
+}
+
 /// `config.load` and `config.resolve` read a `config.Secret`, an
 /// `Option<String>`, an optional group, and a map from `[config.labels]`;
 /// a secret's value never appears in provenance, even from an override.

@@ -188,7 +188,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0150",
         "attribute declaration",
-        "A library's attribute is declared `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`: each position is `type` (or `type: Codec`, whose uses carry the type's schema), `field`, `variant`, `value`, or a function type (`fn(http.Request) -> http.Response`, the signature the annotated functions have), listed once; the name cannot be one of the compiler's attributes (`allow`, `derive`, ...); and each field holds what an attribute argument can write: `Bool`, an integer or float type, `Duration`, `String`, `Symbol`, an enum whose variants carry nothing, a `List` of one, or an `Option` of either.",
+        "A library's attribute is declared `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`: each position is `type` (or `type: Codec`, whose uses carry the type's schema), `field` (or `field: Codec`, whose uses carry the owner's), `variant`, `value`, or a function type (`fn(http.Request) -> http.Response`, the signature the annotated functions have), listed once; the name cannot be one of the compiler's attributes (`allow`, `derive`, ...); and each field holds what an attribute argument can write: `Bool`, an integer or float type, `Duration`, `String`, `Symbol`, an enum whose variants carry nothing, a `List` of one, or an `Option` of either.",
     ),
     (
         "E0151",
