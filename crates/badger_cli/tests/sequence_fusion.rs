@@ -84,6 +84,7 @@ fn count_of_a_counted_source_skips_the_loop_only_when_skipping_is_unobservable()
             &source,
             format!(
                 "import std.list\nimport std.seq\nfn double(x: Int) -> Int {{ x * 2 }}\n\
+                 fn same(x: Int) -> Int {{ x }}\n\
                  pub fn main() -> Int {{\n    let xs = [1, 2, 3, 4, 5]\n    \
                  let n = xs.seq().map({callback}).count()\n    assert(n == 5)\n    0\n}}\n"
             ),
@@ -102,7 +103,11 @@ fn count_of_a_counted_source_skips_the_loop_only_when_skipping_is_unobservable()
     // Checked arithmetic can defect, so every item must still be visited.
     let checked = case("checked", "fn(x: Int) { x * 2 }");
     assert!(checked.contains("badger_rt_list_get"), "{checked}");
-    // A named callback is not a lambda, so it is not provably pure.
+    // A named callback is read too: `same`'s body is pure and infallible, so
+    // the count is still the list's length…
+    let named_pure = case("named_pure", "same");
+    assert!(!named_pure.contains("badger_rt_list_get"), "{named_pure}");
+    // …while a named callback with checked arithmetic is not.
     let named = case("named", "double");
     assert!(named.contains("badger_rt_list_get"), "{named}");
     std::fs::remove_dir_all(dir).unwrap();

@@ -2685,12 +2685,24 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         matches!(&*t, TyKind::Fn(ft) if self.m.lay.is_std(&ft.ret, "Option"))
     }
 
-    /// A lambda whose body has no calls, allocation, mutation, or operation
-    /// that can defect. Reads of concrete record/struct fields and total
-    /// comparisons/bitwise operations qualify.
+    /// A lambda or a named function whose body has no calls, allocation,
+    /// mutation, or operation that can defect. Reads of concrete
+    /// record/struct fields and total comparisons/bitwise operations qualify.
     fn callback_pure_infallible(&self, cb: ExprId) -> bool {
-        let ExprKind::Lambda(l) = &self.hir().exprs[cb].kind else { return false };
-        self.pure_expr(l.body, 0)
+        let hir = self.hir();
+        let body = match &hir.exprs[cb].kind {
+            ExprKind::Lambda(l) => Some(l.body),
+            // a function passed by name: its body is in this program too
+            ExprKind::Def { def, .. } => match &hir.defs[*def].kind {
+                DefKind::Fn(f) => f.body,
+                _ => None,
+            },
+            _ => None,
+        };
+        match body {
+            Some(body) => self.pure_expr(body, 0),
+            None => false,
+        }
     }
 
     fn pure_expr(&self, e: ExprId, depth: usize) -> bool {
