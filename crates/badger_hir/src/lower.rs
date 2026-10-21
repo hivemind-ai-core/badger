@@ -3105,7 +3105,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         match l {
             ast::Lit::Int { value, suffix } => Lit::Int { value: *value, suffix: *suffix },
             ast::Lit::Float { value, suffix } => Lit::Float { value: *value, suffix: *suffix },
-            ast::Lit::Duration { value, unit } => Lit::Duration(value * unit.nanos()),
+            // saturating: the type checker rejects what does not fit (E0338)
+            ast::Lit::Duration { value, unit } => Lit::Duration(value.saturating_mul(unit.nanos())),
             ast::Lit::Str(s) => Lit::Str(s.clone()),
             ast::Lit::Char(c) => Lit::Char(*c),
             ast::Lit::Symbol(s) => Lit::Symbol(*s),

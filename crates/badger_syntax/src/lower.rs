@@ -713,7 +713,9 @@ impl<'a, 'i> Lower<'a, 'i> {
             cst::AttrArg::Duration(text, _) => {
                 let unit_start = text.find(|c: char| c.is_ascii_alphabetic()).unwrap_or(text.len());
                 let (n, u) = text.split_at(unit_start);
-                let value = n.replace('_', "").parse::<u128>().unwrap_or(0);
+                // too many digits for u128 saturates; the type checker
+                // rejects a duration past 64 bits of nanoseconds (E0338)
+                let value = n.replace('_', "").parse::<u128>().unwrap_or(u128::MAX);
                 let unit = match u {
                     "ns" => DurationUnit::Ns,
                     "us" => DurationUnit::Us,
@@ -722,7 +724,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                     "min" => DurationUnit::Min,
                     _ => DurationUnit::H,
                 };
-                AttrArg::Duration(value * unit.nanos())
+                AttrArg::Duration(value.saturating_mul(unit.nanos()))
             }
             cst::AttrArg::List(xs, _) => AttrArg::List(xs.into_iter().map(|x| self.attr_arg(x)).collect()),
             cst::AttrArg::Str(s, sp) => AttrArg::Str(self.unescape(s, self.span(sp))),
@@ -1934,7 +1936,9 @@ impl<'a, 'i> Lower<'a, 'i> {
             cst::Lit::Duration(text) => {
                 let unit_start = text.find(|c: char| c.is_ascii_alphabetic()).unwrap();
                 let (n, u) = text.split_at(unit_start);
-                let value = n.replace('_', "").parse::<u128>().unwrap_or(0);
+                // too many digits for u128 saturates; the type checker
+                // rejects a duration past 64 bits of nanoseconds (E0338)
+                let value = n.replace('_', "").parse::<u128>().unwrap_or(u128::MAX);
                 let unit = match u {
                     "ns" => DurationUnit::Ns,
                     "us" => DurationUnit::Us,
