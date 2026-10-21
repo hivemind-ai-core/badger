@@ -1,5 +1,6 @@
 //! Module collection, import resolution, and AST → HIR lowering.
 
+use badger_base::suggest::edit_distance;
 use badger_base::{Diagnostic, FileId, Interner, Span, Symbol};
 use badger_syntax::ast;
 use la_arena::Idx;
@@ -50,22 +51,6 @@ fn std_homes(name: &str) -> Vec<&'static str> {
         }
     }
     out
-}
-
-/// Levenshtein distance (in characters).
-fn edit_distance(a: &str, b: &str) -> usize {
-    let a: Vec<char> = a.chars().collect();
-    let b: Vec<char> = b.chars().collect();
-    let mut prev: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.iter().enumerate() {
-        let mut cur = vec![i + 1];
-        for (j, cb) in b.iter().enumerate() {
-            let sub = prev[j] + usize::from(ca != cb);
-            cur.push(sub.min(prev[j + 1] + 1).min(cur[j] + 1));
-        }
-        prev = cur;
-    }
-    prev[b.len()]
 }
 
 struct ModScope {
