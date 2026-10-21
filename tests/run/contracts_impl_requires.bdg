@@ -1,0 +1,34 @@
+// An implementation's method may be called through a generic bound or
+// `dyn` as well as directly: proving its precondition at every direct
+// call does not remove the check the other calls rely on.
+import std.io
+import std.task
+
+protocol Take { fn take(self: &Self, n: Int) -> Int }
+
+struct S { v: Int }
+
+impl Take for S {
+    requires n > 0, "positive"
+    fn take(self: &Self, n: Int) -> Int { n }
+}
+
+fn via<T: Take>(t: T, n: Int) -> Int { t.take(n) }
+
+fn show(name: String, e: task.Exit<Int>) -> Unit {
+    let _ = match e {
+        .returned(v) => io.println($"{name}: {v}"),
+        // the failure without where it happened (the path varies)
+        .failed(info) => io.println($"{name}: {info.message.split_once("; ").map(fn(p) { p.0 }).unwrap_or(info.message)}"),
+        .cancelled(_) => io.println($"{name}: cancelled"),
+    }
+}
+
+pub fn main() -> Unit {
+    let _ = task.scope(fn(s) -> Result<Unit, Unit> {
+        show("direct", s.capture(fn() { let x: S = { v: 1 }; x.take(5) }).join())
+        show("generic", s.capture(fn() { let x: S = { v: 1 }; via(x, -7) }).join())
+        show("dyn", s.capture(fn() { let x: S = { v: 1 }; let d: dyn Take = x; d.take(-7) }).join())
+        ok(())
+    })
+}

@@ -1203,9 +1203,14 @@ fn analyze(
             a.check_returns(*d, f, &mut elided.posts);
         }
     }
-    // preconditions proven at every call of a function only called directly
+    // preconditions proven at every call of a function only called
+    // directly (a protocol's method may be called through a bound or `dyn`)
     for (d, f) in &fns {
-        if f.requires.is_empty() || a.escapes.contains(d) || is_std(hir, hir.defs[*d].span) {
+        if f.requires.is_empty()
+            || a.escapes.contains(d)
+            || a.protocol_method(f)
+            || is_std(hir, hir.defs[*d].span)
+        {
             continue;
         }
         // a function never called keeps its checks (an entry point, a test)
@@ -1234,6 +1239,8 @@ fn analyze(
                 ("proven", format!("holds at all {calls} call(s)"))
             } else if a.escapes.contains(d) {
                 ("runtime", "the function is used as a value, so not every call is known".into())
+            } else if a.protocol_method(f) {
+                ("runtime", "a protocol method may be called through a bound or `dyn`".into())
             } else if calls == 0 {
                 ("runtime", "no direct calls (an entry point, or called from tests)".into())
             } else {
