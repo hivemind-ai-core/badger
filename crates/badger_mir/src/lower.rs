@@ -1840,7 +1840,11 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 Repr::F32 => Operand::Const(Const::F32(*value as f32)),
                 _ => Operand::Const(Const::F64(*value)),
             },
-            Lit::Duration(n) => Operand::Const(Const::Int(*n as i64, Repr::I64)),
+            // the checker rejects a literal beyond 64 bits of nanoseconds
+            Lit::Duration(n) => Operand::Const(Const::Int(
+                i64::try_from(*n).expect("duration literal out of range after checking"),
+                Repr::I64,
+            )),
             Lit::Str(s) => Operand::Const(Const::Addr(self.m.str_const(s))),
             Lit::Char(c) => Operand::Const(Const::Int(*c as i64, Repr::I32)),
             Lit::Symbol(s) => {

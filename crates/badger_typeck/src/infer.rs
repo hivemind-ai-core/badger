@@ -1300,7 +1300,18 @@ impl<'g, 'a> Infer<'g, 'a> {
                 self.pending.push(Constraint::FloatLit { ty: t.clone(), span });
                 t
             }
-            Lit::Duration(_) => self.prim(self.b().duration),
+            Lit::Duration(n) => {
+                // a duration is a count of nanoseconds in 64 bits
+                if *n > i64::MAX as u128 {
+                    self.error(
+                        "E0338",
+                        span,
+                        "duration literal does not fit in `Duration`",
+                        "out of range: the longest duration is about 292 years (2^63 - 1 nanoseconds)",
+                    );
+                }
+                self.prim(self.b().duration)
+            }
             Lit::Str(_) => self.string_ty(),
             Lit::Char(_) => self.prim(self.b().char_),
             Lit::Symbol(_) => self.prim(self.b().symbol),
