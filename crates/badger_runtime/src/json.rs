@@ -9,7 +9,7 @@
 
 use std::borrow::Cow;
 
-use crate::codec::{DecodeError, int_bools, name_matches, wire_rank};
+use crate::codec::{DecodeError, int_bools, name_matches};
 use crate::desc::{Field, Kind, TypeDesc};
 use crate::gc::{self, Roots, obj};
 use crate::string::{external_symbol, new_string};
@@ -843,7 +843,9 @@ impl<'a> P<'a> {
         let mut vals: Vec<Option<(u64, usize)>> = vec![None; fields.len()];
         // Wire naming is off for ordinary decoding: match names directly,
         // instead of a thread-local lookup per key per field.
-        let wire = crate::codec::wire_active();
+        // With wire naming, each key is looked up in the contract's table for
+        // these members (built once per contract, not per key and field).
+        let table = crate::codec::active_wire().map(|w| w.key_table(ty, fields));
         self.ws();
         if self.peek() == Some(b'}') {
             self.i += 1;
@@ -857,18 +859,9 @@ impl<'a> P<'a> {
                 return jerr("expected a colon");
             }
             self.i += 1;
-            let found: Option<(usize, usize)> = if wire {
-                let mut found = None;
-                for (idx, f) in fields.iter().enumerate() {
-                    if let Some(r) = wire_rank(ty, &f.name, &key)
-                        && found.is_none_or(|(_, best)| r < best)
-                    {
-                        found = Some((idx, r));
-                    }
-                }
-                found
-            } else {
-                fields.iter().position(|f| f.name == *key).map(|idx| (idx, 0))
+            let found: Option<(usize, usize)> = match &table {
+                Some(t) => t.get(&*key).copied(),
+                None => fields.iter().position(|f| f.name == *key).map(|idx| (idx, 0)),
             };
             match found {
                 Some((idx, r)) => {

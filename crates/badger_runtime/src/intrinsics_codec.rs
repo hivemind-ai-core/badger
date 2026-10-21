@@ -1012,23 +1012,76 @@ fn wire_clash(d: &'static TypeDesc, seen: &mut Vec<*const TypeDesc>) -> Option<S
 /// A contract's names for `d`, checked: two members of one type renamed (or
 /// left) to the same wire name would encode one over the other, a defect
 /// where the contract is used (a swap may pass through one while built).
-fn checked_wire(d: &'static TypeDesc, names: u64, aliases: u64) -> codec::WireNames {
+/// A contract is usually used many times: the checked names (and the key
+/// tables decoding builds on them) are kept per thread, found again by the
+/// type and the content of `names` and `aliases`.
+fn checked_wire(d: &'static TypeDesc, names: u64, aliases: u64) -> std::rc::Rc<codec::WireNames> {
+    let given: Vec<(&str, &str)> =
+        crate::map::entries(names).into_iter().map(|(k, v)| (str_of(k), str_of(v))).collect();
+    let olds: Vec<(&str, Vec<&str>)> = crate::map::entries(aliases)
+        .into_iter()
+        .map(|(k, v)| (str_of(k), crate::list::to_vec(v).into_iter().map(str_of).collect()))
+        .collect();
+    // order-independent: a map's entries come in no promised order
+    let mut key = 0u64;
+    for (k, v) in &given {
+        key = key.wrapping_add(content_hash(&[*k, *v]));
+    }
+    for (k, olds) in &olds {
+        let mut parts = vec![*k];
+        parts.extend(olds);
+        key = key.wrapping_add(content_hash(&parts).rotate_left(1));
+    }
+    let ty = d as *const TypeDesc as usize;
+    let hit = CHECKED.with(|c| {
+        c.borrow()
+            .iter()
+            .find(|(t, k, w)| {
+                *t == ty && *k == key && w.same_as(given.iter().copied(), olds.iter().map(|(k, o)| (*k, o.as_slice())))
+            })
+            .map(|(_, _, w)| w.clone())
+    });
+    if let Some(w) = hit {
+        return w;
+    }
     let w = wire_names(names, aliases);
-    let probe = codec::WireNames { names: w.names.clone(), aliases: Default::default() };
-    if let Some(m) = codec::with_wire(probe, || wire_clash(d, &mut Vec::new())) {
+    if let Some(m) = codec::with_wire(std::rc::Rc::new(w.names_only()), || wire_clash(d, &mut Vec::new())) {
         crate::task::panic_current(m, crate::task::caller_location());
     }
+    let w = std::rc::Rc::new(w);
+    CHECKED.with(|c| {
+        let mut c = c.borrow_mut();
+        if c.len() >= CHECKED_MAX {
+            c.remove(0);
+        }
+        c.push((ty, key, w.clone()));
+    });
     w
+}
+
+/// The checked contracts a thread used last (a few: a program has few).
+const CHECKED_MAX: usize = 32;
+
+thread_local! {
+    static CHECKED: std::cell::RefCell<Vec<(usize, u64, std::rc::Rc<codec::WireNames>)>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn content_hash(parts: &[&str]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = rustc_hash::FxHasher::default();
+    parts.hash(&mut h);
+    h.finish()
 }
 
 fn wire_names(names: u64, aliases: u64) -> codec::WireNames {
     let mut w = codec::WireNames::default();
     for (k, v) in crate::map::entries(names) {
-        w.names.insert(str_of(k).to_string(), str_of(v).to_string());
+        w.insert_name(str_of(k), str_of(v).to_string());
     }
     for (k, v) in crate::map::entries(aliases) {
         let olds = crate::list::to_vec(v).into_iter().map(|x| str_of(x).to_string()).collect();
-        w.aliases.insert(str_of(k).to_string(), olds);
+        w.insert_aliases(str_of(k), olds);
     }
     w
 }

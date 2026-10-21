@@ -11,6 +11,8 @@
 use base64::Engine;
 use serde_json::Value as J;
 
+use rustc_hash::FxHashMap;
+
 use crate::desc::{Kind, TypeDesc};
 use crate::gc::{self, Roots, obj};
 use crate::intrinsics_io::write_json_quote;
@@ -19,11 +21,109 @@ use crate::{enum_parts, list, make_enum, map};
 
 /// Versioned wire names: `Type.member` (field or variant) or
 /// `Type.variant.field` mapped to the name used on the wire, plus older
-/// names still accepted when decoding.
+/// names still accepted when decoding. Held by type, then member, so a
+/// lookup borrows the names it has (no `Type.member` key is formatted).
 #[derive(Default)]
 pub struct WireNames {
-    pub names: std::collections::HashMap<String, String>,
-    pub aliases: std::collections::HashMap<String, Vec<String>>,
+    names: FxHashMap<String, FxHashMap<String, String>>,
+    aliases: FxHashMap<String, FxHashMap<String, Vec<String>>>,
+    /// The entries as given (to recognize the same contract again).
+    given: (FxHashMap<String, String>, FxHashMap<String, Vec<String>>),
+    /// Per member list (a record's or variant's fields, by address): each
+    /// key decoding accepts, with the field it fills and its rank.
+    keys: std::cell::RefCell<FxHashMap<usize, std::rc::Rc<KeyTable>>>,
+}
+
+/// A JSON key's field index and rank (0 for the current name, 1+ for an
+/// accepted alias's position).
+pub(crate) type KeyTable = FxHashMap<String, (usize, usize)>;
+
+/// `Type.member` as (type, member) (members are names without dots); a key
+/// without a dot names no member.
+fn split_member(key: &str) -> Option<(&str, &str)> {
+    key.rsplit_once('.')
+}
+
+impl WireNames {
+    pub fn insert_name(&mut self, key: &str, name: String) {
+        if let Some((ty, member)) = split_member(key) {
+            self.names.entry(ty.to_owned()).or_default().insert(member.to_owned(), name.clone());
+        }
+        self.given.0.insert(key.to_owned(), name);
+    }
+
+    pub fn insert_aliases(&mut self, key: &str, olds: Vec<String>) {
+        if let Some((ty, member)) = split_member(key) {
+            self.aliases.entry(ty.to_owned()).or_default().insert(member.to_owned(), olds.clone());
+        }
+        self.given.1.insert(key.to_owned(), olds);
+    }
+
+    /// The same names without the aliases.
+    pub fn names_only(&self) -> WireNames {
+        WireNames {
+            names: self.names.clone(),
+            given: (self.given.0.clone(), Default::default()),
+            ..Default::default()
+        }
+    }
+
+    pub fn name(&self, ty: &str, member: &str) -> Option<&str> {
+        self.names.get(ty)?.get(member).map(String::as_str)
+    }
+
+    pub fn aliases_of(&self, ty: &str, member: &str) -> &[String] {
+        self.aliases.get(ty).and_then(|m| m.get(member)).map_or(&[], Vec::as_slice)
+    }
+
+    /// Whether these are exactly the entries `names` and `aliases`.
+    pub fn same_as<'a>(
+        &self,
+        names: impl IntoIterator<Item = (&'a str, &'a str)>,
+        aliases: impl IntoIterator<Item = (&'a str, &'a [&'a str])>,
+    ) -> bool {
+        let mut n = (0, 0);
+        for (k, v) in names {
+            if self.given.0.get(k).map(String::as_str) != Some(v) {
+                return false;
+            }
+            n.0 += 1;
+        }
+        for (k, olds) in aliases {
+            if !self.given.1.get(k).is_some_and(|x| x.iter().map(String::as_str).eq(olds.iter().copied())) {
+                return false;
+            }
+            n.1 += 1;
+        }
+        n == (self.given.0.len(), self.given.1.len())
+    }
+
+    /// The key table of the members `fields` of type `ty`, built once.
+    pub(crate) fn key_table(&self, ty: &str, fields: &[crate::desc::Field]) -> std::rc::Rc<KeyTable> {
+        let id = fields.as_ptr() as usize;
+        if let Some(t) = self.keys.borrow().get(&id) {
+            return t.clone();
+        }
+        let mut t = KeyTable::default();
+        // a key's rank for a member: 0 for its current wire name, 1+ for
+        // an accepted alias's position (`lookup`'s precedence); the lowest
+        // rank wins, the first field on a tie
+        let mut offer = |key: &str, idx: usize, rank: usize| match t.get(key) {
+            Some(&(_, best)) if best <= rank => {}
+            _ => {
+                t.insert(key.to_owned(), (idx, rank));
+            }
+        };
+        for (idx, f) in fields.iter().enumerate() {
+            offer(self.name(ty, &f.name).unwrap_or(&f.name), idx, 0);
+            for (i, a) in self.aliases_of(ty, &f.name).iter().enumerate() {
+                offer(a, idx, i + 1);
+            }
+        }
+        let t = std::rc::Rc::new(t);
+        self.keys.borrow_mut().insert(id, t.clone());
+        t
+    }
 }
 
 thread_local! {
@@ -31,11 +131,16 @@ thread_local! {
 }
 
 /// Run `f` with `w` as the active wire naming.
-pub fn with_wire<R>(w: WireNames, f: impl FnOnce() -> R) -> R {
-    let prev = WIRE.with(|c| c.borrow_mut().replace(std::rc::Rc::new(w)));
+pub fn with_wire<R>(w: std::rc::Rc<WireNames>, f: impl FnOnce() -> R) -> R {
+    let prev = WIRE.with(|c| c.borrow_mut().replace(w));
     let r = f();
     WIRE.with(|c| *c.borrow_mut() = prev);
     r
+}
+
+/// The active wire naming, if any.
+pub(crate) fn active_wire() -> Option<std::rc::Rc<WireNames>> {
+    WIRE.with(|c| c.borrow().clone())
 }
 
 /// The descriptor name of `config.Secret`: decoded from a string, encoded
@@ -64,7 +169,7 @@ pub fn wire_name(ty: &str, member: &str) -> String {
 // native output, so a thread-local borrow never spans a managed allocation.
 pub(crate) fn with_name<R>(ty: &str, member: &str, f: impl FnOnce(&str) -> R) -> R {
     WIRE.with(|c| match &*c.borrow() {
-        Some(w) => f(w.names.get(&format!("{ty}.{member}")).map_or(member, String::as_str)),
+        Some(w) => f(w.name(ty, member).unwrap_or(member)),
         None => f(member),
     })
 }
@@ -73,9 +178,7 @@ pub(crate) fn name_matches(ty: &str, member: &str, name: &str) -> bool {
     WIRE.with(|c| {
         let wire = c.borrow();
         let Some(w) = &*wire else { return member == name };
-        let key = format!("{ty}.{member}");
-        w.names.get(&key).map_or(member, String::as_str) == name
-            || w.aliases.get(&key).is_some_and(|aliases| aliases.iter().any(|a| a == name))
+        w.name(ty, member).unwrap_or(member) == name || w.aliases_of(ty, member).iter().any(|a| a == name)
     })
 }
 
@@ -84,22 +187,6 @@ pub(crate) fn name_matches(ty: &str, member: &str, name: &str) -> bool {
 /// thread-local lookup per key.
 pub(crate) fn wire_active() -> bool {
     WIRE.with(|c| c.borrow().is_some())
-}
-
-/// How a JSON key ranks for member `member` of type `ty`: 0 for the current
-/// wire name, 1+ for the position of an accepted alias, `None` for no match.
-/// Mirrors [`lookup`]'s precedence (current name, then the first declared
-/// alias that is present).
-pub(crate) fn wire_rank(ty: &str, member: &str, key: &str) -> Option<usize> {
-    WIRE.with(|c| {
-        let wire = c.borrow();
-        let Some(w) = &*wire else { return (member == key).then_some(0) };
-        let k = format!("{ty}.{member}");
-        if w.names.get(&k).map_or(member, String::as_str) == key {
-            return Some(0);
-        }
-        w.aliases.get(&k).and_then(|a| a.iter().position(|x| x == key)).map(|i| i + 1)
-    })
 }
 
 /// Whether decoding a SQLite row (which has no boolean type) is active.
@@ -111,10 +198,9 @@ fn lookup<'j>(m: &'j serde_json::Map<String, J>, ty: &str, member: &str) -> Opti
     WIRE.with(|c| {
         let wire = c.borrow();
         let Some(w) = &*wire else { return m.get(member) };
-        let key = format!("{ty}.{member}");
         // Current name wins over aliases, which retain their declared order.
-        m.get(w.names.get(&key).map_or(member, String::as_str))
-            .or_else(|| w.aliases.get(&key).and_then(|aliases| aliases.iter().find_map(|a| m.get(a))))
+        m.get(w.name(ty, member).unwrap_or(member))
+            .or_else(|| w.aliases_of(ty, member).iter().find_map(|a| m.get(a)))
     })
 }
 
@@ -144,7 +230,11 @@ fn enc_deeper() {
         c.get()
     });
     if depth > MAX_DEPTH {
+        // the defect abandons this stack: reset what the encoders set, so
+        // the worker's next encode starts clean
         ENC_DEPTH.with(|c| c.set(0));
+        WIRE.with(|c| c.borrow_mut().take());
+        REVEAL.with(|c| c.set(false));
         crate::task::panic_current(
             format!("a value nested more than {MAX_DEPTH} levels deep cannot be encoded"),
             crate::task::caller_location(),
@@ -315,15 +405,12 @@ fn enc_at(d: &TypeDesc, w: u64, o: &mut String) {
             o.push('{');
             write_member_name(&d.name, &v.name, o, wire);
             o.push_str(":{");
+            let vty = if wire { format!("{}.{}", d.name, v.name) } else { String::new() };
             for (i, (f, val)) in v.fields.iter().zip(vals).enumerate() {
                 if i > 0 {
                     o.push(',');
                 }
-                if wire {
-                    with_name(&format!("{}.{}", d.name, v.name), &f.name, |name| write_json_quote(name, o));
-                } else {
-                    write_json_quote(&f.name, o);
-                }
+                write_member_name(&vty, &f.name, o, wire);
                 o.push(':');
                 enc(f.desc, val, o);
             }
@@ -1013,9 +1100,7 @@ fn lookup_data(entries: &[(u64, u64)], ty: &str, member: &str) -> Option<u64> {
     WIRE.with(|c| {
         let wire = c.borrow();
         let Some(w) = &*wire else { return find(member) };
-        let key = format!("{ty}.{member}");
-        find(w.names.get(&key).map_or(member, String::as_str))
-            .or_else(|| w.aliases.get(&key).and_then(|aliases| aliases.iter().find_map(|a| find(a))))
+        find(w.name(ty, member).unwrap_or(member)).or_else(|| w.aliases_of(ty, member).iter().find_map(|a| find(a)))
     })
 }
 
