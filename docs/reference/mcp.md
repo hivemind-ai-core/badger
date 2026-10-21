@@ -191,12 +191,14 @@ seconds.
 
 ## `generate`
 
-Arguments: `what` (`feature`), `name`, `path` (the project directory),
-`item` (optional), `dry_run` (optional). It is `badger generate feature`
-([cli.md](cli.md#badger-generate-feature-name-dir---item-name---dry-run)):
-the plan (files and line counts), then the test report of the generated
-files checked in a copy of the project; nothing is written on a dry run or
-a failed check, and an existing feature is an error.
+Arguments: `what` (`feature` or `worker`), `name` (a word: letters,
+digits, `_`), `path` (the project directory), `item` (optional, `feature`
+only), `dry_run` (optional, a boolean). It is `badger generate feature`
+([cli.md](cli.md#badger-generate-feature-name-dir---item-name---dry-run))
+or `badger generate worker`: the plan (files and line counts), then the
+test report of the generated files checked in a copy of the project;
+nothing is written on a dry run or a failed check, and an existing file
+is an error.
 
 ```text
 → { "what": "feature", "name": "orders", "path": "/work/shop", "dry_run": true }
