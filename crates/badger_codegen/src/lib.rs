@@ -1826,6 +1826,7 @@ pub const UNLOCKED: &[&str] = &[
     "badger_rt_i_text_repeat",
     "badger_rt_i_text_join",
     "badger_rt_i_text_chars",
+    "badger_rt_i_text_char_at",
     "badger_rt_i_text_find",
     "badger_rt_i_text_rfind",
     "badger_rt_i_text_count",

@@ -451,6 +451,13 @@ define_intrinsics! {
         let mut chars = st.chars();
         list::fill(rdesc(ret), st.chars().count(), |_| chars.next().unwrap_or('\0') as u64)
     }
+    // The character at a character index (without the list of them all).
+    fn text_char_at(ctx, targs, ret, s, i) {
+        match usize::try_from(i as i64).ok().and_then(|i| str_of(s).chars().nth(i)) {
+            Some(c) => some(rdesc(ret), c as u64),
+            None => none(rdesc(ret)),
+        }
+    }
     // The character index of the first occurrence of `p`.
     fn text_find(ctx, targs, ret, s, p) {
         let st = str_of(s);
