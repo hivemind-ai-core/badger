@@ -6,6 +6,7 @@ pub mod catalog;
 pub mod diagnostics;
 pub mod intern;
 pub mod source;
+pub mod suggest;
 
 pub use diagnostics::{Diagnostic, Diagnostics, Label, Severity};
 pub use intern::{Interner, Symbol};

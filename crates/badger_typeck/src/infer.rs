@@ -293,6 +293,27 @@ impl<'g, 'a> Infer<'g, 'a> {
         self.callee_ctx = saved;
     }
 
+    /// Add "did you mean" to the diagnostic reported since there were
+    /// `before` (none is, when an instance is re-checked): the name of
+    /// `known` nearest to `name`.
+    pub fn suggest_since(&mut self, before: usize, name: &str, known: &[String]) {
+        if self.diags.len() > before
+            && let Some(near) = badger_base::suggest::nearest(name, known.iter().map(String::as_str))
+            && let Some(d) = self.diags.pop()
+        {
+            self.diags.push(d.with_note(format!("did you mean `{near}`?")));
+        }
+    }
+
+    /// An unknown field of a struct: the error, with the nearest field.
+    fn unknown_field(&mut self, span: Span, msg: String, label: Symbol, fields: &[(Symbol, Ty, bool)]) {
+        let n = self.diags.len();
+        self.error("E0301", span, msg, "unknown field");
+        let known: Vec<String> = fields.iter().map(|f| self.label_str(f.0)).collect();
+        let l = self.label_str(label);
+        self.suggest_since(n, &l, &known);
+    }
+
     /// The user-defined nominal type at the head of `t`, if any.
     pub fn head_def(&mut self, t: &Ty) -> Option<DefId> {
         let t = self.icx.resolve(t);
@@ -1414,7 +1435,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                     }
                     None => {
                         let (l, ty) = (self.label_str(label), self.show(&bt));
-                        self.error("E0301", span, format!("no field `{l}` on `{ty}`"), "unknown field");
+                        self.unknown_field(span, format!("no field `{l}` on `{ty}`"), label, &fields);
                         error_ty()
                     }
                 }
@@ -1660,11 +1681,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                     self.error_rel(
                         "E0309",
                         span,
-                        format!(
-                            "this function takes {} argument(s) but {} were supplied",
-                            f.params.len(),
-                            args.len()
-                        ),
+                        format!("this function {}", arity(f.params.len(), args.len())),
                         "wrong number of arguments",
                         callee,
                     );
@@ -2001,6 +2018,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             Lookup::NotFound => {
                 let (m, t) = (self.sym(method).to_string(), self.show(&r));
                 let rel = self.head_def(&r);
+                let n = self.diags.len();
                 self.error_rel(
                     "E0312",
                     method_span,
@@ -2008,6 +2026,8 @@ impl<'g, 'a> Infer<'g, 'a> {
                     "method not found",
                     rel,
                 );
+                let known = self.method_names(&r);
+                self.suggest_since(n, &m, &known);
                 for a in args {
                     self.infer(*a);
                 }
@@ -2266,12 +2286,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                             Some((_, ft, _)) => self.expect(*lspan, ft, t),
                             None => {
                                 let ls = self.label_str(*l);
-                                self.error(
-                                    "E0301",
-                                    *lspan,
-                                    format!("struct has no field `{ls}`"),
-                                    "unknown field",
-                                );
+                                self.unknown_field(*lspan, format!("struct has no field `{ls}`"), *l, &sf);
                             }
                         }
                     }
@@ -2318,7 +2333,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                 }
                 None => {
                     let ls = self.label_str(*l);
-                    self.error("E0301", *lspan, format!("struct has no field `{ls}`"), "unknown field");
+                    self.unknown_field(*lspan, format!("struct has no field `{ls}`"), *l, &sf);
                     self.infer(*x);
                 }
             }
@@ -2908,12 +2923,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                             }
                             None => {
                                 let ls = self.label_str(*l);
-                                self.error(
-                                    "E0301",
-                                    span,
-                                    format!("struct has no field `{ls}`"),
-                                    "unknown field",
-                                );
+                                self.unknown_field(span, format!("struct has no field `{ls}`"), *l, &sf);
                             }
                         }
                     }
@@ -3163,4 +3173,10 @@ fn open_covariant(icx: &mut InferCtxt, env: &TypeEnv, hir: &badger_hir::Hir, t: 
         }
         _ => t,
     }
+}
+
+/// "takes 2 arguments but 1 was supplied".
+pub fn arity(takes: usize, given: usize) -> String {
+    let n = |k: usize| if k == 1 { "1 argument".to_string() } else { format!("{k} arguments") };
+    format!("takes {} but {given} {} supplied", n(takes), if given == 1 { "was" } else { "were" })
 }

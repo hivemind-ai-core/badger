@@ -778,6 +778,7 @@ impl Infer<'_, '_> {
                     Lookup::NotFound => {
                         let (m, t) = (self.sym(*name).to_string(), self.show(&r));
                         let rel = self.head_def(&r);
+                        let n = self.diags.len();
                         self.error_rel(
                             "E0312",
                             *span,
@@ -785,6 +786,8 @@ impl Infer<'_, '_> {
                             "method not found",
                             rel,
                         );
+                        let known = self.method_names(&r);
+                        self.suggest_since(n, &m, &known);
                         Step::Solved
                     }
                     Lookup::Found(target, mty) => {
@@ -800,11 +803,7 @@ impl Infer<'_, '_> {
                                 self.error_rel(
                                     "E0309",
                                     *span,
-                                    format!(
-                                        "method takes {} argument(s) but {} were supplied",
-                                        m.params.len() - 1,
-                                        f.params.len() - 1
-                                    ),
+                                    format!("method {}", arity(m.params.len() - 1, f.params.len() - 1)),
                                     "wrong number of arguments",
                                     rel,
                                 );
@@ -1275,12 +1274,21 @@ impl Infer<'_, '_> {
             }
             _ => {
                 let s = self.show(&l);
+                let n = self.diags.len();
                 self.error(
                     "E0339",
                     span,
                     format!("operator `{}` is not defined for `{s}`", op.as_str()),
                     "operator",
                 );
+                // text is joined by interpolation, not `+`
+                if matches!(op, BinOp::Add)
+                    && matches!(&*l, TyKind::Con(d, _) if *d == b.string)
+                    && self.diags.len() > n
+                    && let Some(d) = self.diags.pop()
+                {
+                    self.diags.push(d.with_note("to join text, interpolate it: `$\"{a}{b}\"`"));
+                }
                 Step::Solved
             }
         }
@@ -2161,6 +2169,24 @@ impl Infer<'_, '_> {
     /// Resolve `recv.name(...)` for a known receiver head.
     pub fn lookup_method(&mut self, recv: &Ty, name: Symbol, explicit: &[Ty], span: Span) -> Lookup {
         self.lookup_method_typed(recv, name, explicit, span, None, true)
+    }
+
+    /// The methods of a nominal receiver's implementations (and of their
+    /// protocols), for a "did you mean".
+    pub fn method_names(&mut self, recv: &Ty) -> Vec<String> {
+        let r = self.deref(recv);
+        let TyKind::Con(head, _) = &*r else { return vec![] };
+        let mut names = vec![];
+        for &i in self.g.env.impls_by_head.get(head).into_iter().flatten() {
+            let imp = &self.g.env.impls[i];
+            if let ImplMethods::Defs(ms) = &imp.methods {
+                names.extend(ms.keys().copied());
+            }
+            if let Some(p) = imp.protocol.as_ref().and_then(|(p, _)| self.g.env.protocols.get(p)) {
+                names.extend(p.methods.keys().copied());
+            }
+        }
+        names.into_iter().map(|n| self.sym(n).to_string()).collect()
     }
 
     /// Method lookup; when several protocol implementations (e.g.
