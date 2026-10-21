@@ -558,6 +558,24 @@ move-only value may be dropped unused. The item's escape-analysis half does not
 apply: §3.2 was surveyed and not adopted, so the marker's value is the static
 guarantee, not the scalar replacement it would have enabled.
 
+## §4.2 is not adopted: the search works, the rule set does not compose
+
+The pass was built and measured. The non-trapping integer operations of each run
+between effects are lifted into egg, the 141 rewrites are compiled from `opt::smt`'s
+rows (with a Z3-proved commutativity rule, which an e-graph pattern needs to match
+superopt's canonical operand order), and the cheapest member of each class is
+written back in place. It meets the item's gates: a 50 ms budget per function
+(release build p50 51 us, p99 1.4 ms, max 4.7 ms, none over), a 64-statement region
+bound (the largest region has 7), the §4.1 rule set as the only source of rewrites,
+and the corpus identical with it on and off.
+
+**But after superopt it finds 2 rewrites over the 263 `tests/run` programs and 0 on
+every benchmark** -- +0.15% on superopt's 1 323, against the expected 3-5%. Run
+*before* superopt it finds 1 318 of those 1 323, so the search itself works ✓; the
+rule set's rewrites do not compose ✓. The dependency and the +3-4% on the
+optimisation phase do not pay for that. The report and the measured patch are in
+`reports/2026-10-20-egg-straight-line-regions.md`.
+
 ## Where the backlog stands
 
 | phase | item | outcome |
@@ -585,7 +603,7 @@ guarantee, not the scalar replacement it would have enabled.
 | 3 | 3.4 linear resources | landed (E0413) |
 | 3 | 3.5 move-only marker | landed (`@move_only`, E0415) |
 | 4 | 4.1 SMT-validated rules | **landed: the check found a wrong shift mask** |
-| 4 | 4.2 egg for straight-line MIR | open |
+| 4 | 4.2 egg for straight-line MIR | **not adopted** (the search works -- 1 318 of superopt's 1 323 rewrites found -- but the rule set's rewrites do not compose: 2 extra rewrites over the corpus, 0 on the benchmarks, +0.15% against the expected 3-5%) |
 | 4 | 4.3 translation validation | landed in its cheap form; the SMT version is open |
 | 4 | 4.4 lifetime-driven inlining | **not adopted** (surveyed: the MIR's liveness already has every lifetime fact the type checker knows -- 0 inlining decisions and 0 assignments change) |
 
