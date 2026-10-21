@@ -378,19 +378,36 @@ pub extern "C" fn config_from_env(
     targs: Targs,
     ret: *const TypeDesc,
     prefix: u64,
+    names: u64,
 ) -> u64 {
-    config_decode(targs, ret, prefix, Mode { strict: false, profile: false })
+    config_decode(targs, ret, prefix, names, Mode { strict: false, profile: false })
 }
 
 /// Profile data overlaid by prefixed environment variables.
-pub extern "C" fn config_load(_ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix: u64) -> u64 {
-    config_decode(targs, ret, prefix, Mode { strict: false, profile: true })
+pub extern "C" fn config_load(
+    _ctx: *mut TaskCtx,
+    targs: Targs,
+    ret: *const TypeDesc,
+    prefix: u64,
+    names: u64,
+) -> u64 {
+    config_decode(targs, ret, prefix, names, Mode { strict: false, profile: true })
+}
+
+/// The variables settings read in place of `PREFIX` + their name
+/// (`@config.env("DATABASE_URL")`): `path=VARIABLE` lines.
+fn env_names(names: u64) -> Vec<(String, String)> {
+    str_of(names)
+        .lines()
+        .filter_map(|l| l.split_once('='))
+        .map(|(p, v)| (p.to_string(), v.to_string()))
+        .collect()
 }
 
 /// `config.load` and `config.from_env`: the leaves of `T` from the profile
 /// data (when `mode.profile`) and prefixed environment variables, without
 /// `resolve`'s strictness, defaults, or overrides.
-fn config_decode(targs: Targs, ret: *const TypeDesc, prefix: u64, mode: Mode) -> u64 {
+fn config_decode(targs: Targs, ret: *const TypeDesc, prefix: u64, names: u64, mode: Mode) -> u64 {
     use crate::desc::Kind;
     let t = targ(targs, 0);
     let ret = rdesc(ret);
@@ -398,7 +415,7 @@ fn config_decode(targs: Targs, ret: *const TypeDesc, prefix: u64, mode: Mode) ->
     let Kind::Record { .. } = &t.kind else {
         return resolve_err(ret, &pre, "configuration type must be a record");
     };
-    decode_layers(t, ret, resolve_layers(t, &pre, &[], "{}", mode))
+    decode_layers(t, ret, resolve_layers(t, &pre, &env_names(names), &[], "{}", mode))
 }
 
 /// A configured value with `${NAME}` (an environment variable, which must
@@ -619,12 +636,19 @@ struct Candidate {
 fn resolve_layers(
     t: &'static TypeDesc,
     pre: &str,
+    names: &[(String, String)],
     overrides: &[String],
     defaults: &str,
     mode: Mode,
 ) -> Result<(serde_json::Map<String, serde_json::Value>, Vec<(Leaf, Vec<Candidate>)>), (String, String)> {
     let mut ls = vec![];
     leaves(t, pre, "", None, &mut ls);
+    // a setting that names its variable reads that one
+    for l in &mut ls {
+        if let Some((_, v)) = names.iter().find(|(p, _)| *p == l.path) {
+            l.env = v.clone();
+        }
+    }
     // one environment variable for two fields (`db_port` and `db.port`)
     for (i, a) in ls.iter().enumerate() {
         if let Some(b) = ls[i + 1..].iter().find(|b| b.env == a.env) {
@@ -863,6 +887,7 @@ pub extern "C" fn config_resolve(
     targs: Targs,
     ret: *const TypeDesc,
     prefix: u64,
+    names: u64,
     overrides: u64,
     defaults: u64,
 ) -> u64 {
@@ -878,7 +903,14 @@ pub extern "C" fn config_resolve(
     decode_layers(
         t,
         ret,
-        resolve_layers(t, &pre, &over, str_of(defaults), Mode { strict: true, profile: true }),
+        resolve_layers(
+            t,
+            &pre,
+            &env_names(names),
+            &over,
+            str_of(defaults),
+            Mode { strict: true, profile: true },
+        ),
     )
 }
 
@@ -888,6 +920,7 @@ pub extern "C" fn config_provenance(
     targs: Targs,
     _ret: *const TypeDesc,
     prefix: u64,
+    names: u64,
     overrides: u64,
     defaults: u64,
 ) -> u64 {
@@ -895,9 +928,16 @@ pub extern "C" fn config_provenance(
     let pre = str_of(prefix).to_string();
     let over: Vec<String> =
         crate::list::to_vec(overrides).into_iter().map(|w| str_of(w).to_string()).collect();
-    let rows = resolve_layers(t, &pre, &over, str_of(defaults), Mode { strict: true, profile: true })
-        .map(|r| r.1)
-        .unwrap_or_default();
+    let rows = resolve_layers(
+        t,
+        &pre,
+        &env_names(names),
+        &over,
+        str_of(defaults),
+        Mode { strict: true, profile: true },
+    )
+    .map(|r| r.1)
+    .unwrap_or_default();
     let out: Vec<serde_json::Value> = rows
         .into_iter()
         .filter_map(|(l, cs)| {

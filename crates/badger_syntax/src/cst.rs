@@ -32,8 +32,9 @@ pub enum AttrPosition<'a> {
     Type(Option<T<'a>>),
     /// A top-level function of this signature (a function type).
     Fn(T<'a>),
-    /// A struct field.
-    Field,
+    /// A field (of a struct or a `type`'s record), of a protocol its
+    /// owner must implement (`field: Codec`).
+    Field(Option<T<'a>>),
     /// An enum variant.
     Variant,
     /// A module-level value (`let`).
@@ -306,7 +307,8 @@ pub enum Ty<'a> {
     },
     Dyn(Box<T<'a>>),
     Record {
-        fields: Vec<(Label<'a>, T<'a>)>,
+        /// Each field's attributes (read where the record is a `type`'s).
+        fields: Vec<(Vec<Attribute<'a>>, Label<'a>, T<'a>)>,
         rest: Option<Ident<'a>>,
     },
     Effect(Effect<'a>),

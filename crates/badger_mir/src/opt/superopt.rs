@@ -408,8 +408,18 @@ fn mask(bits: u8) -> u64 {
 fn canonicalize(rv: &Rvalue) -> Rvalue {
     let mut rv = rv.clone();
     match &mut rv {
-        Rvalue::Bin { op: BinOp::Add | BinOp::Mul | BinOp::And | BinOp::Or | BinOp::Xor, a, b, .. } => {
-            if key(b) < key(a) {
+        Rvalue::Bin { op: op @ (BinOp::Add | BinOp::Mul | BinOp::And | BinOp::Or | BinOp::Xor), a, b, ty, .. } => {
+            // `a + b` and `b + a` agree for the integers; for the floats they
+            // do not. x86-64 propagates the *first* NaN operand's payload, and
+            // the payload is observable: floats are hashed by their bits and
+            // the binary codec writes them bit for bit. The translation
+            // validator (reports/2026-10-21-mir-translation-validation-smt.md)
+            // refutes four functions of the corpus that this swap changed.
+            let commutative = match ty {
+                NumTy::I(..) => true,
+                NumTy::F(..) => !matches!(op, BinOp::Add | BinOp::Mul),
+            };
+            if commutative && key(b) < key(a) {
                 std::mem::swap(a, b);
             }
         }

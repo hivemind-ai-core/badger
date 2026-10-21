@@ -69,8 +69,8 @@ fn from_env<T>(prefix: String) -> Result<T, Error> !{Io} where T: Codec
 ```
 
 Decode required record fields from prefixed environment variables
-(`PREFIX` + upper-cased field name). Missing variables and failed
-conversions are structured errors.
+(`PREFIX` + upper-cased field name, or the one `@config.env` names).
+Missing variables and failed conversions are structured errors.
 
 ### `load`
 
@@ -102,7 +102,7 @@ fn resolve<T>(prefix: String, overrides: List<String>) -> Result<Resolved<T>, Er
 Resolve `T` from every source, lowest to highest precedence: the
 `[config]` table, the selected profile, prefixed environment variables
 (`PREFIX` + the upper-cased field path, `_`-joined: `APP_DB_PORT` for
-`db.port`; `.env` files the project enables are loaded into the
+`db.port`, or the variable a field's `@config.env` names; `.env` files the project enables are loaded into the
 environment first), and `overrides` (`key=value`, with dotted keys, as a
 `--set` option gives them). Unlike `load`, it is strict: a `[config]`
 or profile key, a prefixed variable, or an override that names no
@@ -121,4 +121,17 @@ fn resolve_or<T>(prefix: String, overrides: List<String>, defaults: T) -> Result
 ```badger
 fn secret(value: String) -> Secret
 ```
+
+## Attributes
+
+### `@config.env`
+
+```badger
+attribute env on field: Codec { name: String }
+```
+
+The environment variable a setting reads in place of `PREFIX` + its
+name, for one the platform sets:
+`pub type Settings = { @config.env("DATABASE_URL") database: String }`.
+It names a field of the configuration type itself.
 

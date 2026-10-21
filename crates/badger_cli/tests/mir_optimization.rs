@@ -46,6 +46,62 @@ fn large_helper(capture: bool) -> String {
     s
 }
 
+/// `let f = same; f(x)`: the local holds a *static* closure — a function
+/// passed by name, whose object the caller never allocates — and the
+/// program records which function that object calls, so the call is seen
+/// through like a direct one. A single-definition copy of the local is too.
+#[test]
+fn a_function_held_in_a_local_is_inlined() {
+    let dir = temp("static-local");
+    let src = dir.join("static_local.bdg");
+    std::fs::write(
+        &src,
+        "import std.io\n\nfn same(x: Int) -> Int { x }\n\
+         fn by_local(x: Int) -> Int { let f = same; f(x) }\n\
+         fn by_copy(x: Int) -> Int { let f = same; let g = f; g(x) }\n\n\
+         pub fn main() -> Unit {\n    let _ = io.println($\"{by_local(3)} {by_copy(4)}\")\n}\n",
+    )
+    .unwrap();
+    let (stdout, mir) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
+    assert_eq!(stdout, "3 4\n");
+    assert!(!mir.contains("callee: Closure"), "an indirect call remains:\n{mir}");
+}
+
+/// A local set to the same callable through more than one branch is known
+/// too (`var f = same; if p { f = same }`): a declaration always gives a
+/// value, so every path to a use holds that callable. A local that can hold
+/// two *different* functions must stay indirect.
+#[test]
+fn a_local_set_only_to_the_same_function_is_known() {
+    let dir = temp("same-function");
+    let src = dir.join("same_function.bdg");
+    // past the inliner's size limit, so each shape keeps its own function
+    let pad: String = (0..45).map(|i| format!("    v = v + {}\n", i % 3 + 1)).collect();
+    let mut s = String::from(
+        "import std.io\n\nfn same(x: Int) -> Int { x }\nfn other(x: Int) -> Int { x + 1 }\n\n",
+    );
+    for (name, held) in [
+        ("twice", "    var f = same\n    if x > 0 { f = same }"),
+        ("copied", "    let one = same\n    var f = one\n    if x > 0 { f = one }"),
+        ("varies", "    var f = same\n    if x > 0 { f = other }"),
+    ] {
+        s.push_str(&format!("fn {name}(x: Int) -> Int {{\n    var v = 0\n{pad}{held}\n    f(v + x)\n}}\n\n"));
+    }
+    s.push_str("pub fn main() -> Unit {\n    let _ = io.println($\"{twice(1)} {copied(1)} {varies(1)}\")\n}\n");
+    std::fs::write(&src, s).unwrap();
+    let (stdout, mir) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
+    assert_eq!(stdout, "91 91 92\n");
+    let sect = |name: &str| mir.split("\nfn ").find(|p| p.contains(name)).unwrap_or_default().to_string();
+    for name in ["twice", "copied"] {
+        assert!(!sect(name).contains("callee: Closure"), "{name} should be known:\n{}", sect(name));
+    }
+    assert!(
+        sect("varies").contains("callee: Closure"),
+        "a varying callee must stay indirect:\n{}",
+        sect("varies")
+    );
+}
+
 #[test]
 fn a_large_helper_called_with_a_known_closure_is_specialized() {
     let dir = temp("specialize");

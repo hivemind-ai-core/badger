@@ -87,6 +87,9 @@ pub enum ItemKind {
         name: Name,
         generics: Vec<GenericParam>,
         ty: TypeId,
+        /// The attributes on the fields of a record type
+        /// (`type Settings = { @config.env("DB_URL") database: String }`).
+        field_attributes: Vec<(Label, Vec<Attribute>)>,
     },
     Struct(StructDecl),
     Enum(EnumDecl),
@@ -146,7 +149,8 @@ pub enum AttrPosition {
     Type(Option<TypeId>),
     /// A top-level function of this signature (a function type).
     Fn(TypeId),
-    Field,
+    /// A field, of a protocol its owner must implement (`field: Codec`).
+    Field(Option<TypeId>),
     Variant,
     Value,
 }
