@@ -7,8 +7,9 @@
 [
   "import" "as" "type" "struct" "enum" "protocol" "impl" "where"
   "let" "var" "const" "use" "extern" "dyn" "repr" "unsafe"
-  "system" "pipeline" "map" "set" "ref" "provider" "stage"
+  "system" "pipeline" "map" "set" "ref" "provider" "stage" "attribute" "on"
 ] @keyword
+(attribute_position ["field" "variant" "value"] @keyword)
 
 ["fn" "once"] @keyword.function
 ["if" "else" "match"] @keyword.conditional
@@ -28,6 +29,8 @@
 (protocol_declaration name: (type_identifier) @type.definition)
 (effect) @attribute
 (attribute "@" @attribute name: (_) @attribute)
+(attribute namespace: (_) @attribute)
+(attribute_declaration name: (identifier) @attribute)
 (attribute_argument key: (_) @variable.parameter)
 (hole) @type
 

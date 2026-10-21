@@ -145,3 +145,215 @@ stage timed() -> Result<_, E> {
           (identifier)
           (arguments
             (identifier)))))))
+
+==================
+Dotted attribute names
+==================
+
+pub enum Error {
+  @http.status(400) @message("{message}")
+  invalid(message: String),
+}
+
+@lib.sub.marker
+struct S { @db.column(name = "id") pub id: Int }
+
+fn f(@web.query n: Int) -> Int {
+  @lint.allow(E0103)
+  let x = n
+  x
+}
+
+---
+
+(source_file
+  (enum_declaration
+    (visibility)
+    (type_identifier)
+    (enum_variant
+      (attribute
+        (identifier)
+        (identifier)
+        (attribute_argument
+          (integer)))
+      (attribute
+        (identifier)
+        (attribute_argument
+          (string)))
+      (identifier)
+      (variant_field
+        (identifier)
+        (type_path
+          (type_identifier)))))
+  (attribute
+    (identifier)
+    (identifier)
+    (identifier))
+  (struct_declaration
+    (type_identifier)
+    (struct_field
+      (attribute
+        (identifier)
+        (identifier)
+        (attribute_argument
+          (identifier)
+          (string)))
+      (visibility)
+      (identifier)
+      (type_path
+        (type_identifier))))
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (attribute
+          (identifier)
+          (identifier))
+        (identifier)
+        (type_path
+          (type_identifier))))
+    (type_path
+      (type_identifier))
+    (block
+      (attribute
+        (identifier)
+        (identifier)
+        (attribute_argument
+          (type_identifier)))
+      (let_statement
+        (identifier)
+        (identifier))
+      (identifier))))
+
+==================
+Named attribute arguments
+==================
+
+impl List {
+  @fusion(role = source, template = list)
+  pub fn iter(self: &Self) -> Seq { seq(self) }
+}
+
+protocol P {
+  @fusion(terminal, role = sink, ids = [1, 2], ratio = -1.5, every = 5s, n = -3)
+  fn p(self: &Self) -> Int
+}
+
+---
+
+(source_file
+  (impl_declaration
+    (type_path
+      (type_identifier))
+    (attribute
+      (identifier)
+      (attribute_argument
+        (identifier)
+        (identifier))
+      (attribute_argument
+        (identifier)
+        (identifier)))
+    (function_declaration
+      (visibility)
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (reference_type
+            (type_path
+              (type_identifier)))))
+      (type_path
+        (type_identifier))
+      (block
+        (call_expression
+          (identifier)
+          (arguments
+            (identifier))))))
+  (protocol_declaration
+    (type_identifier)
+    (attribute
+      (identifier)
+      (attribute_argument
+        (identifier))
+      (attribute_argument
+        (identifier)
+        (identifier))
+      (attribute_argument
+        (identifier)
+        (attribute_list
+          (integer)
+          (integer)))
+      (attribute_argument
+        (identifier)
+        (float))
+      (attribute_argument
+        (identifier)
+        (duration))
+      (attribute_argument
+        (identifier)
+        (integer)))
+    (function_declaration
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (reference_type
+            (type_path
+              (type_identifier)))))
+      (type_path
+        (type_identifier)))))
+
+==================
+Attribute declarations
+==================
+
+pub attribute status on variant {
+  code: Int,
+}
+
+attribute route on fn(http.Request) -> http.Response, value { method: Method, path: String }
+
+pub attribute marker on type, field {}
+
+attribute shaped on type: Int {}
+
+---
+
+(source_file
+  (attribute_declaration
+    (visibility)
+    (identifier)
+    (attribute_position)
+    (struct_field
+      (identifier)
+      (type_path
+        (type_identifier))))
+  (attribute_declaration
+    (identifier)
+    (attribute_position
+      (function_type
+        (type_path
+          (identifier)
+          (type_identifier))
+        (type_path
+          (identifier)
+          (type_identifier))))
+    (attribute_position)
+    (struct_field
+      (identifier)
+      (type_path
+        (type_identifier)))
+    (struct_field
+      (identifier)
+      (type_path
+        (type_identifier))))
+  (attribute_declaration
+    (visibility)
+    (identifier)
+    (attribute_position)
+    (attribute_position))
+  (attribute_declaration
+    (identifier)
+    (attribute_position
+      (type_path
+        (type_identifier)))))

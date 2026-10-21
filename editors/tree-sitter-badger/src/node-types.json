@@ -457,6 +457,20 @@
             "named": true
           }
         ]
+      },
+      "namespace": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
       }
     },
     "children": {
@@ -489,9 +503,25 @@
         ]
       },
       "value": {
-        "multiple": false,
+        "multiple": true,
         "required": true,
         "types": [
+          {
+            "type": "-",
+            "named": false
+          },
+          {
+            "type": "attribute_list",
+            "named": true
+          },
+          {
+            "type": "duration",
+            "named": true
+          },
+          {
+            "type": "float",
+            "named": true
+          },
           {
             "type": "identifier",
             "named": true
@@ -514,6 +544,126 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "attribute_declaration",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "attribute_position",
+          "named": true
+        },
+        {
+          "type": "struct_field",
+          "named": true
+        },
+        {
+          "type": "visibility",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "attribute_list",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "duration",
+          "named": true
+        },
+        {
+          "type": "float",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "integer",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        },
+        {
+          "type": "symbol",
+          "named": true
+        },
+        {
+          "type": "type_identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "attribute_position",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "dyn_type",
+          "named": true
+        },
+        {
+          "type": "forall_type",
+          "named": true
+        },
+        {
+          "type": "function_type",
+          "named": true
+        },
+        {
+          "type": "hole",
+          "named": true
+        },
+        {
+          "type": "record_type",
+          "named": true
+        },
+        {
+          "type": "reference_type",
+          "named": true
+        },
+        {
+          "type": "tuple_type",
+          "named": true
+        },
+        {
+          "type": "type_path",
+          "named": true
+        },
+        {
+          "type": "unit",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -946,6 +1096,10 @@
       "types": [
         {
           "type": "assignment",
+          "named": true
+        },
+        {
+          "type": "attribute",
           "named": true
         },
         {
@@ -3365,6 +3519,10 @@
           "named": true
         },
         {
+          "type": "attribute",
+          "named": true
+        },
+        {
           "type": "dyn_type",
           "named": true
         },
@@ -5482,6 +5640,10 @@
       "required": true,
       "types": [
         {
+          "type": "attribute",
+          "named": true
+        },
+        {
           "type": "dyn_type",
           "named": true
         },
@@ -5965,6 +6127,10 @@
       "types": [
         {
           "type": "associated_type",
+          "named": true
+        },
+        {
+          "type": "attribute",
           "named": true
         },
         {
@@ -6701,6 +6867,10 @@
           "named": true
         },
         {
+          "type": "attribute_declaration",
+          "named": true
+        },
+        {
           "type": "enum_declaration",
           "named": true
         },
@@ -7346,6 +7516,10 @@
       "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "attribute",
+          "named": true
+        },
         {
           "type": "dyn_type",
           "named": true
@@ -9087,6 +9261,10 @@
     "named": false
   },
   {
+    "type": "attribute",
+    "named": false
+  },
+  {
     "type": "block_comment",
     "named": true,
     "extra": true
@@ -9149,6 +9327,10 @@
   },
   {
     "type": "false",
+    "named": false
+  },
+  {
+    "type": "field",
     "named": false
   },
   {
@@ -9218,6 +9400,10 @@
   },
   {
     "type": "mut",
+    "named": false
+  },
+  {
+    "type": "on",
     "named": false
   },
   {
@@ -9297,7 +9483,15 @@
     "named": false
   },
   {
+    "type": "value",
+    "named": false
+  },
+  {
     "type": "var",
+    "named": false
+  },
+  {
+    "type": "variant",
     "named": false
   },
   {

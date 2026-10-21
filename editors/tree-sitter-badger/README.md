@@ -21,7 +21,8 @@ npx tree-sitter-cli@0.25.10 parse --quiet --paths /tmp/bdg-files.txt
 
 Every `.bdg` file in the repository parses without errors except the
 deliberately malformed ones under `tests/reject/` and `tests/adversarial/`,
-and the one known limitation below.
+and `tests/run/templates.bdg`, which hits the `match set { ... }` limitation
+below.
 
 ## Differences from the compiler's parser
 

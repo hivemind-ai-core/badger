@@ -60,15 +60,28 @@ module.exports = grammar({
     _member: ($) => choice($.identifier, $.type_identifier, alias(/[0-9]+/, $.integer)),
 
     // ------------------------------------------------------------ items
-    // `@derive(Codec)`, `@flatten`, `@allow(E0103)`, `@status(404)`:
-    // metadata a declaration (or an enum variant) carries
+    // `@derive(Codec)`, `@flatten`, `@allow(E0103)`, `@fusion(role = source)`,
+    // and `@http.status(404)` (a library's attribute, named after its module):
+    // metadata a declaration, member, field, variant, parameter, or statement
+    // carries (a `(` after the name opens its arguments, as in the compiler)
     attribute: ($) =>
-      seq('@', field('name', $._name), optional(seq('(', commaSep($.attribute_argument), ')'))),
+      prec.right(
+        seq(
+          '@',
+          repeat(seq(field('namespace', $._name), '.')),
+          field('name', $._name),
+          optional(seq('(', commaSep($.attribute_argument), ')')),
+        ),
+      ),
     attribute_argument: ($) =>
       seq(
         optional(seq(field('key', $._name), '=')),
-        field('value', choice($._name, $.symbol, $.integer, $.string)),
+        field('value', choice($._attribute_value, $.attribute_list)),
       ),
+    // `[a, b]`: a list of values (no nesting)
+    attribute_list: ($) => seq('[', commaSep($._attribute_value), ']'),
+    _attribute_value: ($) =>
+      choice($._name, $.symbol, $.string, $.duration, seq(optional('-'), choice($.float, $.integer))),
 
     _item: ($) => seq(repeat($.attribute), $._declaration),
     _declaration: ($) =>
@@ -85,6 +98,7 @@ module.exports = grammar({
         $.extern_declaration,
         $.extern_type,
         $.global_declaration,
+        $.attribute_declaration,
       ),
 
     visibility: (_) => 'pub',
@@ -112,7 +126,25 @@ module.exports = grammar({
         commaSep($.struct_field),
         '}',
       ),
-    struct_field: ($) => seq(optional($.visibility), field('name', $._member), ':', $._type),
+    struct_field: ($) =>
+      seq(repeat($.attribute), optional($.visibility), field('name', $._member), ':', $._type),
+
+    // `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`: a library's
+    // attribute, the positions it may be written at, and its fields
+    attribute_declaration: ($) =>
+      seq(
+        optional($.visibility),
+        'attribute',
+        field('name', $.identifier),
+        'on',
+        sep1($.attribute_position, ','),
+        '{',
+        commaSep($.struct_field),
+        '}',
+      ),
+    // a function position names the signature the functions have
+    attribute_position: ($) =>
+      choice(seq('type', optional(seq(':', $._type))), 'field', 'variant', 'value', $.function_type),
 
     enum_declaration: ($) =>
       seq(
@@ -140,9 +172,10 @@ module.exports = grammar({
         optional($.generic_parameters),
         optional(seq(':', sep1($._type, '+'))),
         '{',
-        repeat(choice($.function_declaration, $.associated_type, ';')),
+        repeat(choice($._member_function, $.associated_type, ';')),
         '}',
       ),
+    _member_function: ($) => seq(repeat($.attribute), $.function_declaration),
     associated_type: ($) => seq('type', field('name', $.type_identifier), optional(seq('=', $._type))),
 
     impl_declaration: ($) =>
@@ -153,7 +186,7 @@ module.exports = grammar({
         optional(seq('for', $._type)),
         optional($.where_clause),
         '{',
-        repeat(choice($.function_declaration, $.associated_type, ';')),
+        repeat(choice($._member_function, $.associated_type, ';')),
         '}',
       ),
 
@@ -232,7 +265,7 @@ module.exports = grammar({
       seq(optional($.visibility), choice('let', 'var', 'const'), $._pattern, optional(seq(':', $._type)), '=', $._expression),
 
     parameters: ($) => seq('(', commaSep($.parameter), ')'),
-    parameter: ($) => seq($._pattern, optional(seq(':', $._type))),
+    parameter: ($) => seq(repeat($.attribute), $._pattern, optional(seq(':', $._type))),
     generic_parameters: ($) => seq('<', commaSep1($.generic_parameter), '>'),
     generic_parameter: ($) => seq($._name, optional(seq(':', sep1($._type, '+')))),
     where_clause: ($) => prec.right(seq('where', sep1($.where_predicate, ','))),
@@ -269,7 +302,8 @@ module.exports = grammar({
     effect: ($) => prec.right(seq('!', choice(seq('{', commaSep($._name), '}'), $.type_identifier))),
 
     // ------------------------------------------------------------ statements
-    block: ($) => seq('{', repeat(choice($._statement, ';')), '}'),
+    // a statement (or local function) may carry attributes, on the lines before it
+    block: ($) => seq('{', repeat(choice(seq(repeat($.attribute), $._statement), ';')), '}'),
     // a local function is a statement: `fn name(...) { ... }` in a body
     _statement: ($) =>
       choice($.let_statement, $.use_statement, $.assignment, $.local_function, $._expression),
