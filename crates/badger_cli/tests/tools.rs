@@ -160,6 +160,39 @@ fn workers_out_of_range_is_a_usage_error() {
     }
 }
 
+/// A program that does not check: `graph`, `contracts`, and `explain`
+/// print its diagnostics, and nothing after them.
+#[test]
+fn tools_report_the_diagnostics_of_a_broken_program() {
+    let dir = scratch("broken-tools");
+    let file = dir.join("main.bdg");
+    std::fs::write(&file, "pub fn main() -> Unit {\n    let x: Int = \"no\"\n}\n").unwrap();
+    let f = file.to_str().unwrap();
+    let missing = dir.join("missing.bdg");
+    let m = missing.to_str().unwrap();
+    // a type error is a failure, with its diagnostic
+    let out = lang().args(["graph", "calls", f]).output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(err.contains("E0"), "{err}");
+    assert!(out.stdout.is_empty(), "{}", String::from_utf8_lossy(&out.stdout));
+    // a missing file: why, not a generic message
+    let out = lang().args(["graph", "calls", m]).output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(!err.contains("does not check"), "{err}");
+    assert!(err.contains("missing.bdg"), "{err}");
+    let out = lang().args(["contracts", m]).output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(!text.contains("clause(s)"), "{text}");
+    let out = lang().args(["explain", "type", "main", m]).output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(!err.contains("no definition"), "{err}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// `badger test --filter` that matches no test fails, with `--list` and
 /// `--json` too (the JSON object names the error).
 #[test]

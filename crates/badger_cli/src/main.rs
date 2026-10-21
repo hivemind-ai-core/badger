@@ -967,6 +967,10 @@ fn command(cli: Cli) -> ExitCode {
                     );
                 }
                 let proven = clauses.iter().filter(|c| c.status == "proven").count();
+                // a program that does not check has no clauses to count
+                if clauses.is_empty() && session.diagnostics.has_errors() {
+                    return ExitCode::FAILURE;
+                }
                 println!(
                     "{} clause(s): {proven} proven, {} checked at run time, {} refuted",
                     clauses.len(),
@@ -990,7 +994,7 @@ fn command(cli: Cli) -> ExitCode {
         Command::Graph { kind, path, format, json, std } => {
             // `--json` is the short way to ask for the JSON format
             let format = if json { "json" } else { format.as_str() };
-            match graph::graph(&kind, &path, format, std) {
+            match graph::graph(&mut session, &kind, &path, format, std) {
                 Ok(g) => {
                     // every format ends with a newline
                     if g.ends_with('\n') {
@@ -1000,8 +1004,12 @@ fn command(cli: Cli) -> ExitCode {
                     }
                     ExitCode::SUCCESS
                 }
-                Err(e) => {
+                Err(graph::Failure::Error(e)) => {
                     eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
+                Err(graph::Failure::Diagnostics) => {
+                    report(&session, false);
                     ExitCode::FAILURE
                 }
             }
@@ -1488,7 +1496,10 @@ fn command(cli: Cli) -> ExitCode {
                         }
                         None => {
                             report(&session, json);
-                            eprintln!("error: no definition `{target}` in the entry module");
+                            // a program that does not load says why itself
+                            if !session.diagnostics.has_errors() {
+                                eprintln!("error: no definition `{target}` in the entry module");
+                            }
                             ExitCode::FAILURE
                         }
                     }

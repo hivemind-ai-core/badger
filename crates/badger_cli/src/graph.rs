@@ -7,11 +7,31 @@ use std::path::Path;
 
 use serde_json::json;
 
-pub fn graph(kind: &str, path: &Path, format: &str, with_std: bool) -> Result<String, String> {
+/// Why there is no graph: an error to print, or a program that does not
+/// check (its diagnostics are in the session).
+pub enum Failure {
+    Error(String),
+    Diagnostics,
+}
+
+impl From<String> for Failure {
+    fn from(e: String) -> Self {
+        Failure::Error(e)
+    }
+}
+
+/// The graph of `kind` of the program at `path`. A program that does not
+/// check has no graph: its diagnostics are left in `session`.
+pub fn graph(
+    session: &mut badger_driver::Session,
+    kind: &str,
+    path: &Path,
+    format: &str,
+    with_std: bool,
+) -> Result<String, Failure> {
     let edges: Vec<(String, String)> = match kind {
         "systems" => {
-            let mut s = badger_driver::Session::new();
-            let plans = s.inspect_plans(path).ok_or("the program does not parse")?;
+            let plans = session.inspect_plans(path).ok_or(Failure::Diagnostics)?;
             let mut out = vec![];
             for (i, p) in plans.iter().enumerate() {
                 if p.kind != "system" {
@@ -31,8 +51,11 @@ pub fn graph(kind: &str, path: &Path, format: &str, with_std: bool) -> Result<St
         }
         "calls" | "modules" | "types" => {
             let a = badger_driver::analysis::analyze(path, Default::default());
-            if a.files.iter().all(|f| f.refs.is_empty()) && !a.diagnostics.is_empty() {
-                return Err("the program does not check (see `badger check`)".into());
+            // the diagnostics as `badger check` reports them
+            if a.diagnostics.iter().any(|d| d.severity == badger_base::Severity::Error)
+                && session.check(path) == badger_driver::Outcome::Errors
+            {
+                return Err(Failure::Diagnostics);
             }
             let g = match kind {
                 "calls" => a.graphs.calls,
@@ -41,7 +64,7 @@ pub fn graph(kind: &str, path: &Path, format: &str, with_std: bool) -> Result<St
             };
             g.into_iter().filter(|e| with_std || !e.2).map(|(f, t, _)| (f, t)).collect()
         }
-        other => return Err(format!("unknown graph `{other}` (calls, modules, types, systems)")),
+        other => return Err(format!("unknown graph `{other}` (calls, modules, types, systems)").into()),
     };
     let mut nodes: Vec<&str> = edges.iter().flat_map(|(a, b)| [a.as_str(), b.as_str()]).collect();
     nodes.sort();
@@ -74,6 +97,6 @@ pub fn graph(kind: &str, path: &Path, format: &str, with_std: bool) -> Result<St
             s.push_str("}\n");
             s
         }
-        other => return Err(format!("unknown format `{other}` (dot, mermaid, json)")),
+        other => return Err(format!("unknown format `{other}` (dot, mermaid, json)").into()),
     })
 }
