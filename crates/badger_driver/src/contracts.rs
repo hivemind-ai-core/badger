@@ -148,6 +148,17 @@ impl<'a> Analysis<'a> {
         self.interner.resolve(self.hir.defs[d].name).to_string()
     }
 
+    /// Whether an expression's type is a collection that never changes
+    /// after it is made (`List`, `Array`, `String`, `Map`, `Set`): only
+    /// those keep a length the analysis may remember. A buffer or a
+    /// builder grows in place behind an immutable binding.
+    fn fixed_len(&self, e: ExprId) -> bool {
+        self.types
+            .exprs
+            .get(&e)
+            .is_some_and(|t| matches!(t.split('<').next(), Some("List" | "Array" | "String" | "Map" | "Set")))
+    }
+
     // ------------------------------------------------------------ evaluation
 
     fn eval(&self, e: ExprId, env: &Env) -> V {
@@ -160,7 +171,8 @@ impl<'a> Analysis<'a> {
             ExprKind::Lit(Lit::Bool(b)) => V::Bool(Some(*b)),
             ExprKind::Lit(Lit::Str(s)) => V::Str(Some(s.clone())),
             ExprKind::Local(l) => env.get(*l),
-            ExprKind::List(items) => {
+            // a list or array literal (a buffer's grows after it is made)
+            ExprKind::List(items) if self.fixed_len(e) => {
                 let n = items.len() as i128;
                 V::List(n, n)
             }
@@ -396,7 +408,9 @@ impl<'a> Analysis<'a> {
                 if args.is_empty() && self.interner.resolve(*method) == "len" =>
             {
                 match &self.hir.exprs[*recv].kind {
-                    ExprKind::Local(l) if !self.assigned.contains(l) => Some((*l, true)),
+                    ExprKind::Local(l) if !self.assigned.contains(l) && self.fixed_len(*recv) => {
+                        Some((*l, true))
+                    }
                     _ => None,
                 }
             }

@@ -1,0 +1,72 @@
+// A buffer's or a builder's length changes behind an immutable binding:
+// the contract analysis remembers only the lengths of collections that
+// never change, so these checks stay (each failure is contained and
+// shown), while a list literal's length still proves its call.
+import std.buffer
+import std.io
+import std.list
+import std.task
+
+requires n <= 2, "at most two"
+fn small(n: Int) -> Int { n }
+
+requires n <= 0, "empty"
+fn none_yet(n: Int) -> Int { n }
+
+fn show(name: String, e: task.Exit<Int>) -> Unit {
+    let _ = match e {
+        .returned(v) => io.println($"{name}: {v}"),
+        // the failure without where it happened (the path varies)
+        .failed(info) => io.println($"{name}: {info.message.split_once("; ").map(fn(p) { p.0 }).unwrap_or(info.message)}"),
+        .cancelled(_) => io.println($"{name}: cancelled"),
+    }
+}
+
+pub fn main() -> Unit {
+    let _ = task.scope(fn(s) -> Result<Unit, Unit> {
+        show("overflow", s.capture(fn() {
+            let b = buffer.new<Int>()
+            if b.len() <= 2 {
+                b.push(1)
+                b.push(2)
+                b.push(3)
+                let big = 4000000000000000000
+                big * b.len()
+            } else {
+                0
+            }
+        }).join())
+        show("grown buffer", s.capture(fn() {
+            let b = buffer.new<Int>()
+            if b.len() <= 2 {
+                b.push(1)
+                b.push(2)
+                b.push(3)
+                small(b.len())
+            } else {
+                0
+            }
+        }).join())
+        show("buffer literal", s.capture(fn() {
+            let b: Buffer<Int> = [1, 2]
+            b.push(3)
+            small(b.len())
+        }).join())
+        show("builder", s.capture(fn() {
+            let b = list.builder<Int>()
+            if b.len() == 0 {
+                b.append(5)
+                let n = none_yet(b.len())
+                let _ = b.finish()
+                n
+            } else {
+                0
+            }
+        }).join())
+        show("list literal", s.capture(fn() {
+            let l = [1, 2]
+            small(l.len())
+        }).join())
+        ok(())
+    })
+}
