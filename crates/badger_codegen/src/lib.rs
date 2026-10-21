@@ -80,6 +80,13 @@ impl Jit {
         flags.set("opt_level", if optimize { "speed" } else { "none" })?;
         // frame-pointer chains for profilers and debuggers
         flags.set("preserve_frame_pointers", "true")?;
+        // Cranelift's IR verifier is a quarter of code generation: on in
+        // debug builds, with `BADGER_CLIF_VERIFY`, and under
+        // `BADGER_MIR_VALIDATE` (the corpus check), off otherwise
+        let verify = cfg!(debug_assertions)
+            || std::env::var_os("BADGER_CLIF_VERIFY").is_some()
+            || std::env::var_os("BADGER_MIR_VALIDATE").is_some();
+        flags.set("enable_verifier", if verify { "true" } else { "false" })?;
         cranelift_native::builder()
             .map_err(|e| CodegenError::Host(e.to_string()))?
             .finish(settings::Flags::new(flags))
@@ -735,8 +742,10 @@ impl FnCx<'_> {
             for (_, d) in f.locals.iter_enumerated() {
                 vars.push(b.declare_var(cty(d.repr)));
             }
-            let blocks: IndexVec<BlockId, CBlock> = f.blocks.iter().map(|_| b.create_block()).collect();
+            // the entry first: every variable is defined there, and each
+            // variable's definitions are a map sized by the highest block
             let entry = b.create_block();
+            let blocks: IndexVec<BlockId, CBlock> = f.blocks.iter().map(|_| b.create_block()).collect();
             b.append_block_params_for_function_params(entry);
             b.switch_to_block(entry);
             let ps = b.block_params(entry).to_vec();
