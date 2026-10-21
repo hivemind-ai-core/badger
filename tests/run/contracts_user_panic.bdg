@@ -1,0 +1,29 @@
+// Only a call of a function declared to return `Never` ends a guard clause:
+// a user's own `panic` that returns lets the value through, so the
+// multiplication after it keeps its overflow check.
+import std.io
+import std.task
+
+fn panic(msg: String) -> Unit { }
+
+fn scale(x: Int) -> Int {
+    if x > 2 || x < 0 { panic("out of range") }
+    x * 4000000000000000000
+}
+
+fn show(name: String, e: task.Exit<Int>) -> Unit {
+    let _ = match e {
+        .returned(v) => io.println($"{name}: {v}"),
+        // the failure without where it happened (the path varies)
+        .failed(info) => io.println($"{name}: {info.message.split_once("; ").map(fn(p) { p.0 }).unwrap_or(info.message)}"),
+        .cancelled(_) => io.println($"{name}: cancelled"),
+    }
+}
+
+pub fn main() -> Unit {
+    let _ = task.scope(fn(s) -> Result<Unit, Unit> {
+        show("in range", s.capture(fn() { scale(2) }).join())
+        show("out of range", s.capture(fn() { scale(3) }).join())
+        ok(())
+    })
+}

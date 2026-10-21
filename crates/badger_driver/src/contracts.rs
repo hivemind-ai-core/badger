@@ -738,10 +738,18 @@ impl<'a> Analysis<'a> {
                         .last()
                         .is_some_and(|s| matches!(s, Stmt::Expr { expr, .. } if self.diverges(*expr)))
             }
-            ExprKind::Call { callee, .. } => matches!(
-                &self.hir.exprs[*callee].kind,
-                ExprKind::Def { def, .. } if self.interner.resolve(self.hir.defs[*def].name) == "panic"
-            ),
+            // a call of a function declared to return `Never` (`panic`, a
+            // user's own that never returns), not one merely named so
+            ExprKind::Call { callee, .. } => match &self.hir.exprs[*callee].kind {
+                ExprKind::Def { def, .. } => {
+                    self.fn_def(*def).and_then(|f| f.ret.as_ref()).is_some_and(|t| {
+                        matches!(t.kind, badger_hir::HTyKind::Named { def: n, .. }
+                            if self.hir.modules[self.hir.defs[n].module].is_std
+                                && self.interner.resolve(self.hir.defs[n].name) == "Never")
+                    })
+                }
+                _ => false,
+            },
             _ => false,
         }
     }
