@@ -357,3 +357,52 @@ attribute shaped on type: Int {}
     (attribute_position
       (type_path
         (type_identifier)))))
+
+================================================================================
+Attributes on record type fields, and a bounded field position
+================================================================================
+
+pub attribute env on field: Codec { name: String }
+
+type Settings = {
+    @config.env("DATABASE_URL") database: String,
+    @validate.not_blank @validate.max_len(10) title: String,
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (attribute_declaration
+    (visibility)
+    (identifier)
+    (attribute_position
+      (type_path
+        (type_identifier)))
+    (struct_field
+      (identifier)
+      (type_path
+        (type_identifier))))
+  (type_alias
+    (type_identifier)
+    (record_type
+      (record_type_field
+        (attribute
+          (identifier)
+          (identifier)
+          (attribute_argument
+            (string)))
+        (identifier)
+        (type_path
+          (type_identifier)))
+      (record_type_field
+        (attribute
+          (identifier)
+          (identifier))
+        (attribute
+          (identifier)
+          (identifier)
+          (attribute_argument
+            (integer)))
+        (identifier)
+        (type_path
+          (type_identifier))))))

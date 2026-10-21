@@ -142,9 +142,10 @@ module.exports = grammar({
         commaSep($.struct_field),
         '}',
       ),
-    // a function position names the signature the functions have
+    // a function position names the signature the functions have; `type`
+    // and `field` may name a protocol the annotated thing must implement
     attribute_position: ($) =>
-      choice(seq('type', optional(seq(':', $._type))), 'field', 'variant', 'value', $.function_type),
+      choice(seq(choice('type', 'field'), optional(seq(':', $._type))), 'variant', 'value', $.function_type),
 
     enum_declaration: ($) =>
       seq(
@@ -297,7 +298,7 @@ module.exports = grammar({
     reference_type: ($) => prec.right(seq('&', optional('mut'), $._type)),
     dyn_type: ($) => seq('dyn', $.type_path),
     record_type: ($) => seq('{', commaSep(choice($.record_type_field, $.row_rest)), '}'),
-    record_type_field: ($) => seq(field('name', $._label), ':', $._type),
+    record_type_field: ($) => seq(repeat($.attribute), field('name', $._label), ':', $._type),
     row_rest: ($) => seq('..', $.type_identifier),
     effect: ($) => prec.right(seq('!', choice(seq('{', commaSep($._name), '}'), $.type_identifier))),
 

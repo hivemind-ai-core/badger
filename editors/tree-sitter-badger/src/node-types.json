@@ -6385,9 +6385,13 @@
       }
     },
     "children": {
-      "multiple": false,
+      "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "attribute",
+          "named": true
+        },
         {
           "type": "dyn_type",
           "named": true

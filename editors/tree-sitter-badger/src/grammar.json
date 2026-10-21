@@ -921,8 +921,17 @@
           "type": "SEQ",
           "members": [
             {
-              "type": "STRING",
-              "value": "type"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "type"
+                },
+                {
+                  "type": "STRING",
+                  "value": "field"
+                }
+              ]
             },
             {
               "type": "CHOICE",
@@ -946,10 +955,6 @@
               ]
             }
           ]
-        },
-        {
-          "type": "STRING",
-          "value": "field"
         },
         {
           "type": "STRING",
@@ -2952,6 +2957,13 @@
     "record_type_field": {
       "type": "SEQ",
       "members": [
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "attribute"
+          }
+        },
         {
           "type": "FIELD",
           "name": "name",
