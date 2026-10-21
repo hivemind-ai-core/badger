@@ -239,7 +239,8 @@ Both maps' entries; where both have a key, `combine(a's, b's)` decides.
 fn omit_keys<K, V>(m: Map<K, V>, keys: List<K>) -> Map<K, V> where K: Hash
 ```
 
-The entries whose keys are not in `keys`.
+The entries whose keys are not in `keys` (the map with each removed:
+a lookup per key, not a scan of `keys` per entry).
 
 ### `put_new`
 

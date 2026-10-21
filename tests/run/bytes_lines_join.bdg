@@ -1,0 +1,32 @@
+// Lines read across the reader's buffer refills, bytes.join and concat,
+// and a streamed body collected by http.call.
+import std.bytes
+import std.http
+import std.io
+import std.text
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+fn main() {
+    let parts = [text.to_bytes("ab"), text.to_bytes(""), text.to_bytes("cd")]
+    say($"join {text.from_bytes(bytes.join(parts, text.to_bytes("-"))).unwrap_or("?")} {bytes.join([], text.to_bytes("-")).len()} {text.from_bytes(bytes.concat(text.to_bytes("x"), text.to_bytes("y"))).unwrap_or("?")}")
+    // lines straddling the reader's 64 KiB refills, CRLF, no final break
+    let long = text.repeat("z", 70000)
+    let src = $"first\r\n{long}\nmiddle\n\nlast"
+    let r = io.lines(io.bytes_reader(text.to_bytes(src)))
+    var lens = []
+    loop {
+        match r.next_line() {
+            .ok(.some(l)) => { lens = lens.append(text.byte_len(l)) },
+            _ => { break },
+        }
+    }
+    say($"lines {lens}")
+    let h = http.streaming_handler(fn(_r) -> Result<http.Streamed, http.Error> {
+        http.stream(200, "text/plain", ["a", "bc", "", "def"].map(fn(s) => text.to_bytes(s)).seq())
+    })
+    let resp = http.call(h, http.request(#get, "/", ""))
+    say($"streamed {resp.status} {text.from_bytes(resp.body).unwrap_or("?")}")
+}

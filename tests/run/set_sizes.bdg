@@ -1,0 +1,22 @@
+// Set operations take the smaller set's side (or end early on sizes):
+// the results are the plain ones whichever argument is larger.
+import std.io
+import std.list
+import std.set
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+fn sorted(s: Set<Int>) -> List<Int> { s.to_list().sort() }
+
+fn main() {
+    let small = set.from_list([1, 5, 99])
+    let big = set.from_list(list.range(0, 40))
+    let near = set.from_list(list.range(20, 60))
+    say($"union {sorted(set.union(big, small)).len()} {sorted(set.union(small, big)) == sorted(set.union(big, small))} {sorted(set.union(big, near)).len()}")
+    say($"union keeps big {sorted(big).len()} small {sorted(small)}")
+    say($"intersection {sorted(set.intersection(big, small))} {sorted(set.intersection(small, big))} {sorted(set.intersection(big, near)).len()}")
+    say($"subset {set.is_subset(small, big)} {set.is_subset(big, small)} {set.is_subset(set.from_list([1, 5]), small)} {set.is_superset(small, set.from_list([5]))}")
+    say($"disjoint {set.is_disjoint(big, set.from_list([100, 101]))} {set.is_disjoint(set.from_list([100, 39]), big)}")
+}

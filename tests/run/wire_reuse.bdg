@@ -1,0 +1,29 @@
+// Wire contracts used repeatedly and alternately on one type: each keeps
+// its own names, and decoding keeps the current name over aliases, then
+// the aliases in their declared order.
+import std.io
+import std.schema
+
+struct P { name: String, age: Int }
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+fn main() {
+    let s = schema.of<P>()
+    let v1 = schema.wire(s, 1).rename("P.name", "n")
+    let v2 = schema.wire(s, 2).rename("P.name", "full").accept("P.name", "n").accept("P.name", "name")
+    let p: P = { name: "x", age: 3 }
+    for _ in 0..3 {
+        say($"{v1.encode_text(p)} {v2.encode_text(p)}")
+    }
+    for doc in ["{\"n\":\"a\",\"age\":1}", "{\"full\":\"b\",\"n\":\"c\",\"age\":2}", "{\"name\":\"d\",\"n\":\"e\",\"age\":3}", "{\"age\":4}"] {
+        match (v1.decode_text(doc), v2.decode_text(doc)) {
+            (.ok(a), .ok(b)) => say($"{a.name} {b.name}"),
+            (.ok(a), .err(e)) => say($"{a.name} error {e}"),
+            (.err(e), .ok(b)) => say($"error {e} {b.name}"),
+            (.err(e), .err(f)) => say($"error {e} error {f}"),
+        }
+    }
+}

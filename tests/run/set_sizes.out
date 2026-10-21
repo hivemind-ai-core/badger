@@ -1,0 +1,5 @@
+union 41 true 60
+union keeps big 40 small [1, 5, 99]
+intersection [1, 5] [1, 5] 20
+subset false false true true
+disjoint true false

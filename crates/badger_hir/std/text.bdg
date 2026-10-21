@@ -18,6 +18,7 @@ extern "intrinsic" fn text_concat(a: String, b: String) -> String
 extern "intrinsic" fn text_repeat(text: String, n: Int) -> String
 extern "intrinsic" fn text_join(parts: List<String>, sep: String) -> String
 extern "intrinsic" fn text_chars(text: String) -> List<Char>
+extern "intrinsic" fn text_char_at(text: String, index: Int) -> Option<Char>
 extern "intrinsic" fn text_slice(text: String, start: Int, end: Int) -> Option<String>
 extern "intrinsic" fn text_parse_int(text: String) -> Option<Int>
 extern "intrinsic" fn text_parse_float(text: String) -> Option<Float>
@@ -130,7 +131,7 @@ pub fn indent(text: String, prefix: String) -> String {
 }
 
 /// The character at `index`.
-pub fn char_at(text: String, index: Int) -> Option<Char> { text_chars(text).get(index) }
+pub fn char_at(text: String, index: Int) -> Option<Char> { text_char_at(text, index) }
 
 impl String {
     pub fn byte_len(self: &Self) -> Int { text_byte_len(self) }

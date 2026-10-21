@@ -1,0 +1,7 @@
+{"age":3,"n":"x"} {"age":3,"full":"x"}
+{"age":3,"n":"x"} {"age":3,"full":"x"}
+{"age":3,"n":"x"} {"age":3,"full":"x"}
+a a
+c b
+e e
+error $.n: missing required field error $.full: missing required field
