@@ -1551,15 +1551,50 @@ fn apply_runtime_setting(k: &str, v: &str) {
 /// for bit equal, so a pass that depends on anything but its input is
 /// caught here and the compilation fails; the program handed on is always
 /// the first run's, so the check never changes the compiler's output.
+/// With `BADGER_MIR_TV` set, each pass is translation-validated as it runs
+/// (see [`translation_validate`]).
 fn optimize_mir(
     prog: &mut badger_mir::Program,
     level: badger_mir::opt::Level,
 ) -> Result<Vec<(&'static str, usize)>, String> {
     let before = std::env::var_os("BADGER_MIR_VALIDATE").map(|_| prog.clone());
-    let report = badger_mir::opt::optimize(prog, level);
+    let report = match badger_mir::opt::tv::Mode::get() {
+        badger_mir::opt::tv::Mode::Off => badger_mir::opt::optimize(prog, level),
+        mode => translation_validate(prog, level, mode)?,
+    };
     if let Some(mut second) = before {
         badger_mir::opt::optimize(&mut second, level);
         badger_mir::validate::compare(prog, &second).map_err(|d| d.to_string())?;
+    }
+    Ok(report)
+}
+
+/// Run the MIR pipeline with the translation validator
+/// (`badger_mir::opt::tv`) checking every function each pass changes, and
+/// print its summary to stderr. A function the solver refutes in a pass the
+/// model covers fails the compilation; one it does not prove is reported
+/// and kept. The validator only reads the passes' input and output, so the
+/// program is the one the pipeline produces without it.
+fn translation_validate(
+    prog: &mut badger_mir::Program,
+    level: badger_mir::opt::Level,
+    mode: badger_mir::opt::tv::Mode,
+) -> Result<Vec<(&'static str, usize)>, String> {
+    use badger_mir::opt::tv;
+    let bytes = badger_mir::mir::dump(prog).len();
+    let mut records = Vec::new();
+    let mut checking = std::time::Duration::ZERO;
+    let report = badger_mir::opt::optimize_checked(prog, level, &mut |pass, before, after| {
+        let start = std::time::Instant::now();
+        records.extend(tv::check_pass(pass, before, after, mode.validates(pass)));
+        checking += start.elapsed();
+    });
+    tv::report(&records, bytes, checking);
+    if mode == tv::Mode::InReach
+        && let Some(r) = records.iter().find(|r| matches!(r.verdict, tv::Verdict::Refuted(_)))
+        && let tv::Verdict::Refuted(why) = &r.verdict
+    {
+        return Err(format!("the `{}` pass changed the meaning of `{}`: {why}", r.pass, r.function));
     }
     Ok(report)
 }

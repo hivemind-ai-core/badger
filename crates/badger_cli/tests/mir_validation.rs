@@ -83,3 +83,70 @@ fn a_deliberately_broken_rewrite_is_caught_by_the_check() {
     assert!(stderr.contains("y=24") && stderr.contains("y=12"), "no first difference: {stderr}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// `BADGER_MIR_TV=1`: the SMT translation validator (`badger_mir::opt::tv`)
+/// refutes the same broken rewrite before the program runs, naming the pass,
+/// the function, and the values the two versions compute.
+#[test]
+fn the_smt_validator_refutes_the_broken_rewrite() {
+    let dir = temp("tv-broken");
+    let src = dir.join("broken.bdg");
+    std::fs::write(&src, PROGRAM).unwrap();
+    let caught = out(lang()
+        .env("BADGER_MIR_BREAK", "superopt")
+        .env("BADGER_MIR_TV", "1")
+        .args(["run", "--release", "--opt", "superopt"])
+        .arg(&src)
+        .args(["--", "a", "b", "c"]));
+    assert!(!caught.status.success(), "the validator passed a miscompile: {caught:?}");
+    assert!(caught.stdout.is_empty(), "the refuted program ran: {caught:?}");
+    let stderr = String::from_utf8_lossy(&caught.stderr);
+    assert!(stderr.contains("the `superopt` pass changed the meaning of"), "{stderr}");
+    assert!(stderr.contains("refuted"), "{stderr}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The gate of the SMT validator: every `tests/run` program is compiled with
+/// `BADGER_MIR_TV=1`, no function a pass in the model changed is refuted, and
+/// the saved MIR is byte for byte the one compiled with the check off -- the
+/// check reads the passes and never changes the compiler's output.
+#[test]
+fn every_corpus_program_passes_the_smt_validator_with_its_output_unchanged() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(root.join("tests/run"))
+        .unwrap()
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == "bdg"))
+        .collect();
+    files.sort();
+    let dir = temp("tv-corpus");
+    let jobs = std::sync::Mutex::new(files);
+    let failures = std::sync::Mutex::new(vec![]);
+    std::thread::scope(|s| {
+        for _ in 0..4 {
+            s.spawn(|| {
+                loop {
+                    let Some(f) = jobs.lock().unwrap().pop() else { break };
+                    let stem = f.file_stem().unwrap().to_string_lossy().to_string();
+                    let (plain, checked) =
+                        (dir.join(format!("{stem}.bdgmir")), dir.join(format!("{stem}-tv.bdgmir")));
+                    let off = out(lang().arg("compile").arg(&f).arg("-o").arg(&plain));
+                    let on =
+                        out(lang().env("BADGER_MIR_TV", "1").arg("compile").arg(&f).arg("-o").arg(&checked));
+                    let stderr = String::from_utf8_lossy(&on.stderr);
+                    if off.status.success() != on.status.success() || !stderr.contains("BADGER_MIR_TV:") {
+                        failures.lock().unwrap().push(format!("{}: the check failed\n{stderr}", f.display()));
+                    } else if std::fs::read(&plain).ok() != std::fs::read(&checked).ok() {
+                        failures
+                            .lock()
+                            .unwrap()
+                            .push(format!("{}: the check changed the saved MIR", f.display()));
+                    }
+                }
+            });
+        }
+    });
+    let _ = std::fs::remove_dir_all(dir);
+    let failures = failures.into_inner().unwrap();
+    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
