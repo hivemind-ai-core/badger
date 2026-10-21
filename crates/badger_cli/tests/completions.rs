@@ -130,6 +130,42 @@ fn the_bash_script_parses() {
     assert!(status.success(), "the bash script does not parse");
 }
 
+/// The zsh script is valid shell (a description with a `'` in it once
+/// ended its quoted word early).
+#[test]
+fn the_zsh_script_parses() {
+    let text = script("zsh");
+    let mut child = match Command::new("zsh")
+        .arg("-n")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+    {
+        Ok(c) => c,
+        // no zsh here: nothing to check
+        Err(_) => return,
+    };
+    {
+        use std::io::Write;
+        child.stdin.as_mut().unwrap().write_all(text.as_bytes()).unwrap();
+    }
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "the zsh script does not parse: {}", String::from_utf8_lossy(&out.stderr));
+    // a flag's fixed values are completed after it
+    assert!(text.contains(":LEVEL:(release aggressive superopt)"), "{text}");
+}
+
+/// After a command, bash offers that command's flags: not `badger`'s own
+/// `--version`, and `--help` once.
+#[test]
+fn bash_offers_a_commands_own_flags() {
+    let text = script("bash");
+    let line = text.lines().find(|l| l.trim_start().starts_with("check) flags=")).unwrap();
+    assert!(!line.contains("--version"), "{line}");
+    assert_eq!(line.matches("--help").count(), 1, "{line}");
+}
+
 /// The commands the parser holds are the ones the docs list.
 #[test]
 fn the_documented_commands_exist() {

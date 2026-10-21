@@ -182,7 +182,9 @@ fn bash() -> String {
          \x20   case \"$cmd\" in\n",
     );
     for c in &cmds {
-        s.push_str(&format!("        {}) flags=\"$flags", c.name));
+        // after a command, only its own flags (`badger`'s `--version` is
+        // not one, and the command has its own `--help`)
+        s.push_str(&format!("        {}) flags=\"", c.name));
         for f in &c.flags {
             for n in &f.names {
                 s.push_str(&format!(" {n}"));
@@ -282,17 +284,22 @@ fn zsh() -> String {
         s.push_str("_arguments");
         for f in &c.flags {
             for n in &f.names {
-                if f.value.is_empty() {
-                    s.push_str(&format!(" '{}[{}]'", n, zsh_description(&f.about)));
-                } else {
-                    s.push_str(&format!(" '{}[{}]:{}:'", n, zsh_description(&f.about), f.value));
+                // `NAME[about]`, then for a value `:VALUE:` and what
+                // completes it: its fixed set, or nothing
+                let mut spec = format!("{n}[{}]", zsh_description(&f.about));
+                if !f.value.is_empty() {
+                    spec.push_str(&format!(":{}:", f.value));
+                    if !f.values.is_empty() {
+                        spec.push_str(&format!("({})", f.values.join(" ")));
+                    }
                 }
+                s.push_str(&format!(" {}", quoted(&spec)));
             }
         }
         if c.values.is_empty() {
             s.push_str(" '*:file:_files'");
         } else {
-            s.push_str(&format!(" '1:({})'", c.values.join(" ")));
+            s.push_str(&format!(" '1: :({})'", c.values.join(" ")));
             s.push_str(" '*:file:_files'");
         }
         s.push_str(" ;;\n");
