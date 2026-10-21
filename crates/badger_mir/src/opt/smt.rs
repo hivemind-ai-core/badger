@@ -717,7 +717,7 @@ pub(crate) fn same(a: &BV, b: &BV) -> Bool {
 /// keeps `a * b` and `b * a` one term, where the solver would otherwise
 /// have to prove a 64-bit multiplier's overflow test commutative by
 /// bit-blasting.
-pub(crate) fn commute<'v>(x: &'v BV, y: &'v BV) -> (&'v BV, &'v BV) {
+fn commute<'v>(x: &'v BV, y: &'v BV) -> (&'v BV, &'v BV) {
     use std::hash::{Hash, Hasher};
     let key = |v: &BV| {
         let mut h = rustc_hash::FxHasher::default();

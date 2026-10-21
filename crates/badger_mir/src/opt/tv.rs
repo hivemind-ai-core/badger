@@ -559,7 +559,7 @@ impl<'a> Exec<'a> {
                     // `fcmp`'s ordered comparisons mirror (`a > b` is `b < a`,
                     // both false on a NaN), equality is symmetric, and `!=`
                     // is the negation of `==`: stated here, so a mirrored or
-                    // swapped comparison is one term
+                    // swapped comparison means the same in the model
                     let w = u32::from(*bits);
                     let (x, y) = (smt::coerce(&op(st, a), w), smt::coerce(&op(st, b), w));
                     match cmp {
@@ -567,8 +567,10 @@ impl<'a> Exec<'a> {
                         CmpOp::Gt => self.pure_pred("fLt", &[y, x]),
                         CmpOp::Ge => self.pure_pred("fLe", &[y, x]),
                         CmpOp::Eq | CmpOp::Ne => {
-                            let (x, y) = smt::commute(&x, &y);
-                            let eq = self.pure_pred("fEq", &[x.clone(), y.clone()]);
+                            // symmetric by construction, `q(x, y) & q(y, x)`,
+                            // so it does not depend on the operands' order
+                            let there = self.pure_pred("fEq", &[x.clone(), y.clone()]);
+                            let eq = there.bvand(self.pure_pred("fEq", &[y, x]));
                             if *cmp == CmpOp::Eq {
                                 eq
                             } else {
@@ -1236,8 +1238,10 @@ impl<'a> Validation<'a> {
         let region = &self.regions[i];
         let assume = self.assumption(region.origin);
         let mut kinds: Vec<ExitKind> = region.src.iter().chain(&region.tgt).map(|e| e.kind).collect();
-        kinds.sort_unstable_by_key(|k| format!("{k:?}"));
-        kinds.dedup();
+        // in the order the exits occur, never by a location's address: the
+        // order the terms are built in is the order the solver sees them in
+        let mut seen = FxHashSet::default();
+        kinds.retain(|k| seen.insert(*k));
         // each claim, why it fails, and whether the failure is observable:
         // reaching a cut is not, so a claim about one is only a failure to
         // prove
@@ -1353,7 +1357,14 @@ fn candidates(src: &Exec, tgt: &Exec, analyses: &[Analysis; 2], h: BlockId) -> V
             }
         }
     }
-    facts.sort_unstable_by_key(|f| format!("{f:?}"));
+    // ordered by the locals, never by a constant (an address differs from
+    // run to run), so the terms are built in the same order every run
+    facts.sort_unstable_by_key(|f| match *f {
+        Fact::Same(l) => (0, Side::Src, l, l, 0),
+        Fact::Copy(y, x) => (1, Side::Src, y, x, 0),
+        Fact::Const(side, l, c) => (2, side, l, l, c),
+        Fact::Boolean(side, l) => (3, side, l, l, 0),
+    });
     facts.dedup();
     facts
 }
@@ -1706,6 +1717,34 @@ mod tests {
         let src = func(1, vec![(vec![], Term::Return(local(1)))]);
         let tgt = func(2, vec![(vec![], Term::Return(local(1)))]);
         assert!(matches!(validate(&src, &tgt), Verdict::NotProven(_)));
+    }
+
+    /// IEEE equality is symmetric and the model states it so, whatever the
+    /// order the operands reach the solver in; float multiplication is
+    /// left uninterpreted, so swapping its operands -- which changes the
+    /// NaN payload of two NaNs -- is a difference.
+    #[test]
+    fn swapped_float_equality_is_proven_and_a_swapped_float_product_is_not() {
+        let cmp = |a, b| Rvalue::Cmp { op: CmpOp::Eq, a, b, ty: NumTy::F(64) };
+        let src = func(
+            2,
+            vec![(vec![assign(2, cmp(local(1), Operand::Const(Const::F64(2.5))))], Term::Return(local(2)))],
+        );
+        let tgt = func(
+            2,
+            vec![(vec![assign(2, cmp(Operand::Const(Const::F64(2.5)), local(1)))], Term::Return(local(2)))],
+        );
+        assert_eq!(validate(&src, &tgt), Verdict::Equivalent);
+        let mul = |a, b| Rvalue::Bin { op: BinOp::Mul, a, b, ty: NumTy::F(64), loc: 0 };
+        let src = func(
+            2,
+            vec![(vec![assign(2, mul(local(1), Operand::Const(Const::F64(3.0))))], Term::Return(local(2)))],
+        );
+        let tgt = func(
+            2,
+            vec![(vec![assign(2, mul(Operand::Const(Const::F64(3.0)), local(1)))], Term::Return(local(2)))],
+        );
+        assert!(matches!(validate(&src, &tgt), Verdict::Refuted(_)));
     }
 
     #[test]
