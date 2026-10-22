@@ -1,6 +1,7 @@
 # Ownership modes and region brands downstream: produced, consumed by nothing — verified; no optimisation follows
 
-Checked 2026-10-21 against `3e2e20b`, on branch `opt/ownership-modes-consumed`.
+Checked 2026-10-21 against `3e2e20b`, on branch `opt/ownership-modes-consumed`;
+line numbers and the three `grep` facts re-verified 2026-10-22 against `7b50a4dd` (main).
 Status: **the premise holds; no optimisation can be built on these facts
 today.** This report records the verification, the reason, and the exact
 condition that would change it. It does not re-measure what three existing
@@ -24,8 +25,8 @@ Evidence, by crate:
 
 - `crates/badger_typeck/src/ownership.rs`: `enum Mode`, `enum Affine` and
   `struct Own` are private. `Own` is built at the top of each of
-  `check_def` (l.151), `generic_pass` (l.772), `check_module_closures`
-  (l.844) and dropped at the end of it. Its fields are `affine`,
+  `check_def` (l.134), `generic_pass` (l.804), `check_module_closures`
+  (l.509) and dropped at the end of it. Its fields are `affine`,
   `reported`, `consuming`, `last_use`, `loans`, `blocks`, `params` — none
   is written back into `Infer`, the HIR, or any global. The pass's only
   output is `Diagnostic`s.
@@ -36,7 +37,7 @@ Evidence, by crate:
   (`TypeDesc::region`, `with_region`), but `with_region` has **no caller**
   outside its own unit test, and the brand is erased before layout:
   `program::ground_resolved` maps every `TyKind::Skolem` to `unit()`
-  (`program.rs:2648`), and a region brand travels as a `Con` type argument,
+  (`program.rs:2653`), and a region brand travels as a `Con` type argument,
   so the MIR's `Ty` never carries it. `layout.rs` (which builds the
   descriptors) sees only ground types; it cannot set the flag.
 - The MIR opcode set has no ownership operation at all. `mir.rs`'s `Stmt`
@@ -175,7 +176,7 @@ target/release/badger run --dump-mir /tmp/mv.bdg 2>&1 >/dev/null | sed -n '/fn 0
 
 Added 2026-10-21. The collector is a precise, non-moving, generational
 mark-sweep heap (`crates/badger_runtime/src/gc.rs:1-20`), one global heap
-(`static HEAP`, `gc.rs:111`) with per-**worker** pools and object lists.
+(`static HEAP`, `gc.rs:116`) with per-**worker** pools and object lists.
 Worker is a thread-local (`task.rs:528`), and tasks migrate between
 workers, so the pools are per-thread, not per-task.
 
@@ -183,29 +184,29 @@ workers, so the pools are per-thread, not per-task.
 
 There is no path that frees one managed object outside a sweep
 (`grep -rn 'free_now\|fn free_object' crates/badger_runtime/src` is empty;
-`free_cell`, `gc.rs:559-564`, is called only from the sweep closures and
+`free_cell`, `gc.rs:564-568`, is called only from the sweep closures and
 `dealloc`s only cells with payload > 512 bytes). A small cell's space is
 reclaimed by its lines staying clear at the next collection; `mark_lines`
-(`gc.rs:269-290`) ORs bits and has **no inverse**, and only
-`Pool::clear_lines` (`gc.rs:484`) clears a bitmap, wholesale, at a full
+(`gc.rs:273-286`) ORs bits and has **no inverse**, and only
+`Pool::clear_lines` (`gc.rs:488`) clears a bitmap, wholesale, at a full
 collection. So a small object cannot be individually returned to the
 allocator between collections at all.
 
 An immediate free would additionally have to:
 
-- remove the object from its owning worker's list, `OBJECTS` (`gc.rs:136`)
+- remove the object from its owning worker's list, `OBJECTS` (`gc.rs:142`)
   — there is no back-pointer from an object to its worker, and removing an
-  element from the middle invalidates `YOUNG_START[w]` (`gc.rs:887`) and
+  element from the middle invalidates `YOUNG_START[w]` (`gc.rs:891`) and
   the `gc-profile` census, which walks list and side table in lockstep
   (`gc/sweep.rs:167-169`, `allocations.rs:243,265`);
-- drop it from the remembered set (`REMEMBER`, `gc.rs:883`), `globals`
-  (`gc.rs:719`), `pinned` (`gc.rs:747`), the task temp roots and the
+- drop it from the remembered set (`REMEMBER`, `gc.rs:887`), `globals`
+  (`gc.rs:724`), `pinned` (`gc.rs:752`), the task temp roots and the
   shadow stack (`task::for_each_root`, `task.rs:970-1040`);
 - poison the payload and quarantine it under `BADGER_GC_VERIFY`
-  (`gc.rs:1200-1215`, `obj` at `gc.rs:83`);
-- run its finalizer exactly once (`FINALIZING`, `gc.rs:1534`);
+  (`gc.rs:1213-1217`, `obj` at `gc.rs:82`);
+- run its finalizer exactly once (`FINALIZING`, `gc.rs:1539`);
 - correct `live` / `OLD_BYTES`, which are snapshots taken at the end of a
-  collection (`gc.rs:1280,1289`), not per-allocation counters.
+  collection (`gc.rs:1280-1285`), not per-allocation counters.
 
 That is a lot of invariants for a mechanism the immix pool already
 replaces: reuse is by line bitmap and hole size class, and it is cheap.
@@ -216,14 +217,14 @@ The design that fits the runtime is not "free now inside the heap" but
 "allocate the region's objects outside it, and release them in one action
 at the end of the block". Both halves already exist:
 
-- **Allocation outside the heap.** `alloc_immortal` (`gc.rs:706-716`)
+- **Allocation outside the heap.** `alloc_immortal` (`gc.rs:710-720`)
   takes system `alloc_zeroed`, sets `IMMORTAL`, and puts the object in no
   worker list, so the sweep never sees it. `Buffer` element storage
   (`buffer.rs:79-93`) is native `malloc`, charged to the collector with
-  `external_alloc` (`gc.rs:682`) and released by the object's finalizer
-  (`buffer.rs:166-175, 212-221`).
+  `external_alloc` (`gc.rs:686`) and released by the object's finalizer
+  (`buffer.rs:166-175, 213-219`).
 - **Bulk release.** `Pool::rebuild(trim)` already `dealloc`s whole chunks
-  whose lines are all clear (`gc.rs:447-455`), which is exactly the
+  whose lines are all clear (`gc.rs:451`), which is exactly the
   "release the region's storage at once" step.
 
 **Soundness.** The property a region needs is "no pointer from outside the
@@ -237,8 +238,8 @@ flag is wired but has no setter yet, see Part 1). Two obligations remain:
    those children while the region is live, so region objects need a real
    `Header` + descriptor and must be **rooted** while live. They already
    are: their locals sit in the shadow stack
-   (`codegen/src/lib.rs:723-785` builds and links the frame), so the
-   `header`-based `trace` (`gc.rs:1570`) will follow them.
+   (`codegen/src/lib.rs:730-792` builds and links the frame), so the
+   `header`-based `trace` (`gc.rs:1575`) will follow them.
 2. They must be **excluded from the sweep lists** so the collector never
    claims them, and released only by the region's exit — i.e. an
    `alloc_immortal`-shaped allocation plus an explicit release, not the
@@ -250,14 +251,14 @@ first constraint is the reason ownership modes alone do not buy it:
 says a value has one owner at the source level, not that the object graph
 is uniquely reachable in the MIR (every copy in Part 1 is an alias). Only
 the *region brand* carries non-escape, and it is erased before the MIR
-(`ground_resolved`, `program.rs:2648`).
+(`ground_resolved`, `program.rs:2653`).
 
 ## 2.3 Stack allocation — blocked on the root/tracing model
 
 A stack object that holds managed pointers must be traced like any other,
 and the collector's verification requires every address it traces to be a
-heap object or a registered immortal (`gc.rs:1036`; `freed_use`,
-`gc.rs:592`, aborts otherwise). `MEMORY_MAN_TODO.md` L2 states the
+heap object or a registered immortal (`gc.rs:1034`; `freed_use`,
+`gc.rs:596`, aborts otherwise). `MEMORY_MAN_TODO.md` L2 states the
 prerequisite exactly: "Support stack/region objects containing pointers in
 the root/tracing model before redirecting existing heap-object allocations
 there." Pointer-free (leaf) stack objects are not blocked by that, but the
@@ -269,7 +270,7 @@ stack-allocate that pays.
 
 There is no arena to choose between today: one global heap, and the only
 split is by **size class** (payload ≤ 512 → the calling worker's immix
-pool; else system `alloc_zeroed`, `gc.rs:501-505`). "Task-local" is not
+pool; else system `alloc_zeroed`, `gc.rs:505-508`). "Task-local" is not
 expressible: the pool, the object list and the young boundary all follow
 the **thread** (`worker_index()`, `task.rs:528`, reads a `Cell`), and
 tasks migrate. `MEMORY_MAN_TODO.md` H1 names the prerequisite ("ownership
