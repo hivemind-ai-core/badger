@@ -1737,7 +1737,10 @@ fn native_modules() {
     let err = String::from_utf8_lossy(&rep.stderr);
     assert!(rep.status.success() && err.contains("reproduced the recorded outcome"), "{err}");
     assert_eq!(String::from_utf8_lossy(&rep.stdout), "timed out: true\nlater: 2\n");
-    assert!(started.elapsed() < std::time::Duration::from_secs(20), "the replay ran the abandoned call");
+    // A replay must not wait out the call the recording abandoned: that call
+    // takes two minutes, while the invocation itself takes seconds, so this
+    // budget catches a replay that ran it however loaded the machine is.
+    assert!(started.elapsed() < std::time::Duration::from_secs(45), "the replay ran the abandoned call");
     let dir = std::env::temp_dir().join(format!("badger-native-restricted-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(
