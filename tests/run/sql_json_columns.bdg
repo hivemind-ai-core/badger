@@ -1,7 +1,7 @@
 // A list, map, or record field is written to an SQL column as JSON text
 // and read back from it by `query_as`.
 import std.io
-import std.sqlite
+import stdx.sqlite
 
 @derive(Codec, Eq)
 pub struct Address { city: String, zip: String }

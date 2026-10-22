@@ -11,9 +11,9 @@ A JSON route's handler takes its typed parameters (and body) and returns
 the reply, or an error:
 
 ```badger
-import std.http
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 
 type NewNote = { title: String }
 type Note = { id: Int, title: String }
@@ -116,9 +116,9 @@ and `command.bind` ends a command with each error's `@command.exit(status)`
 `http_status`, decides it some other way.)
 
 ```badger
-import std.http
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 import std.text
 
 // The status each error is answered with: the variant's `@http.status`; its
@@ -163,9 +163,9 @@ the path. A `get_json` route's parameter fields that the path does not
 bind come from it (an `Option` field may be missing):
 
 ```badger
-import std.http
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 
 @derive(Error, HttpError, From)
 pub enum AppError {
@@ -196,8 +196,8 @@ two parts.
 ### Serve it
 
 ```badger
-import std.config
-import std.http
+import stdx.config
+import stdx.http
 import std.system
 
 type Settings = { address: String, port: U16 }
@@ -249,7 +249,7 @@ away during a streamed reply cancels the request task, so its cleanups run.
 ### Server-sent events
 
 ```badger
-import std.http
+import stdx.http
 import std.io
 import std.seq
 import std.text
@@ -285,9 +285,9 @@ reconnecting client's `Last-Event-ID`.
 ### WebSockets
 
 ```badger
-import std.http
+import stdx.http
 import std.system
-import std.websocket
+import stdx.websocket
 
 @derive(Error, From)
 pub enum AppError {
@@ -324,14 +324,14 @@ not an upgrade gets 426. `ws.recv()` returns `none` once the peer closed.
 Receiving and sending wait independently, so one task can read while
 another writes. Clients use `websocket.connect(url)`.
 
-Full APIs: [std.http](../api/http.md), [std.route](../api/route.md),
-[std.websocket](../api/websocket.md).
+Full APIs: [stdx.http](../api/http.md), [stdx.route](../api/route.md),
+[stdx.websocket](../api/websocket.md).
 
 ## Outbound HTTP
 
 ```badger
 import std.env
-import std.fetch
+import stdx.fetch
 import std.io
 
 pub fn main() -> Result<Unit, io.Error> {
@@ -355,13 +355,13 @@ itself failed. Requests run on the blocking pool while the task waits.
 | `fetch.request(method, url)` then `fetch.send(r)` | Any method, headers, byte body, time limit, redirects, body limit |
 | `fetch.client(origin)` | A `Client` that may reach one origin only; pass it to code that should not reach others |
 
-See [std.fetch](../api/fetch.md).
+See [stdx.fetch](../api/fetch.md).
 
 ## SQLite
 
 ```badger
 import std.io
-import std.sqlite
+import stdx.sqlite
 
 type Item = { id: Int, name: String, qty: Int }
 
@@ -425,7 +425,7 @@ statements:
 | E0182 | `query_as` row type does not match the result columns |
 
 [Typed SQL](../typed-sql.md) generates typed functions from `.sql` files
-of named queries, for SQLite and Postgres. See [std.sqlite](../api/sqlite.md).
+of named queries, for SQLite and Postgres. See [stdx.sqlite](../api/sqlite.md).
 
 ### Migrations
 
@@ -448,7 +448,7 @@ wrong schema, and a separate entry runs `migrate`
 ```badger
 import std.env
 import std.io
-import std.postgres
+import stdx.postgres
 
 type User = { id: Int, name: String }
 
@@ -469,7 +469,7 @@ pub fn main() -> Result<Unit, AppError> {
 }
 ```
 
-`std.postgres` has the shape of `std.sqlite` (`execute`, `query`,
+`stdx.postgres` has the shape of `stdx.sqlite` (`execute`, `query`,
 `query_one`, `query_opt`, `query_as`, `query_one_as`, `query_opt_as`,
 `transaction`) over a connection pool. Differences:
 
@@ -488,7 +488,7 @@ pub fn main() -> Result<Unit, AppError> {
   runs in its own transaction (Postgres DDL is transactional), and
   concurrent migrators take turns on an advisory lock.
 
-See [std.postgres](../api/postgres.md) and [Typed SQL](../typed-sql.md).
+See [stdx.postgres](../api/postgres.md) and [Typed SQL](../typed-sql.md).
 
 ## Configuration
 
@@ -510,7 +510,7 @@ log_level = "debug"
 ```
 
 ```badger
-import std.config
+import stdx.config
 import std.io
 
 type Settings = { port: Int, database: String, greeting: String }
@@ -563,7 +563,7 @@ setting's source (`#default`, `#config`, `#profile`, `#env`, `#override`),
 origin, value, and the sources it overrode:
 
 ```badger
-import std.config
+import stdx.config
 import std.io
 
 type Settings = { port: Int, token: config.Secret }
@@ -645,13 +645,13 @@ With `BADGER_LOG_FORMAT=json BADGER_LOG_LEVEL=debug`:
 | [std.log](../api/log.md) | `trace`, `debug`, `info`, `warn`, `error` with a record of fields. `log.with(fields, body)` adds fields to every record inside, including spawned tasks. Level and format come from `[runtime] log_level` / `log_format` or `BADGER_LOG_LEVEL` / `BADGER_LOG_FORMAT`. Logging never fails |
 | [std.trace](../api/trace.md) | `trace.span(name, attrs, body)` and `span_result`: spans that spawned tasks continue; logs inside carry the trace and span ids. `trace.event(name, record)` records a structured event in a bounded sink (`BADGER_TRACE=1` also prints them). `traceparent()` and `continue_trace(header)` pass a trace between services |
 | [std.metrics](../api/metrics.md) | `count`, `add`, `gauge`, `observe` (histogram), aggregated by name and attribute record. `snapshot()` reads them |
-| [std.otel](../api/otel.md) | Exports logs, spans, and metrics to an OTLP/HTTP collector |
+| [stdx.otel](../api/otel.md) | Exports logs, spans, and metrics to an OTLP/HTTP collector |
 
 To export, add the exporter to the system:
 
 ```badger
-import std.http
-import std.otel
+import stdx.http
+import stdx.otel
 import std.system
 
 @derive(Error, From)

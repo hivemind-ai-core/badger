@@ -1,4 +1,4 @@
-//! Admission gates (`std.admission`): at most `capacity` admitted calls,
+//! Admission gates (`stdx.admission`): at most `capacity` admitted calls,
 //! at most `queue` more waiting (FIFO), each until its deadline. A released
 //! permit passes directly to the longest waiter, so a waiter that times out
 //! or is cancelled never strands one.

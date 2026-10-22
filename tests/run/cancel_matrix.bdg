@@ -8,7 +8,7 @@ import std.fs
 import std.io
 import std.path
 import std.process
-import std.sqlite
+import stdx.sqlite
 import std.task
 import std.time
 

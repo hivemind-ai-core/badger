@@ -1,5 +1,5 @@
 // A U64 setting takes the whole U64 range (past I64::MAX).
-import std.config
+import stdx.config
 import std.io
 type Settings = { big: U64 }
 pub fn main() {

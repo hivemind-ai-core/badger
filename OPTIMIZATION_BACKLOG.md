@@ -784,7 +784,7 @@ mode is documented in the catalog, `docs/common-errors.md`, guide 07 and
   §1.3, §4.1); Turner-Mossin-Wadler 1995 (§4.2); Austral
   (§4.5 / §8.1); Swift's `~Copyable` (§3.1, §3.3).
 - **Code touchpoints**: `crates/badger_typeck/src/ownership.rs:25-30`
-  (add the `Linear` mode); `crates/badger_hir/std/` (the file /
+  (add the `Linear` mode); `crates/badger_stdlib/` (the file /
   socket / channel modules).
 - **Cost**: ~200 LOC (mode + diagnostics + std updates).
 - **Expected win**: removes the finalizer cost on

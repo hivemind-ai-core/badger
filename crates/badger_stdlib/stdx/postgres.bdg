@@ -1,16 +1,16 @@
 // PostgreSQL with pooled connections and scoped transactions; the same
-// shape as `std.sqlite`. Statements use `$1`, `$2`, ... parameters, given
+// shape as `stdx.sqlite`. Statements use `$1`, `$2`, ... parameters, given
 // as `Data` and parsed by the server as the parameter's type. Rows are
 // `Data` objects by column name, or records (`query_as`). Versioned schema
 // migrations are `migrate`, `schema`, and `require_current`, as in
-// `std.sqlite`.
+// `stdx.sqlite`.
 
 import std.prelude
 
 import std.system
 import std.codec
-import std.crypto
-import std.encoding
+import stdx.crypto
+import stdx.encoding
 import std.native
 import std.list
 import std.text

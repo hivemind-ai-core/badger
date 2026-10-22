@@ -1,10 +1,10 @@
-// std.valkey against a live server at $VALKEY_URL: strings, JSON, counters,
+// stdx.valkey against a live server at $VALKEY_URL: strings, JSON, counters,
 // expiry, hashes, lists, pipelines, transactions, and pub/sub.
 import std.env
 import std.io
 import std.task
 import std.time
-import std.valkey
+import stdx.valkey
 
 type Profile = { name: String, langs: List<String> }
 

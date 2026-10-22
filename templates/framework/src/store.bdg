@@ -1,7 +1,7 @@
 // The store: what a record is, what can go wrong, and the interface the
 // service needs from storage. Another adapter (SQLite, Postgres) would
 // provide the same interface; the service does not know which it has.
-import std.http
+import stdx.http
 import std.list
 
 /// One record.

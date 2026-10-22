@@ -1,7 +1,7 @@
 // A SQLite store: the same `Store` interface as `memory.store`, over a
 // pool. Its schema is versioned by `migrations`; `badger run migrate`
 // applies them, and the store refuses to start on any other schema.
-import std.sqlite
+import stdx.sqlite
 import tasks.model
 
 pub let migrations: List<sqlite.Migration> = [

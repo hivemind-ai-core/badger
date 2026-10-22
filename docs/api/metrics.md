@@ -5,7 +5,7 @@
 Metrics: counters, gauges, and histograms (OpenTelemetry's default
 bucket bounds), aggregated in the runtime by name and attributes (a
 `Codec` record, such as `{ route: "/orders", status: 200 }`). Recording
-never fails; `snapshot` reads the cumulative values, and `std.otel`
+never fails; `snapshot` reads the cumulative values, and `stdx.otel`
 exports them.
 
 ## Functions

@@ -1,6 +1,6 @@
 // Request-scoped handlers: a fresh request region, a scoped body reader,
 // and a stream consumed (and its scoped source closed) inside the handler.
-import std.http
+import stdx.http
 import std.io
 import std.seq
 import std.text

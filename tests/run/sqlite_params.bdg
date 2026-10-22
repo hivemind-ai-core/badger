@@ -3,7 +3,7 @@
 // most one row.
 import std.codec
 import std.io
-import std.sqlite
+import stdx.sqlite
 
 type Book = { id: Int, title: String, author: String }
 

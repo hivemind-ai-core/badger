@@ -6,8 +6,8 @@
 // blindly, and reconciliation by key settles it.
 import std.fs
 import std.io
-import std.jobs
-import std.sqlite
+import stdx.jobs
+import stdx.sqlite
 import std.system
 import std.task
 import std.time

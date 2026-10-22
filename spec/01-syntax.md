@@ -18,7 +18,7 @@ lowercase; `http.Request` names a type, and `http.listen` names a function.
 remains a type identifier, not an ordinary value.
 
 ```badger fragment
-import std.http
+import stdx.http
 import std.result.{Result, ok, err}
 import app.orders as orders
 

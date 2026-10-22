@@ -1,4 +1,4 @@
-// A charging job split over processes, for crash tests of `std.jobs`:
+// A charging job split over processes, for crash tests of `stdx.jobs`:
 // `submit EVENT AMOUNT`, `work [crash]` (crash before committing the step),
 // `dispatch [crash]` (crash after the destination accepted a charge but
 // before its receipt is committed), `reconcile`, and `status`. The store is
@@ -6,8 +6,8 @@
 // `POST /charges` with `KEY AMOUNT` and answers `GET /charges/KEY`).
 import std.io
 import std.env
-import std.fetch
-import std.jobs
+import stdx.fetch
+import stdx.jobs
 import std.process
 import std.text
 import std.time

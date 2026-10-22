@@ -1,6 +1,6 @@
 // A background activity owned by a node: a reminder worker, supervised
 // (restarted after a failure, within limits) and stopped with the system.
-import std.app
+import stdx.app
 import std.io
 import std.system
 import std.task

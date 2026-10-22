@@ -993,7 +993,7 @@ task waits for.
 ## HTTP in a few lines
 
 ```badger
-import std.http
+import stdx.http
 import std.io
 import std.text
 

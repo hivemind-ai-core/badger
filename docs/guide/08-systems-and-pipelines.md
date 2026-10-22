@@ -296,7 +296,7 @@ factory, policy)` runs the same restart loop in any task, outside a system.
 ### Durable jobs
 
 A worker's restart does not replay lost work: anything that must survive a
-crash goes through [std.jobs](../api/jobs.md), a SQLite job store with
+crash goes through [stdx.jobs](../api/jobs.md), a SQLite job store with
 leases, fencing, retries, and an outbox. `jobs.store({ path })` provides
 a store in a system, and `jobs.processor(store, processing, handle)` makes
 the factory of a worker that runs one kind of job: it claims a due job,
@@ -334,7 +334,7 @@ an operator's decision.
 
 ### Decisions and events
 
-[std.decide](../api/decide.md) keeps a domain's rules pure. A
+[stdx.decide](../api/decide.md) keeps a domain's rules pure. A
 `decide.Decider` is an `initial` state, a `decide(state, command,
 coeffects)` that returns the events to record or a refusal, and an
 `evolve(state, event)`; both functions are `!{}`, so what a decision
@@ -750,18 +750,18 @@ deadline (inherited; `within` shortens it but never extends it), and an
 optional verified actor. It carries no dependencies; those are the
 operation's captured providers.
 
-`std.endpoint` binds an operation to HTTP and `std.command` binds it to a
+`stdx.endpoint` binds an operation to HTTP and `stdx.command` binds it to a
 command line. A binding says how the input is decoded and how the output
 is rendered; the operation, and how its errors are reported, are the same
 for both:
 
 ```badger
-import std.app
-import std.command
-import std.endpoint
-import std.http
+import stdx.app
+import stdx.command
+import stdx.endpoint
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 import std.text
 
 type Greeting = { text: String }
@@ -888,7 +888,7 @@ endpoint.bind_in(context, { method: #post, path: "/orders", operation: app.guard
 `app.index(infos)` validates a set of operations' metadata (unique ids,
 versions from 1, documentation) without erasing their types.
 [`examples/framework`](../../examples/framework) is a small application
-built this way: [std.app](../api/app.md), [std.endpoint](../api/endpoint.md),
-and [std.command](../api/command.md) have the APIs.
+built this way: [stdx.app](../api/app.md), [stdx.endpoint](../api/endpoint.md),
+and [stdx.command](../api/command.md) have the APIs.
 
 Next: [Testing and contracts](09-testing-and-contracts.md).

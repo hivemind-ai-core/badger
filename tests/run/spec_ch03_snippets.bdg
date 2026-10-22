@@ -1,9 +1,9 @@
 // The chapter 3 snippets compile as written: an `io.read_text` loader with
 // its effect bound, and an application error deriving `Error` and `From`
-// over a codec error and a database error (`db` names std.sqlite).
+// over a codec error and a database error (`db` names stdx.sqlite).
 import std.io
 import std.codec
-import std.sqlite as db
+import stdx.sqlite as db
 
 fn double(value: Int) -> Int !{} {
     value * 2

@@ -1,5 +1,5 @@
 import std.io
-import std.config
+import stdx.config
 
 type Settings = {
     port: Int,

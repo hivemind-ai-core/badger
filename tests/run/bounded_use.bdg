@@ -2,7 +2,7 @@
 // scope (and the helper's whole result, commit failures included) ends
 // with the block.
 import std.io
-import std.sqlite
+import stdx.sqlite
 
 @derive(Error, From)
 pub enum AppError {

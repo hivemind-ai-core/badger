@@ -1,7 +1,7 @@
-// std.app operations: typed entry points with stable identity, invocation
+// stdx.app operations: typed entry points with stable identity, invocation
 // metadata along a call chain, operations from functions and pipelines,
 // and a validated metadata index.
-import std.app
+import stdx.app
 import std.io
 import std.pipeline
 import std.pipeline.{handle}

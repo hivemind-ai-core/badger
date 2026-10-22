@@ -3,7 +3,7 @@
 import std.env
 import std.fs
 import std.io
-import std.postgres
+import stdx.postgres
 import queries
 
 @derive(Error, From)

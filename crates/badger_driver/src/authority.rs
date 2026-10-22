@@ -137,7 +137,8 @@ pub fn check(hir: &Hir, types: &badger_typeck::TypeIndex, interner: &Interner) -
             let def = &hir.defs[d];
             let m: Vec<&str> = hir.modules[def.module].path.iter().map(|s| interner.resolve(*s)).collect();
             let m = m.join(".");
-            format!("{}.{}", m.strip_prefix("std.").unwrap_or(&m), interner.resolve(def.name))
+            let short = badger_stdlib::split(&m).map_or(m.as_str(), |(_, name)| name);
+            format!("{short}.{}", interner.resolve(def.name))
         });
     }
     let user = |d: DefId| !hir.modules[hir.defs[d].module].is_std;

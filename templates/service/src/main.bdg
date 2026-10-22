@@ -12,9 +12,9 @@
 //         notes: service.notes(),
 //         api: http.server({ address: "127.0.0.1", port: 8080, handler: ref(#api) }),
 //     }
-import std.http
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 import std.system
 import routes
 import service

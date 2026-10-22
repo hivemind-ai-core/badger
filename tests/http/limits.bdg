@@ -3,8 +3,8 @@
 // and a streamed reply's scoped chunk source is consumed and closed by the
 // request task.
 import std.bytes
-import std.config
-import std.http
+import stdx.config
+import stdx.http
 import std.io
 import std.seq
 import std.system

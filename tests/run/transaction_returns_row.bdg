@@ -2,7 +2,7 @@
 // does not let the transaction escape, even though the query's error type
 // could hold one (E0401 rejected it).
 import std.io
-import std.sqlite
+import stdx.sqlite
 
 @derive(Error, From)
 pub enum E {

@@ -3,7 +3,7 @@
 // single `Bytes` value is the one positional parameter (a blob).
 import std.bytes
 import std.io
-import std.sqlite
+import stdx.sqlite
 
 @derive(Error, From)
 pub enum AppError {

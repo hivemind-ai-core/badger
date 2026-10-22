@@ -29,9 +29,9 @@ fn item_name(rest: &str) -> Option<&str> {
 
 /// The public items of a standard module, read from its source: the
 /// kind, the name, the signature, and the doc comment above it.
-fn std_items(module: &str) -> Vec<Found> {
+fn std_items(qualified: &str) -> Vec<Found> {
     let mut out = vec![];
-    let Some(source) = badger_driver::std_source(module) else { return out };
+    let Some(source) = badger_driver::std_source(qualified) else { return out };
     // the doc comment above an item: its lines, until the item itself
     let mut doc: Vec<String> = vec![];
     for line in source.lines() {
@@ -65,7 +65,7 @@ fn std_items(module: &str) -> Vec<Found> {
             continue;
         };
         out.push(Found {
-            module: format!("std.{module}"),
+            module: qualified.to_string(),
             name: name.to_string(),
             signature: t.to_string(),
             doc: std::mem::take(&mut doc).join(" "),
@@ -104,7 +104,7 @@ fn matches(f: &Found, query: &str) -> bool {
 pub fn search(query: &str, path: Option<&Path>) -> Result<Vec<Found>, String> {
     let mut out = vec![];
     for m in badger_driver::std_modules() {
-        for f in std_items(m) {
+        for f in std_items(&m) {
             if matches(&f, query) {
                 out.push(f);
             }

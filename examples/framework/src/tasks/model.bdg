@@ -1,9 +1,9 @@
 // The feature's vocabulary: what a task is, what can go wrong, what the
 // feature needs (a store), and what it offers: operations, the same ones to
 // HTTP, the command line, and workers.
-import std.app
-import std.command
-import std.http
+import stdx.app
+import stdx.command
+import stdx.http
 
 pub type Task = { id: Int, title: String, done: Bool }
 pub type NewTask = { title: String }

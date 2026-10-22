@@ -12,6 +12,7 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 # --- internal crates -------------------------------------------------------
 badger_base = { path = "crates/badger_base" }
+badger_stdlib = { path = "crates/badger_stdlib" }
 badger_syntax = { path = "crates/badger_syntax" }
 badger_hir = { path = "crates/badger_hir" }
 badger_typeck = { path = "crates/badger_typeck" }

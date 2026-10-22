@@ -1,7 +1,7 @@
 // `@display("...")` on a variant is its derived display (the error
 // message): `{field}` interpolates a field, `{{`/`}}` are braces; variants
 // without one keep `variant: payload`. Client error replies carry it.
-import std.http
+import stdx.http
 import std.io
 
 @derive(Error, HttpError, From)

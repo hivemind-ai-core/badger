@@ -1,7 +1,7 @@
 // expect-error: E0401
 // app.run keeps system.run's contract: the running system (and closures
 // reaching it) cannot leave the callback.
-import std.app
+import stdx.app
 import std.system
 
 @derive(Error, From)

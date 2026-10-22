@@ -21,7 +21,7 @@ import std.system
 import std.task
 import std.text
 import std.time
-import std.uuid
+import stdx.uuid
 
 /// Who a call acts for, once an identity adapter has verified it.
 pub type Actor = { id: String, roles: List<String> }

@@ -3,8 +3,8 @@
 // through a `source` variant. `derive(CommandError)`: each variant's
 // `@command.exit(status)`, a wrapped error's through a `source` variant,
 // else 1.
-import std.command
-import std.http
+import stdx.command
+import stdx.http
 import std.io
 
 @derive(Error, HttpError, CommandError)

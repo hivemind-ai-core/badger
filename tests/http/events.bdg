@@ -1,8 +1,8 @@
 // Server-sent events to a client that goes away: the request task is
 // cancelled even while its producer is parked (here, sleeping before a
 // third event), so the event source is closed. `/count` reports closures.
-import std.config
-import std.http
+import stdx.config
+import stdx.http
 import std.io
 import std.seq
 import std.system

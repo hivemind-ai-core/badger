@@ -1,5 +1,5 @@
-import std.app
-import std.http
+import stdx.app
+import stdx.http
 
 pub type Book = { id: Int, title: String }
 

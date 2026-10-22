@@ -1,6 +1,6 @@
 // expect-error: E0193
 // `@http.status` takes one HTTP status code from 100 to 599.
-import std.http
+import stdx.http
 
 @derive(HttpError)
 pub enum E {

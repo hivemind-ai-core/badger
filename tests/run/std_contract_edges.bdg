@@ -4,12 +4,12 @@
 // when a state does not decode, and returns a running job to `ready`
 // without a failed attempt; a bearer token's scheme is case-insensitive
 // and the token must not be empty; a command name is one word.
-import std.app
-import std.command
-import std.endpoint
-import std.http
+import stdx.app
+import stdx.command
+import stdx.endpoint
+import stdx.http
 import std.io
-import std.jobs
+import stdx.jobs
 import std.time
 
 type Order = { qty: Int }

@@ -4,7 +4,7 @@
 // timers, dispatch outcomes, reconciliation, operator resolution,
 // migration, and inspection.
 import std.io
-import std.jobs
+import stdx.jobs
 import std.time
 
 @derive(Codec)

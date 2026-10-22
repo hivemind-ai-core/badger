@@ -1,15 +1,15 @@
 // WebSockets: an echo server (a handler and a request scope) and clients
 // in the same program: text and binary messages, a reader task alongside
 // a writer, a server-side close, and a plain request answered 426.
-import std.config
-import std.fetch
-import std.http
+import stdx.config
+import stdx.fetch
+import stdx.http
 import std.io
 import std.system
 import std.system.{component}
 import std.task
 import std.text
-import std.websocket
+import stdx.websocket
 
 type Settings = { port: U16 }
 

@@ -308,7 +308,7 @@ pub fn report_overload() {
 /// Record an event in the bounded sink. Diagnostics never block business
 /// code: when the sink is full, the overflow policy decides which event is
 /// lost, and losses are counted and reported separately.
-/// An environment variable read by `std.config`: recorded and replayed like
+/// An environment variable read by `stdx.config`: recorded and replayed like
 /// `env.get`, so a replay sees the recorded configuration.
 fn env_var(name: &str) -> Option<String> {
     crate::repro::external("env", name, None, crate::repro::secret_name(name), || std::env::var(name).ok())

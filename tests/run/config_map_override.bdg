@@ -1,6 +1,6 @@
 // An override can set one entry of a map setting (`labels.team=x`), as a
 // `[config.labels]` table entry can; entries merge into the map.
-import std.config
+import stdx.config
 import std.io
 
 type Settings = { labels: Map<String, String>, port: Int }

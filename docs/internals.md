@@ -41,7 +41,7 @@ any phase reported an error.
   namespace), records lambda captures, and removes sugar: pipes, `use`
   continuations, dotted record updates, `pipeline { }`, and
   `system { }` (missing references and cycles are reported here).
-- `stdlib.rs` embeds the standard library sources (see below).
+- `badger_stdlib` holds the standard library sources, embedded (see below).
 
 ### 3. Type checking (`badger_typeck`)
 
@@ -169,7 +169,8 @@ ARCHITECTURE.md's "Runtime" section has the details.
 |---|---|
 | `badger_base` | Spans, source map, interned symbols, diagnostics (codes, JSON, rendering), the diagnostic catalog (`badger explain`). |
 | `badger_syntax` | Lexer, layout, chumsky grammar, lowering to the AST, formatter. |
-| `badger_hir` | Name resolution, desugaring, HIR; the embedded standard library (`std/*.bdg`). |
+| `badger_hir` | Name resolution, desugaring, HIR. |
+| `badger_stdlib` | The standard library sources, embedded: `std/*.bdg`, `stdx/*.bdg`. |
 | `badger_typeck` | Type inference and the static checks (effects, ownership, regions, exhaustiveness, deadlock warnings). |
 | `badger_mir` | Monomorphization, layouts and descriptors, MIR, optimization passes, binary MIR. |
 | `badger_codegen` | MIR to Cranelift, the JIT module, program entry, debug information. |
@@ -178,25 +179,28 @@ ARCHITECTURE.md's "Runtime" section has the details.
 | `badger_cli` | The `badger` binary: commands (`main.rs`), language server (`lsp.rs`), MCP server (`mcp.rs`), `badger doc` (`doc.rs`), `badger graph` (`graph.rs`). |
 | `badger_native` | The native module ABI, the value wire format, and helpers for writing modules in Rust. |
 | `badger_native_demo` | A native module that exercises the ABI, for the tests. |
-| `badger_sqlite` | Native module behind `std.sqlite` (rusqlite). |
-| `badger_postgres` | Native module behind `std.postgres` (tokio-postgres). |
-| `badger_valkey` | Native module behind `std.valkey` (redis-rs). |
-| `badger_fetch` | Native module behind `std.fetch`: outbound HTTP(S) (ureq). |
-| `badger_http` | Native module behind `std.http`: the HTTP/1.1 server (hyper on tokio). |
+| `badger_sqlite` | Native module behind `stdx.sqlite` (rusqlite). |
+| `badger_postgres` | Native module behind `stdx.postgres` (tokio-postgres). |
+| `badger_valkey` | Native module behind `stdx.valkey` (redis-rs). |
+| `badger_fetch` | Native module behind `stdx.fetch`: outbound HTTP(S) (ureq). |
+| `badger_http` | Native module behind `stdx.http`: the HTTP/1.1 server (hyper on tokio). |
 | `badger_fs` | Native module for `std.fs` beyond the runtime's own text reads and writes. |
-| `badger_formats` | Native module behind `std.toml`, `std.yaml`, `std.csv`. |
-| `badger_template` | Native module behind `std.template` (minijinja). |
-| `badger_crypto` | Native module behind `std.encoding`, `std.crypto`, `std.uuid`. |
+| `badger_formats` | Native module behind `stdx.toml`, `stdx.yaml`, `stdx.csv`. |
+| `badger_template` | Native module behind `stdx.template` (minijinja). |
+| `badger_crypto` | Native module behind `stdx.encoding`, `stdx.crypto`, `stdx.uuid`. |
 | `badger_datetime` | Native module behind `std.datetime` (jiff). |
-| `badger_compress` | Native module behind `std.compress` (gzip, zlib, deflate, zstd). |
+| `badger_compress` | Native module behind `stdx.compress` (gzip, zlib, deflate, zstd). |
 
 ## The standard library, intrinsics, and native modules
 
 - **Sources.** Every standard module is an ordinary Badger file in
-  `crates/badger_hir/std/` (`list.bdg` is `std.list`). They are listed in
-  `crates/badger_hir/src/stdlib.rs` and embedded with `include_str!`. A
+  `crates/badger_stdlib/`: `std/*.bdg` (the foundation) and `stdx/*.bdg`
+  (the extended library), so `std/list.bdg` is `std.list` and
+  `stdx/http.bdg` is `stdx.http`. They are listed in
+  `crates/badger_stdlib/src/lib.rs` and embedded with `include_str!`. A
   program loads the core modules plus the ones it imports. A new module
-  needs a file and an entry in that list.
+  needs a file and an entry in that list (`crates/badger_stdlib/tests/parity.rs`
+  keeps the two in step).
 - **Intrinsics.** A standard function implemented by the runtime is
   declared `extern "intrinsic" fn NAME(...)`. MIR lowering either expands
   it inline or calls the runtime symbol `badger_rt_i_NAME`. Runtime
@@ -287,6 +291,6 @@ cargo test --release -p badger_cli --test programs run_programs   # tests/run (n
 |---|---|
 | Syntax | `crates/badger_syntax/src/token.rs`, `grammar.rs`, `lower.rs`; then `format.rs` |
 | A diagnostic | the phase that reports it; add catalog text in `crates/badger_base/src/catalog.rs` |
-| A standard function | `crates/badger_hir/std/MODULE.bdg`; an intrinsic also in `crates/badger_runtime/src/intrinsics*.rs` |
+| A standard function | `crates/badger_stdlib/std/MODULE.bdg` or `crates/badger_stdlib/stdx/MODULE.bdg`; an intrinsic also in `crates/badger_runtime/src/intrinsics*.rs` |
 | A CLI command | `crates/badger_cli/src/main.rs`, and the `Session` method it calls in `badger_driver` |
 | A runtime setting | `RUNTIME_KEYS`, `RUNTIME_DEFAULTS`, `check_runtime` in `crates/badger_driver/src/manifest.rs`; applied in `apply_runtime_setting` (`lib.rs`) |

@@ -137,29 +137,52 @@ pub fn run(target: &str, out: Option<&Path>, check: bool) -> Result<(), String> 
 
 /// File name and Markdown of each page.
 fn pages(target: &str) -> Result<Vec<(String, String)>, String> {
-    if target == "std" {
+    // a namespace, or the whole library: `std` covers both `std` and `stdx`
+    if badger_stdlib::is_root(target) {
+        let roots: Vec<&str> =
+            if target == badger_stdlib::STD { badger_stdlib::ROOTS.to_vec() } else { vec![target] };
         let mut out = vec![];
-        let mut index = vec![];
-        for m in badger_driver::std_modules() {
-            let items = api(&format!("std.{m}"))?;
+        // (namespace, module, the module's first line)
+        let mut index: Vec<(&str, String, String)> = vec![];
+        for (root, m) in badger_stdlib::names().filter(|(r, _)| roots.contains(r)) {
+            let qualified = format!("{root}.{m}");
+            let items = api(&qualified)?;
             if items.is_empty() {
                 continue;
             }
-            let intro = badger_driver::std_source(m).map(intro).unwrap_or_default();
-            index.push((m.to_string(), intro.lines().next().unwrap_or("").to_string()));
-            out.push((format!("{m}.md"), page(&format!("std.{m}"), &intro, &items, "std")));
+            let intro = badger_stdlib::source(root, m).map(intro).unwrap_or_default();
+            index.push((root, m.to_string(), intro.lines().next().unwrap_or("").to_string()));
+            out.push((format!("{m}.md"), page(&qualified, &intro, &items, target)));
         }
-        let mut t = header("Standard library reference", "std");
-        t.push_str("| Module | |\n|---|---|\n");
-        for (m, first) in &index {
-            let _ = writeln!(t, "| [`std.{m}`]({m}.md) | {} |", first.replace('|', "\\|"));
+        let mut t = header("Standard library reference", target);
+        let blurb = |root: &str| match root {
+            badger_stdlib::STDX => "The extended library: the application framework and the integrations.",
+            _ => {
+                "The language's foundation: the modules the compiler needs, the data structures, text, \
+                  number, time, and concurrency facilities, and the plain OS and process access."
+            }
+        };
+        for root in &roots {
+            let section: Vec<_> = index.iter().filter(|(r, _, _)| r == root).collect();
+            if section.is_empty() {
+                continue;
+            }
+            let _ = writeln!(t, "## `{root}`\n\n{}\n", blurb(root));
+            t.push_str("| Module | |\n|---|---|\n");
+            for (_, m, first) in section {
+                let _ = writeln!(t, "| [`{root}.{m}`]({m}.md) | {} |", first.replace('|', "\\|"));
+            }
+            t.push('\n');
         }
-        out.push(("README.md".into(), t));
-        return Ok(out);
+        return Ok(out.into_iter().chain(std::iter::once(("README.md".into(), t))).collect());
     }
-    if let Some(m) = target.strip_prefix("std.") {
+    // one standard module, `std.list` or `stdx.http`
+    if let Some((root, m)) = badger_stdlib::split(target) {
+        if !badger_stdlib::has(root, m) {
+            return Err(format!("no standard module `{target}`"));
+        }
         let items = api(target)?;
-        let intro = badger_driver::std_source(m).map(intro).unwrap_or_default();
+        let intro = badger_stdlib::source(root, m).map(intro).unwrap_or_default();
         return Ok(vec![(format!("{m}.md"), page(target, &intro, &items, target))]);
     }
     // a program: one page per module file

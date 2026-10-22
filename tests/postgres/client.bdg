@@ -1,9 +1,9 @@
-// std.postgres against a live server at $POSTGRES_URL (a database the test
+// stdx.postgres against a live server at $POSTGRES_URL (a database the test
 // may change): schema scripts, typed parameters and results, records,
 // errors, transactions, describe, cancellation, and a shared pool.
 import std.env
 import std.io
-import std.postgres
+import stdx.postgres
 import std.task
 import std.time
 

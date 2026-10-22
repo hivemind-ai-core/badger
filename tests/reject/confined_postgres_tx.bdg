@@ -1,7 +1,7 @@
 // A PostgreSQL transaction is confined to its task, like a SQLite one.
 // expect-error: E0402
 import std.io
-import std.postgres
+import stdx.postgres
 import std.task
 
 fn work<S: Scope>(tx: postgres.Tx<S>) -> Result<Int, postgres.Error> {

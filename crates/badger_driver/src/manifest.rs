@@ -394,7 +394,7 @@ impl Manifest {
                     }
                     let Some(toml::Value::Array(items)) = toml_value(v) else {
                         return Err(format!(
-                            "line {}: `forbid` is a list of module paths, such as `[\"web\", \"std.http\"]`",
+                            "line {}: `forbid` is a list of module paths, such as `[\"web\", \"stdx.http\"]`",
                             i + 1
                         ));
                     };
@@ -529,6 +529,14 @@ impl Manifest {
         // the name names files (saved programs, releases): no paths
         if !m.name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-') {
             return Err(format!("package name `{}` may contain only letters, digits, `_`, and `-`", m.name));
+        }
+        // a package named `std` or `stdx` could never be imported: the
+        // standard library's namespaces are not a package's to claim
+        if badger_stdlib::is_root(&m.name) {
+            return Err(format!(
+                "package name `{}` is a standard-library namespace; choose another name",
+                m.name
+            ));
         }
         Ok(m)
     }
@@ -682,14 +690,22 @@ mod tests {
     }
 
     #[test]
+    fn the_standard_namespaces_are_not_package_names() {
+        let e = Manifest::parse("[package]\nname = \"stdx\"\n").unwrap_err();
+        assert!(e.contains("is a standard-library namespace"), "{e}");
+        assert!(Manifest::parse("[package]\nname = \"std\"\n").is_err());
+        assert!(Manifest::parse("[package]\nname = \"stdx_util\"\n").is_ok());
+    }
+
+    #[test]
     fn layers() {
         let m = Manifest::parse(
-            "[package]\nname = \"a\"\n[layers.orders.core]\nforbid = [\"web\", \"std.http\"]\n",
+            "[package]\nname = \"a\"\n[layers.orders.core]\nforbid = [\"web\", \"stdx.http\"]\n",
         )
         .unwrap();
         assert_eq!(
             m.layers,
-            vec![("orders.core".to_string(), vec!["web".to_string(), "std.http".to_string()])]
+            vec![("orders.core".to_string(), vec!["web".to_string(), "stdx.http".to_string()])]
         );
         assert!(Manifest::parse("[package]\nname = \"a\"\n[layers.x]\nallow = []\n").is_err());
         assert!(Manifest::parse("[package]\nname = \"a\"\n[layers.x]\nforbid = \"web\"\n").is_err());

@@ -6,7 +6,7 @@
 // `badger run` submits one job and waits for it; `badger test` runs the
 // tests.
 import std.io
-import std.jobs
+import stdx.jobs
 import std.system
 import std.task
 import std.time

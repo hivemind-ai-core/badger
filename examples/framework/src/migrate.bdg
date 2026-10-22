@@ -1,10 +1,10 @@
 // The migration task: `badger run migrate` brings the database to the
 // schema this version of the application expects (the service and the
 // command line refuse any other).
-import std.config
+import stdx.config
 import std.env
 import std.io
-import std.sqlite
+import stdx.sqlite
 import std.system
 import std.text
 import settings

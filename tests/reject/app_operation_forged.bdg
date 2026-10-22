@@ -1,7 +1,7 @@
 // expect-error: E0315
 // An operation is built by `app.from_fn` or `app.from_pipeline`, never by
 // hand, so its metadata and callable always belong together.
-import std.app
+import stdx.app
 
 @derive(Error)
 pub enum E {

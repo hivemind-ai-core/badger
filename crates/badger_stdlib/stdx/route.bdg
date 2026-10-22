@@ -4,7 +4,7 @@
 // OpenAPI documents are derived from the same descriptions.
 
 import std.codec
-import std.http
+import stdx.http
 import std.list
 import std.map
 import std.schema

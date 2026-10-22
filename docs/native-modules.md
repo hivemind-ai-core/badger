@@ -18,7 +18,7 @@ HTTP, compression, a vendor SDK) without changing the runtime. Use
 
 `extern "native NAME" fn f` declares function `f` of module `NAME`;
 `extern "native NAME.g" fn f` declares the module's function `g` under
-the name `f` (as `std.sqlite` declares `badger_sqlite.open` as `sql_open`
+the name `f` (as `stdx.sqlite` declares `badger_sqlite.open` as `sql_open`
 beside its public `open`). Its
 parameter and result types are the contract: the host copies each argument
 into the module's wire format and each result back, checking it against
@@ -110,7 +110,7 @@ capability rules apply to them as to any value.
 
 A module is either linked into the `badger` executable (the standard library's
 own modules: `badger_sqlite`, `badger_fetch`, and `badger_http`, behind
-`std.sqlite`, `std.fetch`, and `std.http`) or loaded from `libNAME.so` (`libNAME.dylib` on macOS) in the
+`stdx.sqlite`, `stdx.fetch`, and `stdx.http`) or loaded from `libNAME.so` (`libNAME.dylib` on macOS) in the
 first of these directories that has it:
 
 1. each directory of `BADGER_NATIVE_PATH` (separated like `PATH`);

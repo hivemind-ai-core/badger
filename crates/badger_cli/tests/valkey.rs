@@ -1,4 +1,4 @@
-//! `std.valkey` against a live server: `BADGER_TEST_VALKEY_URL` (a server
+//! `stdx.valkey` against a live server: `BADGER_TEST_VALKEY_URL` (a server
 //! whose database 0 the test may flush), else a `valkey-server` or
 //! `redis-server` on the path started for the test; skipped without one.
 

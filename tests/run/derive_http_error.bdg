@@ -1,7 +1,7 @@
 // `derive(HttpError)`: each variant's `@http.status(code)` is its HTTP status,
 // a variant wrapping an error (`source`) answers with that error's status and
 // code, the others answer 500; generic enums too.
-import std.http
+import stdx.http
 import std.io
 
 @derive(Error, HttpError, From)

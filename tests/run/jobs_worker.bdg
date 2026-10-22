@@ -5,7 +5,7 @@
 // and the job continues); every job ends done with one outbox entry.
 import std.fs
 import std.io
-import std.jobs
+import stdx.jobs
 import std.system
 import std.task
 import std.time

@@ -1,4 +1,4 @@
-//! `badger_http`: the HTTP/1.1 server native module behind `std.http`
+//! `badger_http`: the HTTP/1.1 server native module behind `stdx.http`
 //! (hyper on a small tokio runtime of the module's own).
 //!
 //! The module reads requests and enforces the explicit limits (a body over

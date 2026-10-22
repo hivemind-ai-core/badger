@@ -1,6 +1,6 @@
 // S01: a missing system reference is rejected before initialization.
 // expect-error: E0601
-import std.sqlite
+import stdx.sqlite
 import std.system
 import std.system.{component}
 

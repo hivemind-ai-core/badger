@@ -1,8 +1,8 @@
 // Scenario 6: request A fails (a task defect) while request B waits on the
 // database; B continues and A's transaction and task scope are released.
-import std.config
-import std.http
-import std.sqlite
+import stdx.config
+import stdx.http
+import stdx.sqlite
 import std.system
 import std.system.{component}
 import std.task

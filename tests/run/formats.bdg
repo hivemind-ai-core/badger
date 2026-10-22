@@ -1,9 +1,9 @@
 // TOML, YAML, and CSV: parsed to `Data`, decoded to typed records, and
 // encoded back; malformed input is an error value.
 import std.io
-import std.toml
-import std.yaml
-import std.csv
+import stdx.toml
+import stdx.yaml
+import stdx.csv
 
 pub struct Server {
     pub host: String,

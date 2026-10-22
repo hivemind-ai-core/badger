@@ -1,7 +1,7 @@
 // The feature itself: operations over a store. Validation is a stage of
 // the create operation's pipeline, so every caller (HTTP, command line,
 // worker) gets the same checks.
-import std.app
+import stdx.app
 import std.list
 import std.pipeline
 import std.pipeline.{handle}

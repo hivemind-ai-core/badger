@@ -4,7 +4,7 @@
 import std.codec
 import std.io
 import std.schema
-import std.sqlite
+import stdx.sqlite
 import std.time
 
 @flatten

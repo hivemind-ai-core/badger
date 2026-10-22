@@ -1,6 +1,6 @@
 // expect-error: E0193
 // `@command.exit` takes a failing exit status, 1 to 255 (0 is success).
-import std.command
+import stdx.command
 
 @derive(Error, CommandError)
 pub enum AppError {

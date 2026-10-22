@@ -29,7 +29,7 @@ fn finds_a_definition_by_its_documentation() {
     let out = lang().args(["search", "percent-decoded"]).output().unwrap();
     assert!(out.status.success());
     let text = String::from_utf8_lossy(&out.stdout).into_owned();
-    assert!(text.contains("std.route.query_params"), "{text}");
+    assert!(text.contains("stdx.route.query_params"), "{text}");
 }
 
 /// A query that matches nothing says so, and still succeeds.

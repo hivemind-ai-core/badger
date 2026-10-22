@@ -3,7 +3,7 @@
 import std.io
 import std.system
 import std.system.{component}
-import std.sqlite
+import stdx.sqlite
 pub struct E { pub d: dyn Display }
 impl Display for E { fn display(self: &Self) -> String { $"E({self.d})" } }
 impl Error for E {}

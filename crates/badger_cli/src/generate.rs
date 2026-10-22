@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 
 const MODEL: &str = r#"// The @name@ feature's vocabulary: a @item@, what can go wrong, the storage
 // it needs, and the operations it offers.
-import std.app
-import std.http
+import stdx.app
+import stdx.http
 
 pub type @Item@ = { id: Int, title: String }
 pub type New@Item@ = { title: String }
@@ -58,7 +58,7 @@ pub provider store(config: {}) -> Result<model.Store, model.Error> {
 "#;
 
 const SERVICE: &str = r#"// The @name@ feature: its operations over a store.
-import std.app
+import stdx.app
 import std.system
 import std.text
 import @name@.memory
@@ -126,9 +126,9 @@ fn test_invalid_and_missing() -> Result<Unit, TestError> {
 "#;
 
 const HTTP: &str = r#"// The HTTP binding of the @name@ feature.
-import std.endpoint
-import std.http
-import std.route
+import stdx.endpoint
+import stdx.http
+import stdx.route
 import std.system
 import @name@.memory
 import @name@.model
@@ -165,10 +165,10 @@ fn test_routes() -> Result<Unit, TestError> {
 }
 "#;
 
-const WORKER: &str = r#"// The @name@ worker: durable jobs of kind "@name@" (std.jobs), each run by
+const WORKER: &str = r#"// The @name@ worker: durable jobs of kind "@name@" (stdx.jobs), each run by
 // a supervised worker that retries a failed attempt and survives restarts.
 // `Job` and `step` are placeholders for the job's own state and work.
-import std.jobs
+import stdx.jobs
 import std.system
 import std.task
 import std.time
@@ -232,8 +232,8 @@ fn test_a_submitted_job_is_processed() -> Result<Unit, TestError> {
 
 const SERVICE_MODEL: &str = r#"// The @name@ service's vocabulary: a @item@, what can go wrong, and the
 // operations the service offers.
-import std.app
-import std.http
+import stdx.app
+import stdx.http
 
 /// One @item@.
 pub type @Item@ = { id: Int, title: String }
@@ -285,7 +285,7 @@ pub provider memory(config: {}) -> Result<Store, model.Error> {
 
 const SERVICE_SERVICE: &str = r#"// The @name@ service: its operations over the store. Every caller (the
 // routes, the command line, a worker) calls the same ones.
-import std.app
+import stdx.app
 import std.system
 import std.text
 import @name@.model
@@ -337,9 +337,9 @@ fn test_create_and_find() -> Result<Unit, TestError> {
 const SERVICE_HTTP: &str = r#"// The HTTP binding of the @name@ service: its route table. The errors
 // carry their status, so the service's own errors answer with the status
 // the service means.
-import std.app
-import std.http
-import std.route
+import stdx.app
+import stdx.http
+import stdx.route
 import std.system
 import @name@.model
 import @name@.service
@@ -480,15 +480,16 @@ const RESERVED: &[&str] = &[
     "list",
     "text",
     "std",
+    "stdx",
     "generate_probe",
 ];
 
 /// A generated module named like a standard one (`io`, `json`) would hide
 /// it in every module importing both.
 fn std_clash(name: &str) -> Result<(), String> {
-    if badger_driver::std_modules().contains(&name) {
+    if let Some(root) = badger_driver::std_root_of(name) {
         return Err(format!(
-            "`{name}` is a standard module (`std.{name}`): a module of that name hides it where both are imported; choose another name"
+            "`{name}` is a standard module (`{root}.{name}`): a module of that name hides it where both are imported; choose another name"
         ));
     }
     Ok(())

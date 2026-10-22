@@ -5,7 +5,7 @@ import std.prelude
 import std.codec
 import std.system
 import std.native
-import std.websocket
+import stdx.websocket
 import std.list
 import std.text as texts
 

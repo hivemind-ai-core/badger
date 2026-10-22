@@ -33,7 +33,7 @@ fn main() {
     };
     for (label, filter) in [
         ("all", &(|_: &str| true) as &dyn Fn(&str) -> bool),
-        ("std", &(|p: &str| p.contains("badger_hir/std/")) as &dyn Fn(&str) -> bool),
+        ("std", &(|p: &str| p.contains("badger_stdlib/")) as &dyn Fn(&str) -> bool),
     ] {
         for _ in 0..3 {
             pass(filter);

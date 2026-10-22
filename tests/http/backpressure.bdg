@@ -1,8 +1,8 @@
 // A streamed reply to a client that stops reading: the streaming task waits
 // once `http_max_stream_buffer_bytes` are waiting for the client, instead
 // of buffering the whole reply. `/count` reports how many chunks were made.
-import std.config
-import std.http
+import stdx.config
+import stdx.http
 import std.io
 import std.seq
 import std.system

@@ -1,6 +1,6 @@
 // expect-error: E0181
 // A record of parameters binds named placeholders: each one needs a field.
-import std.sqlite
+import stdx.sqlite
 
 pub fn main() -> Result<Unit, sqlite.Error> {
     let db = sqlite.open(":memory:")?

@@ -5,16 +5,16 @@
 //     curl localhost:8080/tasks
 //     curl -X POST localhost:8080/tasks/1/done
 //     curl localhost:8080/health/ready
-import std.admission
-import std.app
-import std.command
-import std.config
+import stdx.admission
+import stdx.app
+import stdx.command
+import stdx.config
 import std.env
-import std.http
+import stdx.http
 import std.io
 import std.log
-import std.route
-import std.sqlite
+import stdx.route
+import stdx.sqlite
 import std.system
 import std.text
 import settings

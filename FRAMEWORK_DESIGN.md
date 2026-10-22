@@ -127,7 +127,7 @@ Use a matched framework release set and lock dependency content/native artifacts
 | Concurrency | Scoped tasks, bounded channels, timeouts, worker policies and drain/cancel hooks | Consistent admission/deadline defaults, adapter cancellation contracts, service-level supervision conventions |
 | HTTP | Handler/request scopes, finite and streamed replies, typed routes, URL/OpenAPI generation | Unified operation bindings, limits/order/error policies, test client and endpoint generator |
 | Data | Typed codecs/schemas, SQLite APIs and typed SQL checks; native-library extraction is active | Repository/UoW conventions, migration commands, durable domain/outbox integration |
-| Durability | `std.jobs` with leases/fencing, receipts, outbox outcomes and uncertainty | Typed application adapters, workflow versioning, testing and operational tools |
+| Durability | `stdx.jobs` with leases/fencing, receipts, outbox outcomes and uncertainty | Typed application adapters, workflow versioning, testing and operational tools |
 | Configuration | Manifest profiles, runtime settings, `config.load`/`from_env` | Explicit schema defaults, dotenv policy, secret handling and per-value provenance |
 | Agent/editor tools | Checks, queries, graphs, diagnostics, REPL, LSP/MCP; source overlays and API documentation now have support in the checkout | Framework-aware context, semantic generators, application descriptions and contract-change guidance |
 
@@ -388,7 +388,7 @@ Duct's inspectable expansion of reusable configuration is a useful model. Framew
 
 ## 14. HTTP and CLI bindings
 
-An HTTP endpoint binds method/path/name, typed path/query/body schemas, an operation, success rendering, expected-error mapping, and transport policies. Derive URL construction and OpenAPI from the same registration. Validate route/name conflicts before opening the listener. The current `std.route` module is a starting point, not a parallel routing system to discard.
+An HTTP endpoint binds method/path/name, typed path/query/body schemas, an operation, success rendering, expected-error mapping, and transport policies. Derive URL construction and OpenAPI from the same registration. Validate route/name conflicts before opening the listener. The current `stdx.route` module is a starting point, not a parallel routing system to discard.
 
 The adapter parses bytes into typed input; builds verified call metadata; invokes the operation; renders its concrete result. Preserve distinctions between malformed input, missing fields, invalid values, and authorization errors. Allow explicit versioned wire schemas whose field names can differ from language identifiers.
 
@@ -453,7 +453,7 @@ Direct synchronous functions remain the recommended path for simple operations. 
 | Durable job | Work surviving process restart | Versioned payload, attempts/backoff, lease/fence, acknowledgement and inspection |
 | Durable external command | Side effect requiring receipt/reconciliation | Stable key, persisted dispatch state, confirmed/rejected/not-sent/uncertain outcomes |
 
-Build application jobs on `std.jobs` instead of creating a second durability engine. Separate retry classification from worker restart policy: a worker can restart while a claimed operation remains uncertain and must not be repeated.
+Build application jobs on `stdx.jobs` instead of creating a second durability engine. Separate retry classification from worker restart policy: a worker can restart while a claimed operation remains uncertain and must not be repeated.
 
 An actor helper can use a typed message enum, bounded channel, and owned state, with optional one-shot replies and sharding. It is a library pattern; a new actor/receive keyword is unnecessary. Document a single serial actor's throughput limit and preserve per-key ordering when sharding is requested.
 
@@ -573,14 +573,14 @@ Each slice has a runnable demonstration in the checkout (`examples/framework` un
 | Slice | Implemented | Tests | Left for later |
 |---|---|---|---|
 | F01 | Descriptor baseline | `examples/design/framework` (7 tests) | — |
-| F02 | `std.app`: `Operation` (built only by `from_fn`/`from_pipeline`, E0315 otherwise), `Call` (correlation, parent, deadline that only shortens, actor), `index` | `tests/run/app_operations`, `tests/reject/app_operation_forged` | — |
+| F02 | `stdx.app`: `Operation` (built only by `from_fn`/`from_pipeline`, E0315 otherwise), `Call` (correlation, parent, deadline that only shortens, actor), `index` | `tests/run/app_operations`, `tests/reject/app_operation_forged` | — |
 | F03 | `config.resolve`/`resolve_or` (defaults < `[config]` < profile < env < overrides, strict, per-setting provenance), `config.Secret` (redacted in display, JSON, provenance), `app.Health`/`app.check`, `app.run` (ready after startup, stopping before halt, stopped after), `endpoint.health` | `config_resolve`, `tests/run/app_health`, `tests/reject/app_run_escape` | Dotenv values are reported as environment values; secret rotation; compiled binaries report profile values as `[config]` |
-| F04 | `std.endpoint` (`bind`: typed params/body/reply, explicit error mapping, correlation, OpenAPI summary), `std.command` (`bind`, `run`, `main`, exit statuses) | `tests/run/app_bindings`, `framework_example` | Streaming endpoints over operations; OpenAPI error responses (the mapping is a function) |
-| F05 | `std.admission` (native gates: FIFO hand-off, queue-time deadlines, release after settle/cancel), `app.guard`/`require_role`, `endpoint.bind_in` (bearer identity, timeout from arrival, gate, body limit) | `tests/run/admission_gate`, `tests/run/app_admission` (4 workers, chaos) | Byte budgets (gates count calls); sessions and external identity providers; transport limits stay the HTTP server's |
+| F04 | `stdx.endpoint` (`bind`: typed params/body/reply, explicit error mapping, correlation, OpenAPI summary), `stdx.command` (`bind`, `run`, `main`, exit statuses) | `tests/run/app_bindings`, `framework_example` | Streaming endpoints over operations; OpenAPI error responses (the mapping is a function) |
+| F05 | `stdx.admission` (native gates: FIFO hand-off, queue-time deadlines, release after settle/cancel), `app.guard`/`require_role`, `endpoint.bind_in` (bearer identity, timeout from arrival, gate, body limit) | `tests/run/admission_gate`, `tests/run/app_admission` (4 workers, chaos) | Byte budgets (gates count calls); sessions and external identity providers; transport limits stay the HTTP server's |
 | F06 | `sqlite.migrate`/`schema`/`require_current` and the same for Postgres (checksummed, one transaction each, re-checked inside it; Postgres takes an advisory lock); SQLite repository with a shared contract test | `tests/run/sqlite_migrations`, `tests/postgres/migrations` (live server), `framework_example` | Units of work spanning repositories |
 | F07 | `jobs.store` provider, `jobs.process_one`/`processor` (handler error = job retry; defect = worker restart; lost claims given up) | `tests/run/jobs_worker` | Drain policies beyond the worker's shutdown policy |
 | F08 | `jobs.attach`, `jobs.submit_in` (domain change and job in one transaction), `jobs.dispatcher` | `tests/run/jobs_outbox` (crash mid-send → uncertain, no resend, reconcile) | Postgres-backed job store |
-| F09 | `std.decide` (pure `!{}` deciders with coeffects, optimistic `execute` that decides again after a conflict, `memory` stream) | `tests/run/decide_orders`, `tests/reject/decide_impure` | A durable event-stream adapter |
+| F09 | `stdx.decide` (pure `!{}` deciders with coeffects, optimistic `execute` that decides again after a conflict, `memory` stream) | `tests/run/decide_orders`, `tests/reject/decide_impure` | A durable event-stream adapter |
 | F10 | `badger generate feature` and the MCP `generate` tool (checked and tested in a copy of the project before writing; never replaces files) | `generate_feature`, `mcp_tools` | Endpoint- and worker-only generators; semantic plan diffs beyond the file list |
 | F11 | The composed service under concurrent gated writes, malformed/oversized requests, a slow client, live inspection, and SIGINT shutdown | `framework_service` (service.rs) | Restart groups; long-running soak measurements |
 

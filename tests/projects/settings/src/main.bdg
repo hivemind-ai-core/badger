@@ -1,7 +1,7 @@
 // Layered, strict configuration with provenance and a redacted secret:
 // `badger run tests/projects/settings -- port=9000 db.pool=3`.
 import std.codec
-import std.config
+import stdx.config
 import std.env
 import std.io
 import std.text

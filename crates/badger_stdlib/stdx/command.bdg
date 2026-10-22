@@ -17,7 +17,7 @@
 // options), and for an operation's expected error, its exit status
 // (`ExitStatus`: `derive(CommandError)` reads each variant's
 // `@command.exit(status)`; 1 otherwise) with its display on standard error.
-import std.app
+import stdx.app
 import std.cli
 import std.io
 import std.list

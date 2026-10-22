@@ -41,8 +41,8 @@ pub struct Session {
     pub recover_syntax: bool,
     /// Native modules the last `compile_binary` program calls.
     pub natives: Vec<String>,
-    /// Parsed standard-library modules, by std module name. A session checks
-    /// a project's main entry and every `[entries]`/`[tasks]` module; the
+    /// Parsed standard-library modules, by qualified name (`stdx.http`). A session
+    /// checks a project's main entry and every `[entries]`/`[tasks]` module; the
     /// standard library is the same for all of them, so it is parsed once and
     /// reused (the embedded sources never change within a session).
     std_parsed: std::collections::HashMap<String, ParsedModule>,
@@ -67,7 +67,7 @@ pub struct Loaded {
     pub entry: usize,
     pub root: PathBuf,
     /// The standard modules this program reached, as their indexes in
-    /// `badger_hir::stdlib::STD_MODULES` in allocation order. Two programs
+    /// `badger_stdlib::STD_MODULES` in allocation order. Two programs
     /// that reach the same set have their standard definitions at the same
     /// `DefId`s, so this keys the shared type-checking results.
     pub std_key: Vec<usize>,
@@ -416,7 +416,6 @@ impl Session {
             .chain(deps.iter().map(|d| (Some(d.name.clone()), d.src_root.clone())))
             .collect();
         let mut modules = vec![];
-        let std_sym = self.sym("std");
         let text = match self.read_source(&entry_file) {
             Ok(t) => t,
             Err(e) => {
@@ -475,7 +474,7 @@ impl Session {
                 })
                 .collect();
             for p in imports {
-                if p.first() == Some(&std_sym) {
+                if p.first().is_some_and(|s| badger_stdlib::is_root(self.interner.resolve(*s))) {
                     continue;
                 }
                 let mut segs: Vec<String> = p.iter().map(|s| self.interner.resolve(*s).to_string()).collect();
@@ -555,19 +554,23 @@ impl Session {
             "prelude", "list", "seq", "text", "map", "set", "option", "result", "num", "bytes", "buffer",
             "array", "codec", "records",
         ];
-        let std_sym = self.sym("std");
-        let names: Vec<&str> = badger_hir::stdlib::STD_MODULES.iter().map(|(n, _)| *n).collect();
-        let mut wanted: Vec<String> = CORE.iter().map(|s| s.to_string()).collect();
-        let add_imports = |ast: &ast::Ast, text: &str, wanted: &mut Vec<String>, interner: &Interner| {
+        // `(namespace, module)` pairs, both owned: imports are read from the
+        // interner, bare lang paths from the embedded module list
+        let mut wanted: Vec<(String, String)> =
+            CORE.iter().filter_map(|n| std_root_of(n).map(|r| (r.to_string(), (*n).to_string()))).collect();
+        let add_imports = |ast: &ast::Ast,
+                           text: &str,
+                           wanted: &mut Vec<(String, String)>,
+                           interner: &Interner| {
             for it in &ast.items {
-                if let ast::ItemKind::Import(imp) = &it.kind
-                    && imp.path.first().map(|n| n.sym) == Some(std_sym)
-                    && let Some(m) = imp.path.get(1)
-                {
-                    let m = interner.resolve(m.sym).to_string();
-                    if !wanted.contains(&m) {
-                        wanted.push(m);
-                    }
+                let ast::ItemKind::Import(imp) = &it.kind else { continue };
+                let Some(root) = imp.path.first().map(|n| interner.resolve(n.sym)) else { continue };
+                if !badger_stdlib::is_root(root) {
+                    continue;
+                }
+                let Some(m) = imp.path.get(1).map(|n| interner.resolve(n.sym).to_string()) else { continue };
+                if !wanted.iter().any(|(r, w)| r == root && *w == m) {
+                    wanted.push((root.to_string(), m));
                 }
             }
             // declarations desugared into standard items (`provider`, `stage`)
@@ -584,20 +587,25 @@ impl Session {
                 }));
             for p in std_paths {
                 if let Some((m, _)) = p.rsplit_once('.')
-                    && !wanted.iter().any(|w| w == m)
+                    && let Some(root) = std_root_of(m)
+                    && !wanted.iter().any(|(r, w)| r == root && w == m)
                 {
-                    wanted.push(m.to_string());
+                    wanted.push((root.to_string(), m.to_string()));
                 }
             }
             // `system { ... }` and `pipeline { ... }` expand into their modules
             for (kw, m) in [("system", "system"), ("pipeline", "pipeline")] {
+                let Some(root) = std_root_of(m) else { continue };
                 let mut rest = text;
                 while let Some(i) = rest.find(kw) {
                     let after = rest[i + kw.len()..].trim_start();
                     let word_start =
                         i == 0 || !rest[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == '.');
-                    if word_start && after.starts_with('{') && !wanted.iter().any(|w| w == m) {
-                        wanted.push(m.to_string());
+                    if word_start
+                        && after.starts_with('{')
+                        && !wanted.iter().any(|(r, w)| r == root && w == m)
+                    {
+                        wanted.push((root.to_string(), m.to_string()));
                     }
                     rest = &rest[i + kw.len()..];
                 }
@@ -608,25 +616,29 @@ impl Session {
         }
         // close over the standard modules' own imports
         let mut parsed: Vec<(usize, ParsedModule)> = vec![];
-        let mut done: Vec<String> = vec![];
-        while let Some(name) = wanted.iter().find(|w| !done.contains(w)).cloned() {
-            done.push(name.clone());
-            let Some(idx) = names.iter().position(|n| *n == name) else { continue };
-            let src = badger_hir::stdlib::STD_MODULES[idx].1;
+        let mut done: Vec<(String, String)> = vec![];
+        while let Some((root, name)) = wanted.iter().find(|w| !done.contains(w)).cloned() {
+            done.push((root.clone(), name.clone()));
+            let Some(idx) = badger_stdlib::STD_MODULES.iter().position(|(r, n, _)| *r == root && *n == name)
+            else {
+                continue;
+            };
+            let src = badger_stdlib::STD_MODULES[idx].2;
+            let qualified = format!("{root}.{name}");
             // The std sources are embedded and fixed for the session, so a
             // module is parsed once and cloned for later entries.
-            if let Some(m) = self.std_parsed.get(&name).cloned() {
+            if let Some(m) = self.std_parsed.get(&qualified).cloned() {
                 add_imports(&m.ast, src, &mut wanted, &self.interner);
                 parsed.push((idx, m));
                 continue;
             }
-            let file = self.sources.add(format!("<std>/{name}.bdg"), src);
+            let file = self.sources.add(format!("<{root}>/{name}.bdg"), src);
             if let Some(ast) = self.parse(file) {
                 add_imports(&ast, src, &mut wanted, &self.interner);
-                let mut mpath = vec![std_sym];
+                let mut mpath = vec![self.sym(&root)];
                 mpath.extend(name.split('/').map(|s| self.sym(s)));
                 let m = ParsedModule { path: mpath, file, ast, is_std: true, dependency: false };
-                self.std_parsed.insert(name.clone(), m.clone());
+                self.std_parsed.insert(qualified, m.clone());
                 parsed.push((idx, m));
             }
         }
@@ -2387,14 +2399,24 @@ pub fn describe_def(
     Some((ty, eff))
 }
 
-/// The source of standard module `std.NAME` (its API and documentation).
-pub fn std_source(name: &str) -> Option<&'static str> {
-    badger_hir::stdlib::STD_MODULES.iter().find(|(n, _)| *n == name).map(|(_, s)| *s)
+/// The source of standard module `qualified` (`std.list`, `stdx.http`): its
+/// API and documentation.
+pub fn std_source(qualified: &str) -> Option<&'static str> {
+    let (root, name) = badger_stdlib::split(qualified)?;
+    badger_stdlib::source(root, name)
 }
 
-/// Names of the standard modules.
-pub fn std_modules() -> Vec<&'static str> {
-    badger_hir::stdlib::STD_MODULES.iter().map(|(n, _)| *n).collect()
+/// The qualified names of the standard modules (`std.list`, `stdx.http`), in
+/// load order.
+pub fn std_modules() -> Vec<String> {
+    badger_stdlib::names().map(|(r, n)| format!("{r}.{n}")).collect()
+}
+
+/// The namespace a standard module name lives in: `"list"` → `Some("std")`,
+/// `"http"` → `Some("stdx")`. Module names are unique across the namespaces,
+/// so a bare name (a lang path such as `system.provider`) resolves to one root.
+pub fn std_root_of(name: &str) -> Option<&'static str> {
+    badger_stdlib::names().find(|(_, n)| *n == name).map(|(r, _)| r)
 }
 
 /// The project directory `path` belongs to: `path` itself when it holds a

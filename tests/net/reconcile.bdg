@@ -3,7 +3,7 @@
 // replay`).
 import std.io
 import std.env
-import std.fetch
+import stdx.fetch
 import std.text
 import std.time
 

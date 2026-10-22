@@ -311,7 +311,7 @@ enum Command {
     Lsp,
     /// Model Context Protocol server over stdio.
     ///
-    /// A persistent REPL session ("code mode", with `std.compiler`),
+    /// A persistent REPL session ("code mode", with `stdx.compiler`),
     /// checking, queries, and runs.
     Mcp,
     /// Program structure as a graph.
@@ -369,12 +369,12 @@ enum Command {
         #[arg(long)]
         overlays: Option<String>,
     },
-    /// Reference documentation in Markdown from checked interfaces.
-    ///
-    /// `std` (every standard module, one page each plus an index), a
-    /// standard module (`std.list`), or the program at a path.
+    /// Reference documentation in Markdown from checked interfaces: `std`
+    /// (every standard module of both namespaces, one page each plus an
+    /// index), `stdx` (the extended library alone), a standard
+    /// module (`std.list`, `stdx.http`), or the program at a path.
     Doc {
-        /// `std`, a standard module (`std.list`), or a program path.
+        /// `std`, `stdx`, a standard module (`std.list`, `stdx.http`), or a program path.
         target: String,
         /// Write the pages into this directory instead of printing them.
         #[arg(short = 'o', long = "out", value_name = "DIR")]
@@ -688,7 +688,7 @@ fn main() -> ExitCode {
     if let Some(code) = mir_validate_run() {
         return code;
     }
-    // `std.compiler` runs this executable for its queries
+    // `stdx.compiler` runs this executable for its queries
     if std::env::var_os("BADGER_EXE").is_none()
         && let Ok(exe) = std::env::current_exe()
     {

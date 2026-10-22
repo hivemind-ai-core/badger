@@ -1,6 +1,6 @@
 // A library declares its attributes: the positions each may be written at
 // (a function position names the signature), and its fields.
-import std.http
+import stdx.http
 import std.io
 
 enum Method {

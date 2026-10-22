@@ -1,4 +1,4 @@
-//! `badger_fetch`: the native module behind `std.fetch`. Requests run on
+//! `badger_fetch`: the native module behind `stdx.fetch`. Requests run on
 //! the runtime's blocking pool; redirects are not followed, every status
 //! is a reply, and bodies are text (up to 16 MiB). Reproduction bundles
 //! record each request by its method and URL, with a digest of what it

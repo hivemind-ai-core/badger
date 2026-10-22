@@ -3,7 +3,7 @@
 //!
 //! - `eval` ("code mode"): a persistent REPL session (the local `badger repl`
 //!   machinery); definitions accumulate and expressions evaluate, and
-//!   `std.compiler` exposes the compiler's analysis to the code itself, so
+//!   `stdx.compiler` exposes the compiler's analysis to the code itself, so
 //!   one call can check, query, and post-process.
 //! - `check`: diagnostics of a file or project, or of a source text.
 //! - `query`: hover, definition, references, symbols, completion,
@@ -30,7 +30,7 @@ const PROTOCOL: &str = "2025-06-18";
 
 const INSTRUCTIONS: &str = "Tools for a statically typed language with records, effects, \
 affine ownership, structured tasks, and channels. Write code in `eval` (a persistent REPL: \
-definitions accumulate; an expression's value is shown). `import std.compiler` there to \
+definitions accumulate; an expression's value is shown). `import stdx.compiler` there to \
 analyse files from code: compiler.diagnostics(path), compiler.check_source(src), \
 compiler.hover(path, line, col), compiler.definition(...), compiler.references(...), \
 compiler.symbols(path), compiler.completions(...), compiler.explain(code). Use `query` with \
@@ -42,7 +42,7 @@ fn tools() -> Value {
     json!([
         {
             "name": "eval",
-            "description": "Evaluate code in a persistent REPL session. Items (fn, struct, enum, import, module-level let) are added to the session and replace earlier ones of the same name; an expression is evaluated and its value displayed. Output printed by the code is returned too. `import std.compiler` gives compiler services as functions (diagnostics, check_source, hover, definition, references, symbols, completions, explain) returning typed records, for querying and post-processing analysis results in code.",
+            "description": "Evaluate code in a persistent REPL session. Items (fn, struct, enum, import, module-level let) are added to the session and replace earlier ones of the same name; an expression is evaluated and its value displayed. Output printed by the code is returned too. `import stdx.compiler` gives compiler services as functions (diagnostics, check_source, hover, definition, references, symbols, completions, explain) returning typed records, for querying and post-processing analysis results in code.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -93,7 +93,7 @@ fn tools() -> Value {
         },
         {
             "name": "generate",
-            "description": "Generate checked code into a project. `what: worker`: `NAME.bdg`, a durable job kind (std.jobs) with a supervised processor, `submit`, and a test. `what: feature`: `NAME/model.bdg` (a record type, its errors, the `Store` it needs, its `Operations`), `NAME/memory.bdg`, `NAME/service.bdg` (create/find/list operations and tests), and `NAME/http.bdg` (routes and a test), under the entry's directory. The files are checked and their tests run in a copy of the project first; existing files are never replaced. With `dry_run: true` it reports the plan and the check without writing. The generated rules and storage are placeholders to replace with the feature's own.",
+            "description": "Generate checked code into a project. `what: worker`: `NAME.bdg`, a durable job kind (stdx.jobs) with a supervised processor, `submit`, and a test. `what: feature`: `NAME/model.bdg` (a record type, its errors, the `Store` it needs, its `Operations`), `NAME/memory.bdg`, `NAME/service.bdg` (create/find/list operations and tests), and `NAME/http.bdg` (routes and a test), under the entry's directory. The files are checked and their tests run in a copy of the project first; existing files are never replaced. With `dry_run: true` it reports the plan and the check without writing. The generated rules and storage are placeholders to replace with the feature's own.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -502,16 +502,23 @@ impl Mcp {
                     "guide" => guide(a["name"].as_str()),
                     "examples" => examples(a["name"].as_str().unwrap_or("")),
                     "module" => match a["name"].as_str() {
-                        Some(n) => match badger_driver::std_source(n.trim_start_matches("std.")) {
-                            Some(src) => text(src, false),
-                            None => text(
-                                format!(
-                                    "no standard module `{n}`; modules: {}",
-                                    badger_driver::std_modules().join(", ")
+                        Some(n) => {
+                            // a bare name (`http`) resolves to its namespace
+                            let qualified = match badger_driver::std_root_of(n) {
+                                Some(root) => format!("{root}.{n}"),
+                                None => n.to_string(),
+                            };
+                            match badger_driver::std_source(&qualified) {
+                                Some(src) => text(src, false),
+                                None => text(
+                                    format!(
+                                        "no standard module `{n}`; modules: {}",
+                                        badger_driver::std_modules().join(", ")
+                                    ),
+                                    true,
                                 ),
-                                true,
-                            ),
-                        },
+                            }
+                        }
                         None => text(badger_driver::std_modules().join(", "), false),
                     },
                     "api" => {

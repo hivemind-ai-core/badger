@@ -1,4 +1,4 @@
-//! `badger_template`: Jinja templates (minijinja) for `std.template`. A
+//! `badger_template`: Jinja templates (minijinja) for `stdx.template`. A
 //! template renders a value (`Data`); HTML rendering escapes it. A set of
 //! named templates is compiled once (to a handle) and may `include` and
 //! `extends` its members.

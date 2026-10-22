@@ -1,5 +1,5 @@
 //! `badger_postgres`: the PostgreSQL client native module behind
-//! `std.postgres` (tokio-postgres with a deadpool pool, on a small tokio
+//! `stdx.postgres` (tokio-postgres with a deadpool pool, on a small tokio
 //! runtime of the module's own).
 //!
 //! Every call is async: the calling task parks until the reply. A pool

@@ -195,11 +195,11 @@ fn attributes_in_every_position() {
     let dir = std::env::temp_dir().join(format!("badger-attr-positions-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let f = dir.join("positions.bdg");
-    std::fs::write(&f, "import std.app\nimport std.io\n@allow(E0195)\nimport std.text\n\npub struct Point {\n    @app.column(\"px\") pub x: Int,\n    @allow(E0196) pub y: Int,\n}\n\nimpl Point {\n    @allow(E0197)\n    pub fn norm(self: &Self) -> Int {\n        let unused = 1\n        self.x + self.y\n    }\n    @app.operation(#points/sum)\n    pub fn sum(self: &Self) -> Int { self.x + self.y }\n}\n\nfn apply(@app.input f: fn(Int) -> Int, @allow(E0197) x: Int) -> Int { f(x) }\n\npub fn main() -> Result<Unit, io.Error> {\n    @allow(E0197)\n    fn helper() -> Int {\n        let ignored = 2\n        3\n    }\n    @allow(E0197)\n    let quiet = 1\n    @allow(E0197) {\n        let also_quiet = 2\n    }\n    let loud = 3\n    let p: Point = { x: 1, y: 2 }\n    io.println($\"{p.norm()} {p.sum()} {apply(fn(v) => v + 1, helper())}\")?\n    ok(())\n}\n").unwrap();
+    std::fs::write(&f, "import stdx.app\nimport std.io\n@allow(E0195)\nimport std.text\n\npub struct Point {\n    @app.column(\"px\") pub x: Int,\n    @allow(E0196) pub y: Int,\n}\n\nimpl Point {\n    @allow(E0197)\n    pub fn norm(self: &Self) -> Int {\n        let unused = 1\n        self.x + self.y\n    }\n    @app.operation(#points/sum)\n    pub fn sum(self: &Self) -> Int { self.x + self.y }\n}\n\nfn apply(@app.input f: fn(Int) -> Int, @allow(E0197) x: Int) -> Int { f(x) }\n\npub fn main() -> Result<Unit, io.Error> {\n    @allow(E0197)\n    fn helper() -> Int {\n        let ignored = 2\n        3\n    }\n    @allow(E0197)\n    let quiet = 1\n    @allow(E0197) {\n        let also_quiet = 2\n    }\n    let loud = 3\n    let p: Point = { x: 1, y: 2 }\n    io.println($\"{p.norm()} {p.sum()} {apply(fn(v) => v + 1, helper())}\")?\n    ok(())\n}\n").unwrap();
     let check = lang().args(["check", "--json"]).arg(&f).output().unwrap();
     let json = String::from_utf8_lossy(&check.stdout).to_string();
     assert!(check.status.success(), "{json}");
-    // (`std.app` declares none of these attributes: those warn, E0191)
+    // (`stdx.app` declares none of these attributes: those warn, E0191)
     assert_eq!(json.matches("\"code\":\"E0197\"").count(), 1, "only `loud` is unused: {json}");
     assert!(!json.contains("\"code\":\"E0195\""), "an attribute's namespace is a use: {json}");
     assert!(json.contains("unused variable `loud`"), "{json}");
@@ -222,14 +222,14 @@ fn declared_attributes_check_their_uses() {
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(dir.join("badger.toml"), "[package]\nname = \"attruses\"\nentry = \"src/main.bdg\"\n")
         .unwrap();
-    std::fs::write(dir.join("src/web.bdg"), "// The library: its attributes.\nimport std.http\n\npub enum Method {\n    get,\n    post,\n}\n\n/// A route: method and path, a summary if any.\npub attribute route on fn(http.Request) -> http.Response {\n    method: Method,\n    path: String,\n    summary: Option<String>,\n}\n\npub attribute table on type { name: String }\n\npub attribute column on field {\n    name: String,\n    primary: Option<Bool>,\n    width: Option<Int>,\n}\n\nattribute hidden on type {}\n").unwrap();
+    std::fs::write(dir.join("src/web.bdg"), "// The library: its attributes.\nimport stdx.http\n\npub enum Method {\n    get,\n    post,\n}\n\n/// A route: method and path, a summary if any.\npub attribute route on fn(http.Request) -> http.Response {\n    method: Method,\n    path: String,\n    summary: Option<String>,\n}\n\npub attribute table on type { name: String }\n\npub attribute column on field {\n    name: String,\n    primary: Option<Bool>,\n    width: Option<Int>,\n}\n\nattribute hidden on type {}\n").unwrap();
     let check = |main: &str| {
         std::fs::write(dir.join("src/main.bdg"), main).unwrap();
         let out = lang().args(["check", "--json"]).arg(&dir).output().unwrap();
         String::from_utf8_lossy(&out.stdout).to_string()
     };
     let good = check(
-        "import std.http\nimport std.io\nimport web\n\n@web.table(\"books\")\npub struct Book {\n    @web.column(name = \"id\", primary = true) pub id: Int,\n    pub title: String,\n}\n\n@web.route(method = get, path = \"/books\")\npub fn list(request: http.Request) -> http.Response { { status: 200, headers: map {}, body: request.body } }\n\npub fn main() -> Result<Unit, io.Error> {\n    io.println(\"ok\")?\n    ok(())\n}\n",
+        "import stdx.http\nimport std.io\nimport web\n\n@web.table(\"books\")\npub struct Book {\n    @web.column(name = \"id\", primary = true) pub id: Int,\n    pub title: String,\n}\n\n@web.route(method = get, path = \"/books\")\npub fn list(request: http.Request) -> http.Response { { status: 200, headers: map {}, body: request.body } }\n\npub fn main() -> Result<Unit, io.Error> {\n    io.println(\"ok\")?\n    ok(())\n}\n",
     );
     assert_eq!(good.trim(), "[]", "a fitting use is accepted: {good}");
     let cases = [
@@ -593,7 +593,7 @@ fn layer_rules() {
     std::fs::create_dir_all(dir.join("src/core")).unwrap();
     std::fs::write(
         dir.join("badger.toml"),
-        "[package]\nname = \"p\"\nentry = \"src/main.bdg\"\n\n[layers.core]\nforbid = [\"web\", \"std.http\"]\n",
+        "[package]\nname = \"p\"\nentry = \"src/main.bdg\"\n\n[layers.core]\nforbid = [\"web\", \"stdx.http\"]\n",
     )
     .unwrap();
     std::fs::write(dir.join("src/main.bdg"), "import core.rules\nimport web\n\npub fn main() -> Unit {}\n")
@@ -1373,7 +1373,7 @@ fn dotenv_and_env_references() {
     .unwrap();
     std::fs::write(
         dir.join("src/main.bdg"),
-        "import std.io\nimport std.config\nimport std.env\n\npub fn main() -> Result<Unit, String> {\n    let c = config.load<{ url: String, port: Int, greeting: String }>(\"APP_\").map_err(fn(e) { e.display() })?\n    let secret = env.get(\"SECRET\").unwrap_or(\"-\")\n    let quoted = env.get(\"QUOTED\").unwrap_or(\"-\")\n    let _ = io.println($\"{c.url} {c.port} {c.greeting} {secret} {quoted}\")\n    ok(())\n}\n",
+        "import std.io\nimport stdx.config\nimport std.env\n\npub fn main() -> Result<Unit, String> {\n    let c = config.load<{ url: String, port: Int, greeting: String }>(\"APP_\").map_err(fn(e) { e.display() })?\n    let secret = env.get(\"SECRET\").unwrap_or(\"-\")\n    let quoted = env.get(\"QUOTED\").unwrap_or(\"-\")\n    let _ = io.println($\"{c.url} {c.port} {c.greeting} {secret} {quoted}\")\n    ok(())\n}\n",
     )
     .unwrap();
     let run = |env: &[(&str, &str)]| {
@@ -1936,7 +1936,7 @@ fn structured_diagnostics() {
     let out = lang().arg("check").arg(&file).output().unwrap();
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.contains("in fn structured.Point.norm") && err.contains("expected: Int"), "{err}");
-    // the query interface (MCP `check`, std.compiler) carries the same facts
+    // the query interface (MCP `check`, stdx.compiler) carries the same facts
     let out = lang().args(["query", "diagnostics"]).arg(&file).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
     for want in [
@@ -2750,7 +2750,7 @@ fn http_server(reply: impl Fn(&str, &str, &str) -> (String, String, String) + Se
     port
 }
 
-/// `std.fetch` against a local server: replies of every status, an
+/// `stdx.fetch` against a local server: replies of every status, an
 /// origin-bound client that refuses other origins, unfollowed redirects.
 #[test]
 fn outbound_http() {
@@ -2775,7 +2775,7 @@ fn outbound_http() {
     );
 }
 
-/// `std.fetch.send` and the JSON helpers against a local server.
+/// `stdx.fetch.send` and the JSON helpers against a local server.
 #[test]
 fn outbound_http_send() {
     let port = http_server(|method, path, body| {
@@ -2930,7 +2930,7 @@ fn reproduction_bundles() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `std.jobs` across crashes: a worker that dies before committing is
+/// `stdx.jobs` across crashes: a worker that dies before committing is
 /// fenced out and its job retaken after the lease; an event is ingested
 /// once; a dispatcher that dies after the destination accepted a charge
 /// leaves it uncertain, so it is reconciled, not charged twice.
@@ -3061,7 +3061,7 @@ fn private_struct_update() {
     assert!(text.contains("field `secret` is private") && text.contains("\"line\":12"), "{text}");
 }
 
-/// Environment reads by `std.config` are recorded: a replay under a
+/// Environment reads by `stdx.config` are recorded: a replay under a
 /// different environment sees the recorded configuration.
 #[test]
 fn config_env_replays() {
@@ -3069,7 +3069,7 @@ fn config_env_replays() {
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(
         dir.join("cfg.bdg"),
-        "import std.io\nimport std.config\ntype Settings = { port: Int, name: String }\n\
+        "import std.io\nimport stdx.config\ntype Settings = { port: Int, name: String }\n\
          pub fn main() -> Result<Unit, String> {\n\
          let s = config.from_env<Settings>(\"DEMO_\").map_err(fn(e) => e.display())?\n\
          io.println($\"{s.name}:{s.port}\").map_err(fn(e) => \"io\")?\nok(())\n}\n",

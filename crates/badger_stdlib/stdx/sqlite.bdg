@@ -6,8 +6,8 @@ import std.prelude
 
 import std.system
 import std.codec
-import std.crypto
-import std.encoding
+import stdx.crypto
+import stdx.encoding
 import std.native
 import std.list
 import std.text

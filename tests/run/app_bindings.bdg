@@ -1,15 +1,15 @@
-// One operation implementation behind two transports: std.endpoint binds
+// One operation implementation behind two transports: stdx.endpoint binds
 // it to HTTP (typed parameters, body, and reply; error replies as the
-// error type says; correlation from the request) and std.command to a
+// error type says; correlation from the request) and stdx.command to a
 // command line (typed options, output rendering, exit statuses as the
 // error type says).
-import std.app
+import stdx.app
 import std.codec
-import std.command
-import std.endpoint
-import std.http
+import stdx.command
+import stdx.endpoint
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 import std.text
 
 type Order = { id: Int, title: String }

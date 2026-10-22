@@ -2,9 +2,9 @@
 
 A small task tracker with three entry points over one feature. It shows how
 an application is put together: the feature offers typed operations
-(`std.app`), `provider` declarations build the parts, `stage` declarations
+(`stdx.app`), `provider` declarations build the parts, `stage` declarations
 add checks and cross-cutting behavior, the HTTP and command-line bindings
-(`std.endpoint`, `std.command`) expose the same operations, and each entry
+(`stdx.endpoint`, `stdx.command`) expose the same operations, and each entry
 point composes the parts it needs in a `system { ... }`.
 
 | File | Role |

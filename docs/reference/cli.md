@@ -52,7 +52,7 @@ greet = "src/tasks.bdg#greet"
 
 ```badger
 import std.io
-import std.config
+import stdx.config
 import std.test
 
 type Settings = {
@@ -259,7 +259,7 @@ program, its arguments, and its profile are taken from the bundle.
 
 - Every recorded external operation (HTTP requests, subprocesses, file
   reads, writes and listings, environment variables read with `std.env`
-  or `std.config`, clocks, OS-seeded random sources) is answered from the bundle; nothing
+  or `stdx.config`, clocks, OS-seeded random sources) is answered from the bundle; nothing
   is requested, run, or written.
 - Operations a bundle cannot hold (databases, the HTTP server, native
   module functions not marked as recorded) stop the replay with status 3.
@@ -490,7 +490,7 @@ interface (the same one `badger query api` prints).
 
 ```sh
 $ badger search percent-decoded
-std.route.query_params  pub fn query_params(uri: String) -> Params {
+stdx.route.query_params  pub fn query_params(uri: String) -> Params {
     The query parameters of a request URI (`?a=1&b=2`): the names and values are percent-decoded.
 ```
 
@@ -562,8 +562,9 @@ digraph calls {
 ### `badger doc TARGET [-o DIR] [--check] [--open]`
 
 Reference documentation in Markdown from checked interfaces. TARGET is
-`std` (every standard module, one page each plus an index), one standard
-module (`std.list`), or a program path.
+`std` (every standard module of both namespaces, one page each plus an
+index), `stdx` (the extended library alone), one standard
+module (`std.list`, `stdx.http`), or a program path.
 
 | Flag | Meaning |
 |---|---|
@@ -681,7 +682,7 @@ badger generate feature orders
 ### `badger generate worker NAME [DIR] [--dry-run]`
 
 Adds `NAME.bdg` under the entry's directory: a durable job kind
-(`std.jobs`) with `Job` (its state), `step` (one attempt's work, a
+(`stdx.jobs`) with `Job` (its state), `step` (one attempt's work, a
 placeholder), `processing`, a `processor` provider running a supervised
 worker, `submit`, and a test that a submitted job is processed. It is
 checked, and its test run, in a copy of the project first, like

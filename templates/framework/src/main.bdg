@@ -7,9 +7,9 @@
 //
 // `badger run` answers a few requests in-process (no socket, no port), so
 // the project runs anywhere; `badger test` runs the tests.
-import std.http
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 import std.system
 import routes
 import service

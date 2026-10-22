@@ -1,7 +1,7 @@
-// The worker: durable jobs of kind "@name@" (std.jobs), each run by a
+// The worker: durable jobs of kind "@name@" (stdx.jobs), each run by a
 // supervised worker that retries a failed attempt and survives restarts.
 // `Job` and `step` are placeholders for the job's own state and work.
-import std.jobs
+import stdx.jobs
 import std.worker
 
 /// A job's state (what the work needs; stored as JSON).

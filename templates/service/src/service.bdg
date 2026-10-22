@@ -1,8 +1,8 @@
 // The service: a typed set of operations over an in-memory store. The
 // operations are the service's contract: the HTTP routes, the command
 // line, and the workers all call the same ones.
-import std.app
-import std.http
+import stdx.app
+import stdx.http
 import std.list
 import std.text
 

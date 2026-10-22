@@ -2,7 +2,7 @@
 // Regenerate after changing the queries or the schema.
 
 import std.codec
-import std.sqlite
+import stdx.sqlite
 
 /// A row of `create_user`.
 pub type CreateUserRow = { id: Int }

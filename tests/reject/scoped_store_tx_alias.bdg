@@ -1,7 +1,7 @@
 // expect-error: E0401
 // A transaction stored through an alias escapes its callback.
 import std.io
-import std.sqlite
+import stdx.sqlite
 @derive(Error, From)
 pub enum AppError { sql(source: sqlite.Error), io(source: io.Error) }
 fn keep<S: Scope>(a: Cell<List<fn() -> Int>>, tx: sqlite.Tx<S>) -> Unit {

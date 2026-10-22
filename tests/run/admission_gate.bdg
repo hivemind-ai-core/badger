@@ -1,10 +1,10 @@
-// std.admission: a gate admits `capacity` calls at once and queues `queue`
+// stdx.admission: a gate admits `capacity` calls at once and queues `queue`
 // more (the rest are refused at once); a waiter's deadline includes its
 // time in the queue; permits are released after the admitted body settles,
 // also when its task is cancelled; a cancelled waiter leaves the queue
 // without stranding a permit.
-import std.admission
-import std.app
+import stdx.admission
+import stdx.app
 import std.io
 import std.task
 import std.time

@@ -1,6 +1,6 @@
 // O04: a closure containing a transaction returned from its scope is rejected.
 // expect-error: E0401
-import std.sqlite
+import stdx.sqlite
 
 fn leak(pool: sqlite.Pool) -> Result<fn() -> Int, sqlite.Error> {
     use tx <- sqlite.transaction(pool)

@@ -1,7 +1,7 @@
 // expect-error: E0501
 // A decider's `decide` is pure: what it needs from the world (the time,
 // an id) comes in as coeffects, so it cannot read the clock itself.
-import std.decide
+import stdx.decide
 import std.time
 
 type Context = { now: Instant }

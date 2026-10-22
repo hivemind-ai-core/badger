@@ -1,4 +1,4 @@
-import std.http
+import stdx.http
 import std.io
 
 pub fn main() -> Result<Unit, io.Error> {

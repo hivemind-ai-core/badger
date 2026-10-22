@@ -2,9 +2,9 @@
 // constant-time comparison, random bytes, and UUIDs.
 import std.io
 import std.text
-import std.encoding
-import std.crypto
-import std.uuid
+import stdx.encoding
+import stdx.crypto
+import stdx.uuid
 
 pub fn main() -> Result<Unit, io.Error> {
     let hello = text.to_bytes("hello world")

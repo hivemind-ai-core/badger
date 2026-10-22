@@ -71,7 +71,7 @@ compiler's: the set is closed, so an unknown one is an error (E0191) — a
 typo, or a library's attribute written without its namespace — and a known
 one written where it does not apply is an error (E0199). A library's
 attribute is namespaced by its module, `@lib.name` (`@app.operation`, after
-`import std.app`): the first segment must be a module the file imports (an
+`import stdx.app`): the first segment must be a module the file imports (an
 error, E0191, otherwise), which also counts as a use of the import. One the
 module does not declare is a warning in user code (an error in
 standard-library sources), so a library newer or older than its user does
@@ -169,7 +169,7 @@ pub attribute column on field {
   routes).
 - A name of the compiler's (`allow`, `derive`, ...) cannot be declared.
 - Attributes have a namespace of their own: they are named only after `@`
-  and as `NAME.uses`, so `std.http` declares `attribute status` beside its
+  and as `NAME.uses`, so `stdx.http` declares `attribute status` beside its
   function `status`.
 
 **Use.** Namespaced by the declaring module, with `key = value` arguments

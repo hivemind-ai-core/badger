@@ -1,6 +1,6 @@
 // Markdown to HTML, trusted and untrusted.
 import std.io
-import std.markdown
+import stdx.markdown
 
 pub fn main() -> Result<Unit, io.Error> {
     let doc = "# Title\n\nSome *emphasis*, ~~gone~~, and `code`.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- [x] done\n- [ ] todo\n"

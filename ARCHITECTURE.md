@@ -37,22 +37,23 @@ error. `badger_cli` is the `badger` binary.
 |---|---|---|
 | `badger_base` | spans, source map, interner, diagnostics (codes, JSON, ariadne), diagnostic catalog | lasso, ariadne |
 | `badger_syntax` | lexer, layout, grammar, lowering to the AST, formatter | logos, chumsky |
-| `badger_hir` | resolution, desugaring, lang items, embedded `std/*.bdg` | la-arena, petgraph |
+| `badger_hir` | resolution, desugaring, lang items | la-arena, petgraph |
+| `badger_stdlib` | the standard library: `std/*.bdg` and `stdx/*.bdg`, embedded | — |
 | `badger_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
 | `badger_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
 | `badger_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
 | `badger_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, parsing | corosensei, serde_json, regex, backtrace |
 | `badger_native` | native module ABI, wire format, helpers for modules in Rust | — |
-| `badger_sqlite` | the native module behind `std.sqlite` | rusqlite |
-| `badger_postgres` | the native module behind `std.postgres` | tokio-postgres, deadpool-postgres, rustls |
-| `badger_valkey` | the native module behind `std.valkey` (Valkey/Redis) | redis, tokio |
-| `badger_fetch` | the native module behind `std.fetch` (outbound HTTP(S)) | ureq |
-| `badger_http` | the native module behind `std.http` (the HTTP/1.1 server, SSE, WebSockets) | hyper, tokio, tokio-tungstenite |
-| `badger_formats` | the native module behind `std.toml`, `std.yaml`, `std.csv`, `std.markdown` | toml, serde_yaml_ng, csv, pulldown-cmark |
-| `badger_template` | the native module behind `std.template` | minijinja |
-| `badger_crypto` | the native module behind `std.encoding`, `std.crypto`, `std.uuid` | base64, sha2, hmac, getrandom, uuid |
+| `badger_sqlite` | the native module behind `stdx.sqlite` | rusqlite |
+| `badger_postgres` | the native module behind `stdx.postgres` | tokio-postgres, deadpool-postgres, rustls |
+| `badger_valkey` | the native module behind `stdx.valkey` (Valkey/Redis) | redis, tokio |
+| `badger_fetch` | the native module behind `stdx.fetch` (outbound HTTP(S)) | ureq |
+| `badger_http` | the native module behind `stdx.http` (the HTTP/1.1 server, SSE, WebSockets) | hyper, tokio, tokio-tungstenite |
+| `badger_formats` | the native module behind `stdx.toml`, `stdx.yaml`, `stdx.csv`, `stdx.markdown` | toml, serde_yaml_ng, csv, pulldown-cmark |
+| `badger_template` | the native module behind `stdx.template` | minijinja |
+| `badger_crypto` | the native module behind `stdx.encoding`, `stdx.crypto`, `stdx.uuid` | base64, sha2, hmac, getrandom, uuid |
 | `badger_datetime` | the native module behind `std.datetime` | jiff |
-| `badger_compress` | the native module behind `std.compress` (gzip, zlib, deflate, zstd) | flate2, zstd |
+| `badger_compress` | the native module behind `stdx.compress` (gzip, zlib, deflate, zstd) | flate2, zstd |
 | `badger_fs` | the native module behind `std.fs` beyond the runtime's text reads and writes | — |
 | `badger_native_demo` | a native module for the native-ABI tests (`tests/native`) | — |
 | `badger_driver` | sessions, manifests/profiles, test runner, live reload, compile-time SQL checks; links the standard native modules | all of the above, rusqlite |
@@ -90,9 +91,16 @@ error. `badger_cli` is the `badger` binary.
   stage runners), `system { ... }` (topologically ordered nodes with typed
   `ref(#key)` outputs; missing keys and cycles are reported here), and
   `system.select(plan, [#keys])` (a typed output projection).
-- **Standard library.** `crates/badger_hir/std/*.bdg` (60 modules) are ordinary
-  language modules. A program loads the core modules (the prelude,
-  collections, text, numbers, options and results, codecs, records:
+- **Standard library.** `crates/badger_stdlib/std/*.bdg` (48 modules) and
+  `crates/badger_stdlib/stdx/*.bdg` (25 modules) are ordinary language
+  modules, embedded in the compiler. `std` is the foundation — the modules
+  the compiler itself needs, the collections and text, number, time, and
+  concurrency facilities, and plain OS and process access; `stdx` is the
+  extended library — the application framework (operations, endpoints,
+  routing, decisions, admission, jobs, workers), the substrate integrations
+  (HTTP, databases, formats, templates, crypto, compression, telemetry
+  export), and the language's tooling. A program loads the core modules (the
+  prelude, collections, text, numbers, options and results, codecs, records:
   implementations on prelude types and items the compiler uses without an
   import) plus the modules it imports, closed over the standard modules' own
   imports; `system { }` and `pipeline { }` syntax, and `provider` and `stage`
@@ -450,7 +458,7 @@ error. `badger_cli` is the `badger` binary.
   Private fields keep both from being made any other way. The ambient
   `fs.read_text`/`write_text` remain, withheld from non-entry modules in
   restricted projects (see Projects); a symlink swapped in between
-  resolution and use is not defended against. `std.fetch` makes outbound
+  resolution and use is not defended against. `stdx.fetch` makes outbound
   HTTP(S) requests (ureq with rustls, on the blocking pool; redirects are
   not followed, every status is a reply); `fetch.client(base)` gives a
   `Client` bound to one origin, whose request paths must start with a
@@ -479,7 +487,7 @@ error. `badger_cli` is the `badger` binary.
   unreachable one is rolled back; a failed rollback is returned with the
   callback's error as its cause), an HTTP/1.1 server (the `badger_http`
   native module, hyper on its own small tokio runtime: it reads requests
-  and enforces the limits, and `std.http` takes admitted ones with an async
+  and enforces the limits, and `stdx.http` takes admitted ones with an async
   `accept` in an acceptor task, each request in its own task of a service
   scope with a cleanup answering 500 if the task dies first) with request
   tasks, explicit limits (413/431, bounded admission with 503), streamed
@@ -498,8 +506,8 @@ error. `badger_cli` is the `badger` binary.
   declared-type and NOT NULL metadata). Row types come from the recorded
   type of the call. The checks run in `badger check`, `badger run`, and the
   language server.
-- **Durable jobs** (`crates/badger_hir/std/jobs.bdg`, written in the language
-  over `std.sqlite`): tables for jobs (state as `Codec` JSON with a version,
+- **Durable jobs** (`crates/badger_stdlib/stdx/jobs.bdg`, written in the language
+  over `stdx.sqlite`): tables for jobs (state as `Codec` JSON with a version,
   status, step, attempts, run-at time, owner, lease deadline, fence),
   ingested event keys, outbox operations (unique key, status, receipt,
   send deadline), and transition history; WAL journal with synchronous
@@ -531,10 +539,10 @@ exporter is attached. `trace.span` sets the task's current span (trace and
 span ids, inherited by spawned tasks, and stamped on log records inside
 it); a task cleanup ends it as failed on a defect or cancellation.
 `std.metrics` aggregates counters, gauges, and histograms (OpenTelemetry's
-default bounds) by name and attributes. `std.otel` is written in the
+default bounds) by name and attributes. `stdx.otel` is written in the
 language: a background task in a service scope drains the buffers every
 interval (and once more when stopped) into OTLP/HTTP JSON bodies the
-runtime builds, and posts them with `std.fetch`.
+runtime builds, and posts them with `stdx.fetch`.
 
 ## Native modules
 
@@ -664,11 +672,11 @@ after `module.`, fields and methods after `value.`. Setup for editors is in
 
 `badger query KIND PATH [--line L --col C]` answers one of the same
 questions (diagnostics, hover, definition, references, completion, symbols)
-as JSON with 1-based positions. `std.compiler` wraps it for programs: typed
+as JSON with 1-based positions. `stdx.compiler` wraps it for programs: typed
 records (`Diagnostic`, `Location`, `Symbol`, `Completion`) decoded from a
 `badger query` subprocess (`BADGER_EXE` names the running executable), plus
 `check_source` and `explain`. `badger query check PATH --overlays FILE`
-(`std.compiler.check_project`, MCP `check` with `files`) checks a project
+(`stdx.compiler.check_project`, MCP `check` with `files`) checks a project
 with proposed file contents overlaid on the files on disk, the way the
 language server checks unsaved buffers: every entry point and task, as
 `badger check` does, reporting the inputs checked and the roots covered.
@@ -682,7 +690,9 @@ module reachable only from a task is renamed with the rest. `badger rename
 `badger doc std --out docs/api` writes the standard library reference
 (`crates/badger_cli/src/doc.rs`) from the `api` query: declarations and `///`
 documentation of each module's public types, methods, and functions, with
-the module's leading comment as its introduction. `tests/docs.rs` keeps it
+the module's leading comment as its introduction. `std` covers both
+namespaces; `badger doc stdx` writes only the extended one, and
+`badger doc stdx.http` one module. `tests/docs.rs` keeps it
 current and checks every `badger` code block in the specification and guides.
 
 `badger graph calls|modules|types|systems [PATH] [--format dot|mermaid|json]
@@ -697,7 +707,7 @@ the nodes they reference (a node without references is drawn alone).
 (`crates/badger_cli/src/mcp.rs`) with five tools. `eval` is code mode: a
 persistent REPL session (the `badger repl` machinery: an in-process session
 program served over the inspection endpoint) where definitions accumulate
-and expressions evaluate; with `import std.compiler` the agent queries and
+and expressions evaluate; with `import stdx.compiler` the agent queries and
 post-processes analysis in the language itself instead of through many
 narrow tools. Evaluations have a time limit (`evalt` requests: the
 endpoint cancels the evaluation task when it expires, so the session stays

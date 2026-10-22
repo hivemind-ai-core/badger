@@ -2,7 +2,7 @@
 // shapes: a `config.Secret`, `Option<String>`, an optional group
 // `Option<{ ... }>`, and `Map<String, String>`.
 import std.codec
-import std.config
+import stdx.config
 import std.env
 import std.io
 import std.text

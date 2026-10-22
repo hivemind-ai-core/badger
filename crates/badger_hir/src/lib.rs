@@ -16,7 +16,6 @@
 
 pub mod hir;
 pub mod lower;
-pub mod stdlib;
 
 pub use hir::*;
 pub use lower::{ParsedModule, lower_program};

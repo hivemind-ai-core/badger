@@ -6,7 +6,7 @@ persistent REPL session (`eval`), checking (`check`), compiler queries
 (`query`), contract analysis (`contracts`), checked code generation
 (`generate`), and program runs (`run`).
 
-This page is the reference. Setup examples, `std.compiler` in code mode,
+This page is the reference. Setup examples, `stdx.compiler` in code mode,
 and how to work with contracts and proposed edits are in
 [agents.md](../agents.md).
 
@@ -65,7 +65,7 @@ Evaluate code in the persistent REPL session (the machinery of
 `badger repl`; input rules in [repl.md](repl.md#input)). Items (`fn`,
 `struct`, `enum`, `import`, module-level `let`) join the session and
 replace earlier ones of the same name; an expression is evaluated and its
-value displayed. `import std.compiler` gives the compiler services as
+value displayed. `import stdx.compiler` gives the compiler services as
 functions ([agents.md](../agents.md#code-mode)).
 
 | Parameter | Type | Default | Meaning |

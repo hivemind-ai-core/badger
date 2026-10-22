@@ -1,8 +1,8 @@
-// std.fetch's general requests against a local server ($FETCH_BASE):
+// stdx.fetch's general requests against a local server ($FETCH_BASE):
 // any method, JSON in and out, followed redirects, the body limit, and
 // statuses that are not 2xx.
 import std.env
-import std.fetch
+import stdx.fetch
 import std.io
 import std.text
 

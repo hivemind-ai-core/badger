@@ -3,9 +3,9 @@
 An HTTP service written in Badger.
 
 - `src/service.bdg` — the service: a typed set of operations
-  (`std.app`) over an in-memory store.
+  (`stdx.app`) over an in-memory store.
 - `src/routes.bdg` — the routes that bind the operations to HTTP
-  (`std.http`, `std.route`). The errors carry their status, so the
+  (`stdx.http`, `stdx.route`). The errors carry their status, so the
   service's own errors answer with the status the service means.
 - `src/main.bdg` — the entry: it composes the service and answers a few
   requests in-process.

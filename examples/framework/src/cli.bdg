@@ -1,11 +1,11 @@
 // The command line: `badger run cli -- add --title "Write the docs"`.
 // Each command binds one of the feature's operations; the entry selects
 // the parts of the application it needs (no HTTP server).
-import std.command
-import std.config
+import stdx.command
+import stdx.config
 import std.env
 import std.io
-import std.sqlite
+import stdx.sqlite
 import std.system
 import std.text
 import settings

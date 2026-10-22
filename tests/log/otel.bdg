@@ -4,7 +4,7 @@ import std.io
 import std.log
 import std.trace
 import std.metrics
-import std.otel
+import stdx.otel
 
 pub fn main() -> Result<Unit, io.Error> {
     let e = otel.start(otel.from_env())?

@@ -1,7 +1,7 @@
 // Lines read across the reader's buffer refills, bytes.join and concat,
 // and a streamed body collected by http.call.
 import std.bytes
-import std.http
+import stdx.http
 import std.io
 import std.text
 

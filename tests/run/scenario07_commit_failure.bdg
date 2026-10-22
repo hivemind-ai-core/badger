@@ -1,7 +1,7 @@
 // Scenario 7: the callback succeeds but commit fails; the helper returns
 // the commit error. A callback error rolls back.
 import std.io
-import std.sqlite
+import stdx.sqlite
 
 @derive(Error, From)
 pub enum AppError {

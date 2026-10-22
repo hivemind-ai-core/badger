@@ -1,14 +1,14 @@
-// std.app health and bootstrap: `app.run` marks the application ready once
+// stdx.app health and bootstrap: `app.run` marks the application ready once
 // every node started and stopping before the nodes halt; readiness checks
 // (required or optional, bounded) make it unready or degraded; startup
 // failure never makes it ready and still cleans up; describing a plan
-// acquires nothing. std.endpoint serves the liveness and readiness routes.
-import std.app
+// acquires nothing. stdx.endpoint serves the liveness and readiness routes.
+import stdx.app
 import std.codec
-import std.endpoint
-import std.http
+import stdx.endpoint
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 import std.system
 import std.task
 

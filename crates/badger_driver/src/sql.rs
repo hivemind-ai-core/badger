@@ -1,4 +1,4 @@
-//! Typed SQL: literal statements given to `std.sqlite` are prepared (not
+//! Typed SQL: literal statements given to `stdx.sqlite` are prepared (not
 //! run) when the program is checked, against a scratch database holding the
 //! program's schema: the project's `[database] schema` file, then every
 //! literal `CREATE`/`ALTER` statement of the program in source order. A
@@ -63,7 +63,7 @@ fn syntax_error(msg: &str) -> bool {
     msg.contains("syntax error") || msg.contains("incomplete input") || msg.contains("unrecognized token")
 }
 
-/// Whether the program uses `std.sqlite` (the check needs recorded types).
+/// Whether the program uses `stdx.sqlite` (the check needs recorded types).
 pub fn wanted(hir: &Hir) -> bool {
     hir.try_lang("sqlite.execute").is_some()
 }

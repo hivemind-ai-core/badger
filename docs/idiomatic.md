@@ -21,7 +21,7 @@ protocol itself is in
 [the same chapter](guide/03-errors.md#the-error-protocol).
 
 ```badger
-import std.http
+import stdx.http
 import std.io
 import std.text
 
@@ -165,7 +165,7 @@ that is a single equality is `result.must_eq(a, b, error)?`.
 
 Give the application a settings record, read it from every source at once,
 and let the record's field types do the conversions.
-[std.config](api/config.md) has the four functions, and they differ in what
+[stdx.config](api/config.md) has the four functions, and they differ in what
 they read:
 
 | Call | Reads |
@@ -181,7 +181,7 @@ rather than a shrug.
 
 ```badger
 import std.cli
-import std.config
+import stdx.config
 import std.io
 
 type Settings = {
@@ -321,9 +321,9 @@ Describe the routes in one list, give each one a name, and let the
 handler take its typed parameters and return the reply or an error.
 
 ```badger
-import std.http
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 
 type Note = { id: Int, title: String }
 type NewNote = { title: String }
@@ -416,7 +416,7 @@ pub fn main() -> Result<Unit, AppError> {
 The routes are in [Services](guide/10-services.md#handlers-and-routes), the
 query string in
 [Query parameters](guide/10-services.md#query-parameters), and the
-signatures in [std.route](api/route.md) and [std.http](api/http.md).
+signatures in [stdx.route](api/route.md) and [stdx.http](api/http.md).
 
 ## Pipeline stages
 
@@ -594,8 +594,8 @@ handler in process: `http.call_text` runs it with no socket and gives the
 reply's status and body.
 
 ```badger
-import std.http
-import std.route
+import stdx.http
+import stdx.route
 import std.test
 
 type Note = { id: Int, title: String }

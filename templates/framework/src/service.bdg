@@ -1,7 +1,7 @@
 // The service: the operations over a store. Every caller (the HTTP
 // routes, the command line, a worker) calls the same ones, so the rules
 // of the feature live in one place.
-import std.app
+import stdx.app
 import std.text
 import store
 

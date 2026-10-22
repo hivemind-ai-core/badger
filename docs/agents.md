@@ -37,10 +37,10 @@ parse for `symbols`) instead of returning an empty result.
 ## Code mode
 
 `eval` runs real code, so one call can combine compiler queries with
-ordinary computation. `import std.compiler` once per session:
+ordinary computation. `import stdx.compiler` once per session:
 
 ```text
-import std.compiler
+import stdx.compiler
 
 // every error code in a project, with its location
 compiler.diagnostics("src").map(fn(ds) {

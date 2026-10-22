@@ -1,7 +1,7 @@
 // The HTTP binding of the service: each operation bound to a method and
 // a path.
-import std.app
-import std.route
+import stdx.app
+import stdx.route
 import service
 import store
 

@@ -1,6 +1,6 @@
 // expect-error: E0401
 // `dyn` cannot erase a scope brand.
-import std.sqlite
+import stdx.sqlite
 pub protocol Runner { fn run(self: &Self) -> Int }
 struct Holder<S> { n: Int }
 impl<S> Runner for Holder<S> { fn run(self: &Self) -> Int { self.n } }

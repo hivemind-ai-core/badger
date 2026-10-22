@@ -1,8 +1,8 @@
 import std.fs
 import std.env
-import std.fetch
-import std.config
-import std.sqlite
+import stdx.fetch
+import stdx.config
+import stdx.sqlite
 import std.system
 import std.system.{component}
 import main

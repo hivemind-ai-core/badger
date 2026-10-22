@@ -1,5 +1,5 @@
 //! `badger_valkey`: the Valkey/Redis client native module behind
-//! `std.valkey` (redis-rs on a small tokio runtime of the module's own).
+//! `stdx.valkey` (redis-rs on a small tokio runtime of the module's own).
 //!
 //! A client is one multiplexed connection that reconnects on failure
 //! (commands from many tasks share it; each is an async call, so a waiting

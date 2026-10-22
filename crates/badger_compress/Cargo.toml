@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "gzip, zlib, deflate, and zstd for std.compress (flate2, zstd)"
+description = "gzip, zlib, deflate, and zstd for stdx.compress (flate2, zstd)"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

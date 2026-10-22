@@ -1,8 +1,8 @@
 // Typed path parameters (parsed and validated), overlapping patterns and
 // parameter/pattern mismatches rejected, parameter schemas in OpenAPI.
-import std.http
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 import std.text
 
 type Ids = { id: Int, verbose: Bool }

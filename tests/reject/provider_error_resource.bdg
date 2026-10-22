@@ -1,6 +1,6 @@
 // expect-error: E0411
 // A provider error must not carry a resource from the closing scope.
-import std.sqlite
+import stdx.sqlite
 import std.system
 pub struct Leaky { pub pool: sqlite.Pool<Unit> }
 impl Display for Leaky { fn display(self: &Self) -> String { "leaky" } }

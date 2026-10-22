@@ -2,12 +2,12 @@
 // identity or a refused policy never reaches the mutation; overload is
 // refused at the gate; a request's deadline starts when it arrives, so
 // queue time counts; permits are returned after every outcome.
-import std.admission
-import std.app
-import std.endpoint
-import std.http
+import stdx.admission
+import stdx.app
+import stdx.endpoint
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 import std.task
 
 type Created = { count: Int, deadline: Bool, actor: String }

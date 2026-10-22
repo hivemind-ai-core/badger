@@ -2,7 +2,7 @@
 
 A background worker written in Badger.
 
-- `src/worker.bdg` — the job kind (`std.jobs`): its state, the step that
+- `src/worker.bdg` — the job kind (`stdx.jobs`): its state, the step that
   does the work, and the supervised worker that runs it.
 - `src/main.bdg` — the entry: it submits a job and waits for it to be
   done.

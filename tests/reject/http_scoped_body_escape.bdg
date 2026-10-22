@@ -1,6 +1,6 @@
 // expect-error: E0401
 // A request-scoped body reader cannot outlive its request.
-import std.http
+import stdx.http
 
 pub fn main() {
     let keep: Cell<List<Int>> = Cell.new([])

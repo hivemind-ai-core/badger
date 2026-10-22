@@ -1,5 +1,5 @@
 //! `badger mcp`: the tools over the stdio protocol, including code mode with
-//! `std.compiler`, output capture, and a runaway evaluation that is
+//! `stdx.compiler`, output capture, and a runaway evaluation that is
 //! cancelled without losing the session.
 
 use std::io::{BufRead, BufReader, Write};
@@ -116,7 +116,7 @@ fn mcp_tools() {
     assert!(!err && out.contains("ab"), "{out}");
     call("eval", json!({ "code": "import std.process" }));
     // the compiler from code
-    call("eval", json!({ "code": "import std.compiler" }));
+    call("eval", json!({ "code": "import stdx.compiler" }));
     call("eval", json!({ "code": "import std.map" }));
     let (out, err) = call(
         "eval",

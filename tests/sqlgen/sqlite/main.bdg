@@ -1,6 +1,6 @@
 // Typed SQL: queries.bdg is generated from queries.sql and the schema.
 import std.io
-import std.sqlite
+import stdx.sqlite
 import queries
 
 @derive(Error, From)

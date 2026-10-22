@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "The encoding, hashing, randomness, and UUID native module behind std.encoding, std.crypto, and std.uuid"
+description = "The encoding, hashing, randomness, and UUID native module behind stdx.encoding, stdx.crypto, and stdx.uuid"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

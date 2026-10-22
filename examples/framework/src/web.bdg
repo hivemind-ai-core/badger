@@ -2,14 +2,14 @@
 // and path (typed parameters, body, and reply; the feature's errors answer
 // with the status and code they carry), and the health routes, behind an
 // access-log stage.
-import std.admission
-import std.app
-import std.endpoint
-import std.http
+import stdx.admission
+import stdx.app
+import stdx.endpoint
+import stdx.http
 import std.log
 import std.pipeline
 import std.pipeline.{handle}
-import std.route
+import stdx.route
 import tasks.model
 
 @derive(Error, From)

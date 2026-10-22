@@ -3,7 +3,7 @@
 // read and write) sees the same tables. Each `:memory:` connection used to
 // get an empty database of its own ("no such table").
 import std.io
-import std.sqlite
+import stdx.sqlite
 import std.task
 
 @derive(Error, From)

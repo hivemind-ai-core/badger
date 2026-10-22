@@ -1,6 +1,6 @@
 // Server-sent events: the wire format, parsing it back, and an in-process
 // call collecting a stream of events.
-import std.http
+import stdx.http
 import std.io
 import std.list
 import std.text

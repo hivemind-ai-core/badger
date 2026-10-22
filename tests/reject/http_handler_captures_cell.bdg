@@ -3,7 +3,7 @@
 // spawn helpers had no Transfer bound).
 // expect-error: E0402
 import std.io
-import std.http
+import stdx.http
 
 pub fn main() -> Result<Unit, http.Error> {
     let hits = Cell.new(0)

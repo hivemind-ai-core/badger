@@ -1,8 +1,8 @@
 // The HTTP binding of the service: its routes. The route system reads the
 // status from the error, so the service's own errors answer with the
 // status the service means (`@http.status` in `service`).
-import std.app
-import std.route
+import stdx.app
+import stdx.route
 import service
 
 /// The service's errors, as the HTTP layer sees them: each answers with

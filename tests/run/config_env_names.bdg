@@ -1,6 +1,6 @@
 // Two fields that would read one environment variable are an error, not
 // a silent double read: `db_port` and `db.port` both map to `APP_DB_PORT`.
-import std.config
+import stdx.config
 import std.io
 
 type Clash = { db_port: Int, db: { port: Int } }

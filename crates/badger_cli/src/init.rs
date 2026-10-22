@@ -29,11 +29,11 @@ fn package_name(dir: &Path) -> String {
         }
     }
     let out = out.trim_matches('_').to_string();
-    // a name `import` could not refer to (a reserved word, `std`) gets a
-    // suffix
+    // a name `import` could not refer to (a reserved word, a standard
+    // namespace) gets a suffix
     if out.is_empty() {
         "app".to_string()
-    } else if badger_syntax::RESERVED.contains(&out.as_str()) || out == "std" {
+    } else if badger_syntax::RESERVED.contains(&out.as_str()) || badger_stdlib::is_root(&out) {
         format!("{out}_pkg")
     } else {
         out

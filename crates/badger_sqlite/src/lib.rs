@@ -1,4 +1,4 @@
-//! `badger_sqlite`: the native module behind `std.sqlite`.
+//! `badger_sqlite`: the native module behind `stdx.sqlite`.
 //!
 //! A pool lends up to [`POOL_MAX`] connections, each owned by its own
 //! thread; every operation is an async call queued to the pool, so a task

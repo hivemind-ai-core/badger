@@ -1,6 +1,6 @@
 //! Structured logs (`std.log`): levels, schema-encoded fields, per-task
 //! context (inherited by spawned tasks), output to standard error as text
-//! or JSON lines, and a bounded buffer an exporter (`std.otel`) drains.
+//! or JSON lines, and a bounded buffer an exporter (`stdx.otel`) drains.
 //!
 //! A disabled level costs one atomic load. Writing never fails or blocks
 //! the caller beyond the stderr lock; when no exporter drains the buffer,

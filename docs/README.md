@@ -13,11 +13,11 @@ references to look things up.
 
 | Reference | What it covers |
 |---|---|
-| [Standard library](api/README.md) | Every `std.*` module, generated from the checked interfaces by `badger doc std`. |
+| [Standard library](api/README.md) | Every standard module (`std.*` and `stdx.*`), generated from the checked interfaces by `badger doc std`. |
 | [CLI](reference/cli.md) | Every `badger` command, flag, and exit code. |
 | [REPL](reference/repl.md) | `badger repl`, local and remote (`--connect`). |
 | [MCP server](reference/mcp.md) | `badger mcp` tools and parameters. |
-| [Configuration](reference/config.md) | `badger.toml`, `BADGER_*` environment variables, `std.config`. |
+| [Configuration](reference/config.md) | `badger.toml`, `BADGER_*` environment variables, `stdx.config`. |
 | Diagnostics | `badger explain diagnostic CODE` prints the explanation for any `E....` code. |
 
 ## Topics

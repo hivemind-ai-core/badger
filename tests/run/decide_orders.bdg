@@ -1,8 +1,8 @@
-// std.decide (framework F09): an order's transitions as a pure decider
+// stdx.decide (framework F09): an order's transitions as a pure decider
 // with coeffects given as data, tested directly; optimistic concurrency
 // that decides again after a conflict (on the new state, with fresh
 // coeffects); and follow-up commands taken only from committed events.
-import std.decide
+import stdx.decide
 import std.io
 
 type Order = { status: Symbol, paid: Int, total: Int }

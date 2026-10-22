@@ -24,22 +24,22 @@ an HTTP framework on a CLI program.
 | `std.text`, `std.bytes`, `std.num` | Unicode text, byte views and decoding, numeric conversions and checked/wrapping arithmetic |
 | `std.time`, `std.random` | Explicit clocks, durations, and random providers |
 | `std.datetime` | Calendar dates, times, time zones, calendar arithmetic, `strftime`/`strptime`, RFC 3339 |
-| `std.http`, `std.route` | Request/reply adapters, streaming and server-sent events, websocket upgrades, interceptors, typed routing descriptions |
-| `std.websocket` | WebSocket clients and the sockets of upgraded requests |
-| `std.sqlite` | A blessed embedded storage adapter and scoped transactions |
-| `std.postgres`, `std.valkey` | PostgreSQL pools and transactions; a Valkey/Redis client with pub/sub |
-| `std.jobs` | Durable single-host jobs on SQLite: deduplicated ingestion, fenced step transitions with an outbox, receipts, explicit uncertainty |
-| `std.fetch` | Outbound HTTP(S) requests and origin-bound clients |
-| `std.codec`, `std.schema`, `std.config` | Typed schemas, JSON/data conversion, validated configuration |
-| `std.toml`, `std.yaml`, `std.csv`, `std.template`, `std.markdown` | Data formats, Jinja-syntax templates, Markdown to HTML (with a safe mode for untrusted text) |
-| `std.encoding`, `std.crypto`, `std.uuid` | Base64/hex/URL encoding, hashes and HMAC, secure random bytes, UUIDs |
-| `std.compress` | gzip, zlib, deflate, and zstd, with bounded decompression |
+| `stdx.http`, `stdx.route` | Request/reply adapters, streaming and server-sent events, websocket upgrades, interceptors, typed routing descriptions |
+| `stdx.websocket` | WebSocket clients and the sockets of upgraded requests |
+| `stdx.sqlite` | A blessed embedded storage adapter and scoped transactions |
+| `stdx.postgres`, `stdx.valkey` | PostgreSQL pools and transactions; a Valkey/Redis client with pub/sub |
+| `stdx.jobs` | Durable single-host jobs on SQLite: deduplicated ingestion, fenced step transitions with an outbox, receipts, explicit uncertainty |
+| `stdx.fetch` | Outbound HTTP(S) requests and origin-bound clients |
+| `std.codec`, `std.schema`, `stdx.config` | Typed schemas, JSON/data conversion, validated configuration |
+| `stdx.toml`, `stdx.yaml`, `stdx.csv`, `stdx.template`, `stdx.markdown` | Data formats, Jinja-syntax templates, Markdown to HTML (with a safe mode for untrusted text) |
+| `stdx.encoding`, `stdx.crypto`, `stdx.uuid` | Base64/hex/URL encoding, hashes and HMAC, secure random bytes, UUIDs |
+| `stdx.compress` | gzip, zlib, deflate, and zstd, with bounded decompression |
 | `std.parse`, `std.regex` | Grammar/parser values, source spans, structured failures |
 | `std.trace`, `std.test` | Structured runtime events, assertions, dependency fixtures |
 | `std.log` | Structured logs: levels, schema-encoded fields, task-inherited context, text or JSON lines |
-| `std.metrics`, `std.otel` | Counters, gauges, and histograms; OpenTelemetry export of logs, spans (`trace.span`), and metrics over OTLP/HTTP |
+| `std.metrics`, `stdx.otel` | Counters, gauges, and histograms; OpenTelemetry export of logs, spans (`trace.span`), and metrics over OTLP/HTTP |
 | `std.inspect` | Runtime snapshots of tasks, channels, systems, and the heap |
-| `std.compiler` | Compiler services from code: diagnostics, project checks of proposed edits, hover, definitions, references, symbols |
+| `stdx.compiler` | Compiler services from code: diagnostics, project checks of proposed edits, hover, definitions, references, symbols |
 | `std.ffi` | The C boundary: raw pointers, C memory, C strings |
 
 The [standard library reference](../docs/api/README.md) lists every public
@@ -91,7 +91,7 @@ returns a lazy `Seq<String>`).
   nullable column, or a field type that does not fit the declared column
   type is E0182. Without a schema file or literal DDL only syntax is
   checked; statements built at run time are not checked.
-- `std.postgres` has the same shape (`connect`, `execute`, `query`,
+- `stdx.postgres` has the same shape (`connect`, `execute`, `query`,
   `query_one`, `query_as`, `query_one_as`, `transaction`, `describe`, and
   a `postgres.pool` provider) over pooled server connections.
 - SQL as SQL: `badger generate sql FILE.sql` turns a file of named queries
@@ -166,7 +166,7 @@ events (`http.events`, `RequestScope.events`) are a streamed reply of
 typed `Event` values in the `text/event-stream` format. WebSockets:
 `RequestScope.websocket(session)` and `http.websocket_handler` upgrade a
 request and run the session in its task (other requests get 426);
-`std.websocket.connect` opens client connections; the same
+`stdx.websocket.connect` opens client connections; the same
 `websocket.WebSocket` receives and sends independently, so a reader task
 can run beside a writer.
 
@@ -385,9 +385,9 @@ Native modules are the boundary for libraries that exchange data rather
 than machine words. `extern "native NAME" fn` declares a function of
 module `NAME` (`"native NAME.FUNCTION"` names the module's function when
 the declaration's name differs), linked into the executable or loaded
-from `libNAME.so`; `std.sqlite`, `std.postgres`, `std.fetch`, `std.http`,
-`std.valkey`, the formats (`std.toml`, `std.yaml`, `std.csv`),
-`std.template`, and `std.encoding`/`std.crypto`/`std.uuid` are built on
+from `libNAME.so`; `stdx.sqlite`, `stdx.postgres`, `stdx.fetch`, `stdx.http`,
+`stdx.valkey`, the formats (`stdx.toml`, `stdx.yaml`, `stdx.csv`),
+`stdx.template`, and `stdx.encoding`/`stdx.crypto`/`stdx.uuid` are built on
 the `badger_sqlite`, `badger_postgres`, `badger_fetch`, `badger_http`, `badger_fs`,
 `badger_valkey`, `badger_formats`, `badger_template`, and `badger_crypto`
 modules.

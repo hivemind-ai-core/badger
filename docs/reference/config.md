@@ -4,7 +4,7 @@ Three sources configure a Badger program:
 
 1. `badger.toml`, the project manifest.
 2. Environment variables: `BADGER_*` for the toolchain and runtime, and your
-   own, read by `std.config` and `std.env`.
+   own, read by `stdx.config` and `std.env`.
 3. Command-line flags ([cli.md](cli.md)).
 
 ## `badger.toml`
@@ -183,7 +183,7 @@ E0010 in the manifest, E0013 in the environment or on the command line.
 | `trace_capacity` | 1 or more | 1024 | Events the trace sink holds. |
 | `trace_overflow` | `"drop_oldest"`, `"drop_newest"` | `"drop_oldest"` | Which event a full trace sink drops. Losses never block; they are reported by `trace.stats()` and on stderr at exit. |
 | `log_level` | `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`, `"off"` | `"info"` | Lowest `std.log` level written. |
-| `log_format` | `"text"`, `"json"`, `"none"` | `"text"` | How `std.log` writes records to stderr. `"none"` writes nothing there (an attached exporter, such as `std.otel`, still receives them). |
+| `log_format` | `"text"`, `"json"`, `"none"` | `"text"` | How `std.log` writes records to stderr. `"none"` writes nothing there (an attached exporter, such as `stdx.otel`, still receives them). |
 
 The HTTP limits are defaults for servers that do not pass their own
 `http.Limits`.
@@ -205,7 +205,7 @@ release` carries the settings it was saved with; the environment and
 ### `[config]` and `[profile.NAME]`
 
 Application configuration, read by `config.load` (see
-[std.config](#reading-configuration-stdconfig)).
+[stdx.config](#reading-configuration-stdconfig)).
 
 ```toml
 [config]
@@ -253,7 +253,7 @@ db.pool = 4    # from [config]
 
 | Key | Type | Meaning |
 |---|---|---|
-| `schema` | string | SQL file (relative to the project) that literal SQL statements given to `std.sqlite` are prepared against at check time (E0180 to E0182), and the default `--schema` of `badger generate sql`. See [typed-sql.md](../typed-sql.md). |
+| `schema` | string | SQL file (relative to the project) that literal SQL statements given to `stdx.sqlite` are prepared against at check time (E0180 to E0182), and the default `--schema` of `badger generate sql`. See [typed-sql.md](../typed-sql.md). |
 
 ### `[layers.NAME]`
 
@@ -261,12 +261,12 @@ Import rules between the package's modules. `forbid` lists module paths
 that the module `NAME` and every module below it (`NAME.*`) may not
 import, directly or as a module below one of them. A forbidden import is
 E0017 at the import. Standard modules are named as imported
-(`std.http`).
+(`stdx.http`).
 
 ```toml
 # the feature's core knows nothing of HTTP or of a particular store
 [layers.orders.service]
-forbid = ["web", "orders.sqlite_store", "std.http", "std.sqlite"]
+forbid = ["web", "orders.sqlite_store", "stdx.http", "stdx.sqlite"]
 ```
 
 ### `[env]`
@@ -289,7 +289,7 @@ dotenv = [".env", ".env.local"]
   files win over later ones.
 - A malformed line is error E0013 with the file and line.
 
-## Reading configuration: `std.config`
+## Reading configuration: `stdx.config`
 
 | Function | Reads |
 |---|---|
@@ -317,7 +317,7 @@ Each field of `T` maps to a configuration key and an environment variable:
   string when it is not JSON.
 - `config.Error` has `key` (the configuration key or environment variable
   that failed) and `message`.
-- Environment reads by `std.config` are recorded in reproduction bundles
+- Environment reads by `stdx.config` are recorded in reproduction bundles
   (`badger run --record`) like `env.get`: a replay sees the recorded values,
   not the current environment. Values of secret-like names (containing
   `SECRET`, `TOKEN`, `PASSWORD`, `API_KEY`, ...) are not stored, and a
@@ -325,7 +325,7 @@ Each field of `T` maps to a configuration key and an environment variable:
 
 ```badger
 import std.io
-import std.config
+import stdx.config
 
 type Settings = {
     port: Int,
@@ -378,7 +378,7 @@ error[config]: config: SHOP_PORT: expected an integer, found `x`
 | `BADGER_WORKERS`, `BADGER_CLEANUP_GRACE_MS`, `BADGER_TASK_STACK_BYTES`, `BADGER_BLOCKING_THREADS`, `BADGER_HEAP_MAX_BYTES`, `BADGER_HTTP_MAX_BODY_BYTES`, `BADGER_HTTP_MAX_HEADER_BYTES`, `BADGER_HTTP_MAX_IN_FLIGHT`, `BADGER_HTTP_MAX_STREAM_BUFFER_BYTES`, `BADGER_TRACE_CAPACITY`, `BADGER_TRACE_OVERFLOW`, `BADGER_LOG_LEVEL`, `BADGER_LOG_FORMAT` | Override the `[runtime]` setting of the same name (see [`[runtime]`](#runtime)). An invalid value is error E0013. |
 | `BADGER_HOME` | Cache directory for git dependencies (default `$XDG_CACHE_HOME/badger`, else `~/.cache/badger`). |
 | `BADGER_NATIVE_PATH` | Directories (`:`-separated) searched first for native module libraries (`libNAME.so`), before `lib/badger` and `../lib/badger` next to the executable and the executable's own directory. See [native-modules.md](../native-modules.md). |
-| `BADGER_EXE` | The `badger` executable that `std.compiler` runs for its queries. `badger` sets it to itself when it is not set. |
+| `BADGER_EXE` | The `badger` executable that `stdx.compiler` runs for its queries. `badger` sets it to itself when it is not set. |
 | `BADGER_PROFILE=FILE` | Sample CPU time and write collapsed stacks to FILE at exit, with a summary on stderr. Covers compilation too. See [debugging.md](../debugging.md#profiling). |
 | `BADGER_PROFILE_SCOPE=runtime` | With `BADGER_PROFILE`: sample only the program's run, not compilation. |
 | `BADGER_PERF_MAP=1` | Write `/tmp/perf-PID.map` so `perf` names generated functions. |

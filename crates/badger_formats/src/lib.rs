@@ -1,5 +1,5 @@
-//! `badger_formats`: TOML, YAML, and CSV for `std.toml`, `std.yaml`, and
-//! `std.csv`. Documents parse to `Data` (TOML dates and times as their
+//! `badger_formats`: TOML, YAML, and CSV for `stdx.toml`, `stdx.yaml`, and
+//! `stdx.csv`. Documents parse to `Data` (TOML dates and times as their
 //! text) and encode from it; CSV is rows of text. Every function is pure.
 
 use badger_native::{Args, Error, Handler, ModuleDef, Outcome, Value};

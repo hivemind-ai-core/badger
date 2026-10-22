@@ -1,4 +1,4 @@
-//! `std.postgres` against a live server: `BADGER_TEST_POSTGRES_URL` (a
+//! `stdx.postgres` against a live server: `BADGER_TEST_POSTGRES_URL` (a
 //! database the test may change), else a throwaway cluster made with the
 //! `initdb` and `pg_ctl` on the path; skipped without either.
 

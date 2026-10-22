@@ -1,7 +1,7 @@
 // O05: a resource hidden in Data to escape its region is rejected.
 // expect-error: E0403
 import std.codec
-import std.sqlite
+import stdx.sqlite
 
 fn hide(pool: sqlite.Pool) -> Result<Data, sqlite.Error> {
     use tx <- sqlite.transaction(pool)

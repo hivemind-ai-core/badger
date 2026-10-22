@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "The PostgreSQL client native module behind std.postgres (tokio-postgres)"
+description = "The PostgreSQL client native module behind stdx.postgres (tokio-postgres)"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

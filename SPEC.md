@@ -58,7 +58,8 @@ Code blocks fenced `badger` are complete modules that the test suite checks
 with the current toolchain; blocks fenced `badger fragment` are excerpts. The
 [standard library reference](docs/api/README.md) is generated from the
 checked interfaces (`badger doc std --out docs/api`), and `badger query api
-std.NAME` gives the same facts as JSON.
+std.NAME` — or `stdx.NAME`, for the extended library — gives the same facts
+as JSON.
 
 ## Reading order
 

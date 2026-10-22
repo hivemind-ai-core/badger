@@ -1,5 +1,5 @@
 // Compression round trips, corrupt input, and the decompression limit.
-import std.compress
+import stdx.compress
 import std.io
 import std.text
 

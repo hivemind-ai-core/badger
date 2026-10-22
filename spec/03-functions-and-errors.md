@@ -129,7 +129,7 @@ for `E` (or `E = OptionMissing`); `opt.ok_or(error)?` names another error.
 
 ```badger
 import std.codec
-import std.sqlite as db
+import stdx.sqlite as db
 
 @derive(Error, From)
 pub enum AppError {

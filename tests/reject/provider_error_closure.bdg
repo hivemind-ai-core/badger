@@ -1,6 +1,6 @@
 // expect-error: E0411
 // A provider error cannot hold a closure (it may capture a scoped resource).
-import std.sqlite
+import stdx.sqlite
 import std.system
 
 pub struct Leaky {

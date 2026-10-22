@@ -369,7 +369,7 @@ true
 
 `Bytes` is not iterable and has no `Display`; use `to_list()` or
 `to_text()`. Base64 and other encodings are in
-[`std.encoding`](../api/encoding.md).
+[`stdx.encoding`](../api/encoding.md).
 
 ## Sequences (`Seq`)
 

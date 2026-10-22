@@ -20,11 +20,11 @@
 // without its details.
 // The route's name is the operation's id and its summary the operation's
 // documentation, so URLs and OpenAPI come from the same registration.
-import std.admission
-import std.app
+import stdx.admission
+import stdx.app
 import std.codec
-import std.http
-import std.route
+import stdx.http
+import stdx.route
 import std.schema
 import std.text
 

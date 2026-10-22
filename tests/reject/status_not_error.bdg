@@ -1,6 +1,6 @@
 // expect-error: E0193
 // `@http.status` gives an error's HTTP status: 400 to 599, not a redirect.
-import std.http
+import stdx.http
 
 @derive(HttpError)
 pub enum AppError {

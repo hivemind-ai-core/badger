@@ -1,6 +1,6 @@
 // S01: a wrongly typed system reference is rejected before initialization.
 // expect-error: E0300
-import std.sqlite
+import stdx.sqlite
 import std.system
 import std.system.{component}
 

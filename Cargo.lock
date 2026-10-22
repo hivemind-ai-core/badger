@@ -209,6 +209,7 @@ dependencies = [
  "badger_driver",
  "badger_mir",
  "badger_native_demo",
+ "badger_stdlib",
  "badger_syntax",
  "clap",
  "libc",
@@ -284,6 +285,7 @@ dependencies = [
  "badger_postgres",
  "badger_runtime",
  "badger_sqlite",
+ "badger_stdlib",
  "badger_syntax",
  "badger_template",
  "badger_typeck",
@@ -329,6 +331,7 @@ name = "badger_hir"
 version = "0.1.0"
 dependencies = [
  "badger_base",
+ "badger_stdlib",
  "badger_syntax",
  "bumpalo",
  "index_vec",
@@ -429,6 +432,10 @@ dependencies = [
  "rusqlite",
  "serde_json",
 ]
+
+[[package]]
+name = "badger_stdlib"
+version = "0.1.0"
 
 [[package]]
 name = "badger_syntax"

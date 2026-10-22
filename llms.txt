@@ -31,7 +31,7 @@ Points that differ from languages you may know:
 
 ## Reference
 
-- [Standard library](docs/api/README.md): every standard module, generated from the checked interfaces (`badger doc std`).
+- [Standard library](docs/api/README.md): every standard module, `std` (the foundation) and `stdx` (the extended library), generated from the checked interfaces (`badger doc std`).
 - [CLI](docs/reference/cli.md): every `badger` command and flag.
 - [REPL](docs/reference/repl.md): the interactive session and its commands.
 - [MCP server](docs/reference/mcp.md): tools, arguments, and results of `badger mcp`.

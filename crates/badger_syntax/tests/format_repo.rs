@@ -23,7 +23,7 @@ fn source_files(dir: &Path, out: &mut Vec<PathBuf>) {
 fn formatting_preserves_structure() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let mut files = vec![];
-    for d in ["examples", "tests", "bench", "crates/badger_hir/std"] {
+    for d in ["examples", "tests", "bench", "crates/badger_stdlib"] {
         source_files(&root.join(d), &mut files);
     }
     assert!(files.len() > 100, "found {} files", files.len());

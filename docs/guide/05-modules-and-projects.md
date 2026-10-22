@@ -282,10 +282,21 @@ ws/
 
 ## The standard library at a glance
 
-Each module is imported as `std.NAME`. The [standard library
-reference](../api/README.md) lists every type and function, generated
-from the checked interfaces; `badger doc std.list` prints one module, and
-`badger query api std.list` gives the same facts as JSON.
+The standard library is in two namespaces. `std` is the foundation: the
+language's own vocabulary — collections, text, numbers, time, tasks, the
+operating system — and the modules the compiler needs. `stdx` is the
+extended library: the application framework (operations, endpoints,
+routing, decisions, admission, jobs, workers), the integrations that need a
+substrate (HTTP, databases, formats, templates, crypto, compression,
+telemetry export), and the language's tooling. A module lives in one
+namespace, so `import std.list` and `import stdx.http` name different
+files, and `http.Request` after `import stdx.http` names a type in the
+latter.
+
+The [standard library reference](../api/README.md) lists every type and
+function, generated from the checked interfaces; `badger doc stdx.http`
+prints one module, and `badger query api stdx.http` gives the same facts as
+JSON.
 
 ### Core
 
@@ -299,7 +310,7 @@ from the checked interfaces; `badger doc std.list` prints one module, and
 | `std.time` | Monotonic clock, wall-clock timestamps, durations, `sleep` |
 | `std.datetime` | Calendar dates, times, time zones, spans, `strftime`/`strptime`, RFC 3339 |
 | `std.random` | Explicit random sources, seeded or OS-seeded |
-| `std.uuid` | Random (v4) and time-ordered (v7) UUIDs |
+| `stdx.uuid` | Random (v4) and time-ordered (v7) UUIDs |
 
 ### Collections
 
@@ -341,13 +352,13 @@ from the checked interfaces; `badger doc std.list` prints one module, and
 |---|---|
 | `std.codec` | JSON encoding and validating decoding through schemas |
 | `std.schema` | Typed schemas and versioned wire contracts |
-| `std.config` | Validated configuration from the environment and `[config]` |
-| `std.toml`, `std.yaml`, `std.csv` | Those formats, as `Data` or typed values |
-| `std.template` | Jinja-syntax templates |
-| `std.markdown` | Markdown to HTML |
-| `std.encoding` | Base64, hex, URL percent-encoding |
-| `std.crypto` | Hashes, HMAC, constant-time comparison, secure random bytes |
-| `std.compress` | gzip, zlib, deflate, zstd, with bounded decompression |
+| `stdx.config` | Validated configuration from the environment and `[config]` |
+| `stdx.toml`, `stdx.yaml`, `stdx.csv` | Those formats, as `Data` or typed values |
+| `stdx.template` | Jinja-syntax templates |
+| `stdx.markdown` | Markdown to HTML |
+| `stdx.encoding` | Base64, hex, URL percent-encoding |
+| `stdx.crypto` | Hashes, HMAC, constant-time comparison, secure random bytes |
+| `stdx.compress` | gzip, zlib, deflate, zstd, with bounded decompression |
 | `std.parse` | Grammar parsers with source spans and structured failures |
 | `std.regex` | Regular expressions (linear-time matching) |
 
@@ -355,14 +366,14 @@ from the checked interfaces; `badger doc std.list` prints one module, and
 
 | Module | Contents |
 |---|---|
-| `std.http` | HTTP server: request/reply handlers, streaming, server-sent events, WebSocket upgrades |
-| `std.route` | Typed routing tables, URL construction, OpenAPI |
-| `std.websocket` | WebSocket clients and upgraded server sockets |
-| `std.fetch` | Outbound HTTP(S) requests and origin-bound clients |
-| `std.sqlite` | Embedded SQLite with scoped transactions and typed rows |
-| `std.postgres` | PostgreSQL pools and transactions |
-| `std.valkey` | Valkey/Redis client with pub/sub |
-| `std.jobs` | Durable single-host jobs on SQLite, with an outbox and leases |
+| `stdx.http` | HTTP server: request/reply handlers, streaming, server-sent events, WebSocket upgrades |
+| `stdx.route` | Typed routing tables, URL construction, OpenAPI |
+| `stdx.websocket` | WebSocket clients and upgraded server sockets |
+| `stdx.fetch` | Outbound HTTP(S) requests and origin-bound clients |
+| `stdx.sqlite` | Embedded SQLite with scoped transactions and typed rows |
+| `stdx.postgres` | PostgreSQL pools and transactions |
+| `stdx.valkey` | Valkey/Redis client with pub/sub |
+| `stdx.jobs` | Durable single-host jobs on SQLite, with an outbox and leases |
 
 ### Observability and tooling
 
@@ -371,10 +382,10 @@ from the checked interfaces; `badger doc std.list` prints one module, and
 | `std.log` | Structured logs, text or JSON lines |
 | `std.trace` | Structured runtime events and spans |
 | `std.metrics` | Counters, gauges, histograms |
-| `std.otel` | OpenTelemetry export over OTLP/HTTP |
+| `stdx.otel` | OpenTelemetry export over OTLP/HTTP |
 | `std.inspect` | Runtime snapshots of tasks, channels, systems, the heap |
 | `std.test` | Assertions, controlled clock, seeded scheduling, property checks |
-| `std.compiler` | Compiler services from code: diagnostics, hover, definitions |
+| `stdx.compiler` | Compiler services from code: diagnostics, hover, definitions |
 
 ### Foreign code
 

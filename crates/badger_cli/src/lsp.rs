@@ -618,7 +618,6 @@ impl Server {
         let uri = params["textDocument"]["uri"].as_str().unwrap_or("").to_string();
         let file = canonical(&uri_to_path(&uri));
         let text = self.text(&file);
-        let modules = badger_driver::std_modules();
         let mut actions = vec![];
         for d in params["context"]["diagnostics"].as_array().cloned().unwrap_or_default() {
             if d["code"] == "E0342"
@@ -670,10 +669,13 @@ impl Server {
             let Some(name) = msg.strip_prefix("unknown name `").and_then(|r| r.split('`').next()) else {
                 continue;
             };
-            if name == "prelude" || !modules.contains(&name) {
+            if name == "prelude" {
                 continue;
             }
-            let import = format!("import std.{name}");
+            let Some(root) = badger_driver::std_root_of(name) else {
+                continue;
+            };
+            let import = format!("import {root}.{name}");
             if text.lines().any(|l| l.trim() == import) {
                 continue;
             }
@@ -687,7 +689,7 @@ impl Server {
                 .unwrap_or(0);
             let at = json!({ "line": line, "character": 0 });
             actions.push(json!({
-                "title": format!("Import std.{name}"),
+                "title": format!("Import {root}.{name}"),
                 "kind": "quickfix",
                 "diagnostics": [d],
                 "isPreferred": true,
@@ -1291,7 +1293,7 @@ impl clap::builder::TypedValueParser for QueryKind {
 }
 
 /// `badger query`: one question about a program, answered as JSON with
-/// 1-based lines and columns (for scripts, agents, and `std.compiler`).
+/// 1-based lines and columns (for scripts, agents, and `stdx.compiler`).
 pub fn query(
     kind: &str,
     path: &Path,
@@ -1712,22 +1714,26 @@ fn check_report(path: &Path, overlays: &HashMap<PathBuf, String>) -> Value {
 }
 
 /// The public interface of a program's modules, or of a standard module
-/// (`std.list`): each item's module, name, kind, signature (with effects
-/// and contracts), and documentation.
+/// (`std.list`, `stdx.http`): each item's module, name, kind, signature
+/// (with effects and contracts), and documentation.
 pub fn api(target: &Path) -> Result<Value, String> {
     let t = target.display().to_string();
-    let (a, wanted): (Analysis, Option<String>) = match t.strip_prefix("std.") {
-        Some(m) => {
-            if badger_driver::std_source(m).is_none() {
-                return Err(format!("no standard module `{t}`"));
-            }
+    // a standard module: check a program importing it alone, and keep the
+    // items of that module
+    let std_module = match badger_stdlib::split(&t) {
+        Some((root, m)) if badger_stdlib::has(root, m) => Some((root, m)),
+        Some(_) => return Err(format!("no standard module `{t}`")),
+        None => None,
+    };
+    let (a, wanted): (Analysis, Option<String>) = match std_module {
+        Some((root, m)) => {
             let dir = badger_driver::private_temp_dir("badger-api").map_err(|e| e.to_string())?;
             let f = dir.join("api.bdg");
-            std::fs::write(&f, format!("import std.{m}\npub fn main() -> Unit {{}}\n"))
+            std::fs::write(&f, format!("import {root}.{m}\npub fn main() -> Unit {{}}\n"))
                 .map_err(|e| e.to_string())?;
             let a = analysis::analyze(&f, HashMap::new());
             let _ = std::fs::remove_dir_all(&dir);
-            (a, Some(m.rsplit('.').next().unwrap_or(m).to_string()))
+            (a, Some(format!("{root}.{m}")))
         }
         None => {
             if !target.exists() {
@@ -1750,11 +1756,12 @@ pub fn api(target: &Path) -> Result<Value, String> {
         })
     };
     match wanted {
-        Some(m) => {
-            let items = a.modules.get(&m).ok_or(format!("`std.{m}` has no public items"))?;
-            out.extend(items.iter().filter(|i| i.public).map(|i| item(&format!("std.{m}"), i)));
+        Some(qualified) => {
+            let m = qualified.rsplit('.').next().unwrap_or(&qualified).to_string();
+            let items = a.modules.get(&m).ok_or(format!("`{qualified}` has no public items"))?;
+            out.extend(items.iter().filter(|i| i.public).map(|i| item(&qualified, i)));
             for i in a.methods.get(&m).into_iter().flatten().filter(|i| i.public) {
-                out.push(item(&format!("std.{m}"), i));
+                out.push(item(&qualified, i));
             }
         }
         None => {

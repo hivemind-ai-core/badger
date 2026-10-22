@@ -26,10 +26,10 @@ enum Res {
 }
 
 /// The standard modules (other than the prelude) declaring a public item
-/// named `name`, read from their sources.
-fn std_homes(name: &str) -> Vec<&'static str> {
+/// named `name`, read from their sources: `(namespace, module)` pairs.
+fn std_homes(name: &str) -> Vec<(&'static str, &'static str)> {
     let mut out = vec![];
-    for (m, src) in crate::stdlib::STD_MODULES {
+    for (root, m, src) in badger_stdlib::STD_MODULES {
         if *m == "prelude" {
             continue;
         }
@@ -47,7 +47,7 @@ fn std_homes(name: &str) -> Vec<&'static str> {
             )
         });
         if declares {
-            out.push(*m);
+            out.push((*root, *m));
         }
     }
     out
@@ -1708,23 +1708,23 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             .with_code("E0127")
             .with_label(span, "not found in this scope");
         // a standard module used without its import
-        if crate::stdlib::STD_MODULES.iter().any(|(m, _)| *m == s && *m != "prelude") {
-            d = d.with_note(format!("`{s}` is a standard module: add `import std.{s}`"));
+        let module = badger_stdlib::names().find(|(_, n)| *n == s && *n != "prelude");
+        if let Some((root, _)) = module {
+            d = d.with_note(format!("`{s}` is a standard module: add `import {root}.{s}`"));
         } else {
             // a standard module's member used bare
             let homes = std_homes(&s);
-            if !homes.is_empty() {
-                let m = homes[0];
+            if let Some((root, m)) = homes.first() {
                 let others = if homes.len() > 1 {
                     format!(
                         " (also in {})",
-                        homes[1..].iter().map(|h| format!("std.{h}")).collect::<Vec<_>>().join(", ")
+                        homes[1..].iter().map(|(r, h)| format!("{r}.{h}")).collect::<Vec<_>>().join(", ")
                     )
                 } else {
                     String::new()
                 };
                 d = d.with_note(format!(
-                    "`{s}` is in std.{m}{others}: `import std.{m}` and write `{m}.{s}`, or `import std.{m}.{{{s}}}`"
+                    "`{s}` is in {root}.{m}{others}: `import {root}.{m}` and write `{m}.{s}`, or `import {root}.{m}.{{{s}}}`"
                 ));
             }
             // a near miss of a name in scope
@@ -1837,7 +1837,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
                 // `@status` moved to the module it belongs to
                 let note = if name == "status" {
-                    "an HTTP status is `@http.status(code)`, after `import std.http`"
+                    "an HTTP status is `@http.status(code)`, after `import stdx.http`"
                 } else {
                     "a name without a namespace is the compiler's; a library's is `@lib.name`"
                 };

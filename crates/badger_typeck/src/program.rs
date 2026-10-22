@@ -17,7 +17,7 @@ use crate::solve::Constraint;
 use crate::ty::*;
 
 /// The standard-library modules a program was checked with, as their
-/// indexes in `badger_hir::stdlib::STD_MODULES`, in allocation order. Every
+/// indexes in `badger_stdlib::STD_MODULES`, in allocation order. Every
 /// entry of a project whose std module set matches has the standard modules
 /// at the same `DefId`s (they are loaded first, in this order), so the key
 /// identifies the shared prefix.
@@ -774,7 +774,11 @@ pub fn check_program_with<'a>(
             for (ms, name) in slow.iter().take(15) {
                 eprintln!("[timings]   {ms:>8.3} ms  {name}");
             }
-            let std_ms: f64 = slow.iter().filter(|x| x.1.starts_with("std.")).map(|x| x.0).sum();
+            let std_ms: f64 = slow
+                .iter()
+                .filter(|x| x.1.starts_with("std.") || x.1.starts_with("stdx."))
+                .map(|x| x.0)
+                .sum();
             eprintln!("[timings]   standard library groups: {std_ms:.3} ms");
         }
         mark(&mut clock, "groups");

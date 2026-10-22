@@ -1,9 +1,9 @@
 // route.get_json / post_json / put_json / delete_json: typed path and query
 // parameters, typed bodies, default statuses (201 for POST), errors through
 // HttpStatus; http.call_text drives the table in-process.
-import std.http
+import stdx.http
 import std.io
-import std.route
+import stdx.route
 
 @derive(Error, HttpError)
 pub enum E {

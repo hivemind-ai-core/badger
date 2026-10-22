@@ -2,7 +2,7 @@
 // transaction with its record; re-running applies nothing; a server can
 // refuse a database that is behind, ahead, or migrated with different SQL.
 import std.io
-import std.sqlite
+import stdx.sqlite
 
 @derive(Error, From)
 pub enum AppError {

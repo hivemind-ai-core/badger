@@ -410,7 +410,11 @@ fn finish(s: Session, loaded: Option<crate::Loaded>, path: &Path, mut out: Analy
             for it in &m.ast.items {
                 if let badger_syntax::ast::ItemKind::Import(imp) = &it.kind {
                     let to: Vec<&str> = imp.path.iter().map(|n| s.interner.resolve(n.sym)).collect();
-                    let edge = (from.join("."), to.join("."), to.first() == Some(&"std"));
+                    // a standard import: its first segment is a standard
+                    // namespace (`std`, `stdx`), which user modules and
+                    // packages cannot use
+                    let std_import = to.first().is_some_and(|r| badger_stdlib::is_root(r));
+                    let edge = (from.join("."), to.join("."), std_import);
                     if !out.graphs.modules.contains(&edge) {
                         out.graphs.modules.push(edge);
                     }

@@ -99,7 +99,7 @@ What reads it:
 
 - `badger check` (and `run`, `test`, the language server, and MCP
   `check`) runs the file into an empty in-memory SQLite database, then
-  prepares every literal SQL string the program passes to `std.sqlite`
+  prepares every literal SQL string the program passes to `stdx.sqlite`
   against it. Nothing touches a real database file. An unknown table or
   column is E0180, a wrong parameter count E0181, and a `query_as` row
   type that does not fit the columns E0182.

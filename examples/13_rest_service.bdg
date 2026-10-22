@@ -43,14 +43,14 @@
 //     curl -X DELETE localhost:8080/books/1
 //     curl "localhost:8080/search?q=badger"
 //     curl localhost:8080/stats
-import std.config
-import std.http
+import stdx.config
+import stdx.http
 import std.io
 import std.log
 import std.pipeline
 import std.pipeline.{handle}
-import std.route
-import std.sqlite
+import stdx.route
+import stdx.sqlite
 import std.system
 import std.task
 import std.text

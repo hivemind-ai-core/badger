@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "The Valkey/Redis client native module behind std.valkey (redis-rs on tokio)"
+description = "The Valkey/Redis client native module behind stdx.valkey (redis-rs on tokio)"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

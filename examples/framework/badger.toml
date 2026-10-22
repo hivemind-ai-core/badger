@@ -15,9 +15,9 @@ database = "tasks.db"
 # the feature's core knows nothing of its transports or of a particular
 # store (the adapters, `tasks.memory` and `tasks.sqlite_store`, may); its
 # errors say how a transport reports them (`@http.status`, `@command.exit`),
-# so the model may name `std.http` and `std.command`, but binds nothing
+# so the model may name `stdx.http` and `stdx.command`, but binds nothing
 [layers.tasks.model]
-forbid = ["web", "cli", "api", "tasks.sqlite_store", "std.endpoint", "std.sqlite"]
+forbid = ["web", "cli", "api", "tasks.sqlite_store", "stdx.endpoint", "stdx.sqlite"]
 
 [layers.tasks.service]
-forbid = ["web", "cli", "api", "tasks.sqlite_store", "std.http", "std.endpoint", "std.command", "std.sqlite"]
+forbid = ["web", "cli", "api", "tasks.sqlite_store", "stdx.http", "stdx.endpoint", "stdx.command", "stdx.sqlite"]

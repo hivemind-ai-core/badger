@@ -10,7 +10,7 @@
 // failed, or its task was cancelled. A waiter that is cancelled leaves the
 // queue (and returns a permit handed to it meanwhile). What a gate counts
 // is admitted calls, not bytes or the work they start.
-import std.app
+import stdx.app
 import std.prelude
 import std.time
 

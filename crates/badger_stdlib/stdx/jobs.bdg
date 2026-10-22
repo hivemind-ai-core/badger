@@ -28,7 +28,7 @@
 // channels, or scopes).
 
 import std.prelude
-import std.sqlite
+import stdx.sqlite
 import std.codec
 import std.list
 import std.system
